@@ -1,0 +1,10 @@
+{
+  "id": "disk-compact",
+  "name": "Disk Context Compaction",
+  "description": "Proactively compresses conversation context to disk before it overflows",
+  "kind": "extension",
+  "version": "1.0.0",
+  "configSchema": {
+    "type": "object"
+  }
+}

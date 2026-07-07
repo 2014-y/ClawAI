@@ -1,0 +1,10 @@
+{
+    "id":  "error-filter",
+    "name":  "Error Notification Filter",
+    "configSchema":  {
+                         "type":  "object"
+                     },
+    "description":  "Suppresses system error notifications from being forwarded to the user",
+    "kind":  "extension",
+    "version":  "1.0.0"
+}

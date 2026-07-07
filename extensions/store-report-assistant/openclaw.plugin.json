@@ -1,0 +1,297 @@
+{
+  "id": "store-report-assistant",
+  "name": "Store Report Assistant",
+  "description": "Archives store group business records and generates daily or weekly reports.",
+  "skills": ["skills/ezr-store-report"],
+  "activation": {
+    "onCommands": ["store-report"],
+    "onCapabilities": ["hook"]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "database": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "defaultTimezone": {
+        "type": "string"
+      },
+      "archive": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "silentBusinessRecords": {
+            "type": "boolean"
+          },
+          "ignoreNonBusiness": {
+            "type": "boolean"
+          },
+          "dedupeByMessageId": {
+            "type": "boolean"
+          }
+        }
+      },
+      "reports": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "dailyTime": {
+            "type": "string"
+          },
+          "weeklyDay": {
+            "type": "string"
+          },
+          "weeklyTime": {
+            "type": "string"
+          }
+        }
+      },
+      "voice": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "transcriptSource": {
+            "type": "string",
+            "enum": ["auto", "event-only", "plugin-stt", "off"]
+          },
+          "minConfidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "confirmationTtlMinutes": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "requireConfirmationWhenConfidenceMissing": {
+            "type": "boolean"
+          },
+          "download": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "maxMb": {
+                "type": "number",
+                "minimum": 1
+              }
+            }
+          },
+          "stt": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": ["openclaw-media", "custom-http", "local-whisper", "disabled"]
+              },
+              "timeoutSeconds": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "endpoint": {
+                "type": "string"
+              },
+              "headers": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "auth": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": ["bearer", "header"]
+                  },
+                  "tokenRef": {
+                    "type": "string"
+                  },
+                  "headerName": {
+                    "type": "string"
+                  },
+                  "prefix": {
+                    "type": "string"
+                  }
+                }
+              },
+              "responseTextPath": {
+                "type": "string"
+              },
+              "responseConfidencePath": {
+                "type": "string"
+              },
+              "backend": {
+                "type": "string",
+                "enum": ["whisper-cpp", "openai-whisper"]
+              },
+              "executable": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "language": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "privacy": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "storeRawText": {
+            "type": "boolean"
+          },
+          "redactExportsByDefault": {
+            "type": "boolean"
+          },
+          "retention": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "chatRecordsDays": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "reportsDays": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "pendingConfirmationsDays": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      },
+      "stores": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "storeId": {
+              "type": "string"
+            },
+            "storeName": {
+              "type": "string"
+            },
+            "timezone": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "externalRef": {
+              "type": "string"
+            },
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "required": ["storeId", "storeName"]
+        }
+      },
+      "bindings": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string"
+            },
+            "accountId": {
+              "type": "string"
+            },
+            "chatId": {
+              "type": "string"
+            },
+            "chatType": {
+              "type": "string",
+              "enum": ["group", "direct"]
+            },
+            "storeId": {
+              "type": "string"
+            },
+            "storeName": {
+              "type": "string"
+            },
+            "timezone": {
+              "type": "string"
+            },
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "required": ["channel", "chatId", "storeId"]
+        }
+      }
+    }
+  },
+  "uiHints": {
+    "database.path": {
+      "label": "Database path",
+      "placeholder": "data/store_report/store_report.sqlite"
+    },
+    "defaultTimezone": {
+      "label": "Default timezone",
+      "placeholder": "Asia/Shanghai"
+    },
+    "archive.silentBusinessRecords": {
+      "label": "Silent business records",
+      "help": "Archive business records without sending acknowledgement messages."
+    },
+    "archive.ignoreNonBusiness": {
+      "label": "Ignore non-business messages",
+      "help": "Suppress ordinary chatter in bound store groups unless it is a report request."
+    },
+    "voice.requireConfirmationWhenConfidenceMissing": {
+      "label": "Confirm voice records without confidence",
+      "help": "Require manual confirmation before a voice transcript with no provider confidence enters reports."
+    },
+    "voice.transcriptSource": {
+      "label": "Voice transcript source",
+      "help": "Use event transcripts, plugin STT, or both for inbound voice records."
+    },
+    "voice.stt.mode": {
+      "label": "Voice STT mode",
+      "help": "Choose OpenClaw media audio, a custom HTTP STT API, local Whisper, or disabled."
+    },
+    "privacy.storeRawText": {
+      "label": "Store raw text",
+      "help": "Keep original chat text in SQLite. Leave disabled for production privacy."
+    },
+    "privacy.redactExportsByDefault": {
+      "label": "Redact exports by default",
+      "help": "Apply identifier and common PII redaction unless export uses --include-sensitive."
+    },
+    "privacy.retention.chatRecordsDays": {
+      "label": "Chat record retention days",
+      "placeholder": "180"
+    },
+    "privacy.retention.reportsDays": {
+      "label": "Report retention days",
+      "placeholder": "365"
+    },
+    "privacy.retention.pendingConfirmationsDays": {
+      "label": "Pending confirmation retention days",
+      "placeholder": "7"
+    }
+  }
+}

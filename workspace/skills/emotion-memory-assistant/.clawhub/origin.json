@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "emotion-memory-assistant",
+  "installedVersion": "1.0.0",
+  "installedAt": 1782532129465,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "3200bb413881008928218a5f7e10bea73f334107b8929a7abfde8c2f3d276983",
+    "integrity": "sha256-MgC7QTiBAIkoIYpffhC+pz8zQQe4kpp6v96MLz0naYM="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "e67259887dc54847142a09d759204112511d47cfec1e997dfe1f74854c7b5bdb"
+  }
+}

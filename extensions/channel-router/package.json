@@ -1,0 +1,7 @@
+﻿{
+    "main":  "./dist/index.mjs",
+    "description":  "Route messages to appropriate models",
+    "name":  "@openclaw/channel-router",
+    "version":  "1.0.0",
+    "type":  "module"
+}

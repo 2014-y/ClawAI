@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "lady-s-man",
+  "installedVersion": "1.0.0",
+  "installedAt": 1782532741766,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "a8019e6c9a34a8ec5a6df80cbd5b687a6f7b3cff6397ffb493086a6a8778f8a4",
+    "integrity": "sha256-qAGebJo0qOxabfgMvVtoem97PP9jl/+0kwhqaod4+KQ="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "fb79d93186fefc40bc2ecf7ccb220b56bd8cb6ceab127b51d17f829d53ece7fd"
+  }
+}

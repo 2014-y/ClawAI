@@ -1,0 +1,8 @@
+{
+  "id": "context-router",
+  "version": "1.0.0",
+  "description": "上下文路由插件 — 按需加载技能和工具，减少请求体积",
+  "main": "index.js",
+  "type": "module",
+  "configSchema": {}
+}

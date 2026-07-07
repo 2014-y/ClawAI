@@ -1,0 +1,67 @@
+{
+  "name": "@waltzofwhispers/flight-assistant-plugin",
+  "version": "0.2.8",
+  "description": "Book a flight end to end, in one conversation.",
+  "type": "module",
+  "scripts": {
+    "build": "PATH=\"$HOME/.bun/bin:$PATH\" bunx tsc -p tsconfig.build.json",
+    "typecheck": "PATH=\"$HOME/.bun/bin:$PATH\" bunx tsc --noEmit",
+    "verify:publish-dry-run": "echo 'ClawHub package publish no longer supports dry-run for code plugins. Use the explicit publish command in README after typecheck.'",
+    "verify:cleanroom-install": "TMP_HOME=$(mktemp -d /tmp/waltz-openclaw-cleanroom.XXXXXX) && PATH=\"$HOME/.bun/bin:$PATH\" HOME=\"$TMP_HOME\" bunx openclaw plugins install -l \"$PWD\" && test -f \"$TMP_HOME/.openclaw/openclaw.json\" && test -f \"$TMP_HOME/.openclaw/waltz-flight-assistant/openclaw-id.txt\" && echo \"Clean-room OpenClaw home: $TMP_HOME/.openclaw\" && cat \"$TMP_HOME/.openclaw/openclaw.json\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WaltzOfWhispers/waltz-flight-assistant-plugin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/WaltzOfWhispers/waltz-flight-assistant-plugin/issues"
+  },
+  "homepage": "https://github.com/WaltzOfWhispers/waltz-flight-assistant-plugin#readme",
+  "keywords": [
+    "openclaw",
+    "clawhub",
+    "travel",
+    "flights",
+    "booking",
+    "agent"
+  ],
+  "files": [
+    "README.md",
+    "api.ts",
+    "dist",
+    "index.ts",
+    "openclaw.plugin.json",
+    "state.ts",
+    "types.ts",
+    "skills"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "install": {
+      "npmSpec": "@waltzofwhispers/flight-assistant-plugin",
+      "localPath": ".",
+      "defaultChoice": "npm",
+      "minHostVersion": ">=2026.4.0"
+    },
+    "compat": {
+      "pluginApi": ">=2026.3.24-beta.2",
+      "minGatewayVersion": "2026.3.24-beta.2"
+    },
+    "build": {
+      "openclawVersion": "2026.3.24-beta.2",
+      "pluginSdkVersion": "2026.3.24-beta.2"
+    }
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "openclaw": "^2026.4.0"
+  }
+}

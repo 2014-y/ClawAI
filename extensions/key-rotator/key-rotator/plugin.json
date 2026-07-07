@@ -1,0 +1,28 @@
+﻿{
+    "version":  "1.0.0",
+    "config":  {
+                   "failover":  "ollama/gemma4:latest",
+                   "healthCheck":  {
+                                       "interval":  "30s",
+                                       "timeout":  "5s",
+                                       "failThreshold":  3,
+                                       "enabled":  true
+                                   },
+                   "weights":  {
+                                   "agnes-ai-2":  1,
+                                   "agnes-ai-6":  1,
+                                   "agnes-ai-7":  1,
+                                   "agnes-ai-1":  2,
+                                   "agnes-ai-5":  1,
+                                   "agnes-ai-3":  1,
+                                   "agnes-ai-4":  1
+                               },
+                   "strategy":  "round-robin"
+               },
+    "category":  "routing",
+    "type":  "esm",
+    "name":  "@openclaw/key-rotator",
+    "description":  "Round-robin API key load balancer for OpenClaw",
+    "author":  "Agnes AI",
+    "main":  "./dist/index.mjs"
+}

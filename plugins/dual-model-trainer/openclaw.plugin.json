@@ -1,0 +1,69 @@
+{
+  "id": "dual-model-trainer",
+  "name": "Teach-Learn 双模型训练系统 v3 (口吻模仿版)",
+  "description": "老师模型回答 → 学生模型学习并 1:1 模仿老师口吻回复 → 老师不可用时学生自主回答",
+  "version": "3.0.0",
+  "main": "index.js",
+  "type": "module",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否启用双模型训练"
+      },
+      "mode": {
+        "type": "string",
+        "default": "teach-learn",
+        "enum": ["teach-learn", "fallback", "collect-only"],
+        "description": "运行模式: teach-learn(老师教学生学) | fallback(老师挂学生顶) | collect-only(仅收集)"
+      },
+      "teacherModel": {
+        "type": "string",
+        "default": "yitong/qwen3-max",
+        "description": "教师模型（云端，提供高质量示范）"
+      },
+      "studentModel": {
+        "type": "string",
+        "default": "ollama/jarvis",
+        "description": "学生模型（本地，学习老师口吻）"
+      },
+      "enableVoiceMimicry": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否启用口吻模仿（核心功能：学生 1:1 模仿老师的语气、称呼、句式、结尾习惯）"
+      },
+      "enableTeachLearn": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否启用 Teach-Learn 教学回合"
+      },
+      "enableFallback": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否启用老师降级（老师不可用时学生自主回答）"
+      },
+      "saveAllConversations": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否保存所有对话作为训练数据"
+      },
+      "minAnswerLength": {
+        "type": "number",
+        "default": 10,
+        "description": "最小回答长度，太短的不值得学习"
+      },
+      "maxRetries": {
+        "type": "number",
+        "default": 2,
+        "description": "模型调用最大重试次数"
+      },
+      "retryDelay": {
+        "type": "number",
+        "default": 3000,
+        "description": "重试等待间隔（毫秒）"
+      }
+    }
+  }
+}

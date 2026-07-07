@@ -1,0 +1,11 @@
+{
+  "name": "video-generator",
+  "version": "1.0.0",
+  "description": "Generate videos via agnes-ai video API",
+  "main": "index.js",
+  "type": "module",
+  "license": "MIT",
+  "openclaw": {
+    "extensions": ["./index.js"]
+  }
+}

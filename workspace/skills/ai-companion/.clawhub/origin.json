@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "ai-companion",
+  "installedVersion": "1.1.1",
+  "installedAt": 1782532691140,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "77dc522edf1898e7ca5e5b958d7db27ab3156c04851df4f83ad0dd1d6469a526",
+    "integrity": "sha256-d9xSLt8YmOfKXluVjX2yerMVbASFHfT4OtDdHWRppSY="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "496db5f5e432463f766ee694fe018928f40c00309936e6279caada7cd962fadc"
+  }
+}

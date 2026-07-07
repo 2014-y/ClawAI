@@ -1,0 +1,8 @@
+{
+  "id": "remote-policy",
+  "version": "1.0.0",
+  "description": "远程策略分发插件 — 启动时从云端拉取最新控制策略",
+  "main": "index.js",
+  "type": "module",
+  "configSchema": {}
+}

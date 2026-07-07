@@ -1,0 +1,68 @@
+{
+  "id": "waltz-flight-assistant",
+  "name": "Waltz Flight Assistant",
+  "description": "Book a flight end to end, in one conversation.",
+  "version": "0.2.8",
+  "skills": ["./skills"],
+  "activation": {
+    "onStartup": true
+  },
+  "contracts": {
+    "tools": ["flight_assistant"]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "baseUrl": {
+        "type": "string",
+        "description": "Base URL for the hosted Waltz Flight Assistant backend. Current public endpoint: https://api.flywithwaltz.com"
+      },
+      "authToken": {
+        "type": "string",
+        "description": "Optional bearer token sent to the hosted flight agent"
+      },
+      "openclawId": {
+        "type": "string",
+        "description": "Preferred stable OpenClaw user id forwarded to the hosted flight agent"
+      },
+      "userId": {
+        "type": "string",
+        "description": "Legacy alias for openclawId. Prefer openclawId for new installs."
+      },
+      "requestTimeoutMs": {
+        "type": "integer",
+        "minimum": 1000,
+        "description": "HTTP timeout in milliseconds for flight search and booking calls to the hosted Waltz backend"
+      }
+    }
+  },
+  "uiHints": {
+    "baseUrl": {
+      "label": "Waltz Flight URL",
+      "placeholder": "https://api.flywithwaltz.com",
+      "help": "Hosted base URL for the Waltz Flight Assistant backend. Use https://api.flywithwaltz.com unless Waltz provides a different deployment."
+    },
+    "authToken": {
+      "label": "Bearer Token",
+      "sensitive": true,
+      "advanced": true,
+      "help": "Optional bearer token for protected hosted deployments."
+    },
+    "openclawId": {
+      "label": "OpenClaw ID",
+      "advanced": true,
+      "placeholder": "openclaw_user_123"
+    },
+    "userId": {
+      "label": "User ID",
+      "advanced": true,
+      "placeholder": "legacy_user_123"
+    },
+    "requestTimeoutMs": {
+      "label": "Request Timeout (ms)",
+      "advanced": true,
+      "placeholder": "120000"
+    }
+  }
+}

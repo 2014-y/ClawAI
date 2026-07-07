@@ -1,0 +1,72 @@
+﻿{
+    "activation":  {
+                       "onCapabilities":  [
+                                              "hook"
+                                          ]
+                   },
+    "description":  "Routes messages to appropriate models based on message type",
+    "name":  "Channel Router",
+    "id":  "channel-router",
+    "configSchema":  {
+                         "additionalProperties":  false,
+                         "properties":  {
+                                            "replyKeywords":  {
+                                                                  "default":  [
+                                                                                  "在吗",
+                                                                                  "你好",
+                                                                                  "谢谢",
+                                                                                  "好的",
+                                                                                  "收到",
+                                                                                  "嗯",
+                                                                                  "哦",
+                                                                                  "哈哈",
+                                                                                  "笑",
+                                                                                  "😂",
+                                                                                  "👍"
+                                                                              ],
+                                                                  "items":  {
+                                                                                "type":  "string"
+                                                                            },
+                                                                  "type":  "array"
+                                                              },
+                                            "taskModel":  {
+                                                              "default":  "agnes-ai/agnes-2.0-flash",
+                                                              "type":  "string"
+                                                          },
+                                            "fallbackModel":  {
+                                                                  "default":  "ollama/gemma4:latest",
+                                                                  "type":  "string"
+                                                              },
+                                            "replyModel":  {
+                                                               "default":  "agnes-ai/agnes-1.5-flash",
+                                                               "type":  "string"
+                                                           },
+                                            "taskKeywords":  {
+                                                                 "default":  [
+                                                                                 "打开",
+                                                                                 "播放",
+                                                                                 "搜索",
+                                                                                 "听",
+                                                                                 "看",
+                                                                                 "查",
+                                                                                 "找",
+                                                                                 "帮我",
+                                                                                 "做什么",
+                                                                                 "执行",
+                                                                                 "运行",
+                                                                                 "控制",
+                                                                                 "操作"
+                                                                             ],
+                                                                 "items":  {
+                                                                               "type":  "string"
+                                                                           },
+                                                                 "type":  "array"
+                                                             },
+                                            "defaultModel":  {
+                                                                 "default":  "agnes-ai/agnes-2.0-flash",
+                                                                 "type":  "string"
+                                                             }
+                                        },
+                         "type":  "object"
+                     }
+}

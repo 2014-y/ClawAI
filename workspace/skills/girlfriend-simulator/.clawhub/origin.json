@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "girlfriend-simulator",
+  "installedVersion": "1.0.0",
+  "installedAt": 1782532118072,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "abd5a800f1f8cf73292bce1e711eba7e82ab81c4bba6ac8dc13f463aa7b7f269",
+    "integrity": "sha256-q9WoAPH4z3MpK84ecR66foKrgcS7pqyNwT9GOqe38mk="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "444bc21caee9e63d011fa44f287f2ce5077ed5ea835efe698fe3c962a32874b0"
+  }
+}

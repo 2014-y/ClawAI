@@ -1,0 +1,13 @@
+{
+  "name": "@openclaw-plugin/dual-model-trainer",
+  "version": "1.0.0",
+  "description": "OpenClaw plugin for dual-model training with teacher-student approach",
+  "main": "index.js",
+  "type": "module",
+  "keywords": ["openclaw", "plugin", "training", "ai"],
+  "author": "Yuan",
+  "license": "MIT",
+  "openclaw": {
+    "extensions": ["./index.js"]
+  }
+}

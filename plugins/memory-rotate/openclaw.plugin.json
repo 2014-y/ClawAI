@@ -1,0 +1,10 @@
+{
+  "id": "memory-rotate",
+  "name": "Memory Rotation",
+  "description": "Prevents MEMORY.md from growing unbounded by archiving old content",
+  "kind": "extension",
+  "version": "1.0.0",
+  "configSchema": {
+    "type": "object"
+  }
+}
