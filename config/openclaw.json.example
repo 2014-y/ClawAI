@@ -240,8 +240,8 @@
                                  },
                      "feishu":  {
                                     "enabled":  false,
-                                    "appId":  "cli_a90ad75b7fcb9cd0",
-                                    "appSecret":  "5Q0tuDeErvv8UBBTTNrYHfXzDalcflTm",
+                                    "appId":  "YOUR_FEISHU_APP_ID_HERE",
+                                    "appSecret":  "YOUR_FEISHU_APP_SECRET_HERE",
                                     "dmPolicy":  "open",
                                     "allowFrom":  [
                                                       "*"
@@ -289,7 +289,7 @@
                     "port":  18789,
                     "mode":  "local",
                     "auth":  {
-                                 "token":  "feishu-bridge-local-d897fd501f04c3134f875de331f43ed1"
+                                 "token":  "YOUR_FEISHU_BRIDGE_TOKEN_HERE"
                              },
                     "http":  {
                                  "endpoints":  {
@@ -457,7 +457,7 @@
                                    "amygdala-memory":  {
                                                            "enabled":  true
                                                        },
-                                   "ask-a-human":  {
+                                   "aYOUR_SK_KEY_HERE-human":  {
                                                        "enabled":  false
                                                    },
                                    "gh-issues":  {
@@ -672,6 +672,7 @@
                                }
               }
 }
+
 
 
 
