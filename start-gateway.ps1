@@ -7,8 +7,27 @@ $indexJs = Join-Path $modDir "openclaw\dist\index.js"
 
 # Check node-sandbox exists
 if (-not (Test-Path $node)) {
-    Write-Host 'ERROR: Node sandbox not found!' -ForegroundColor Red
-    Write-Host 'Please run init.bat first.' -ForegroundColor Yellow
+    Write-Host ''
+    Write-Host '========================================' -ForegroundColor Red
+    Write-Host '  ERROR: Node sandbox not found!' -ForegroundColor Red
+    Write-Host '========================================' -ForegroundColor Red
+    Write-Host ''
+    Write-Host 'Please run init.bat first to set up the project.' -ForegroundColor Yellow
+    Write-Host ''
+    pause
+    exit 1
+}
+
+# Check openclaw module
+if (-not (Test-Path $indexJs)) {
+    Write-Host ''
+    Write-Host '========================================' -ForegroundColor Red
+    Write-Host '  ERROR: openclaw module not found!' -ForegroundColor Red
+    Write-Host '========================================' -ForegroundColor Red
+    Write-Host ''
+    Write-Host 'The .node-sandbox is incomplete.' -ForegroundColor Yellow
+    Write-Host 'Please run init.bat again.' -ForegroundColor Yellow
+    Write-Host ''
     pause
     exit 1
 }
@@ -20,27 +39,14 @@ if (-not (Test-Path "$env:USERPROFILE\.openclaw")) {
 
 Write-Host '========================================' -ForegroundColor DarkGray
 Write-Host ' OpenClaw Gateway Launcher' -ForegroundColor DarkGray
-Write-Host ' Node: .node-sandbox (local)' -ForegroundColor DarkGray
+Write-Host " Node: $nodeHome\node.exe" -ForegroundColor DarkGray
 Write-Host '========================================' -ForegroundColor DarkGray
 Write-Host ''
-
 Write-Host 'Node version: ' -NoNewline -ForegroundColor Gray
 & $node --version
 Write-Host ''
-Write-Host 'Starting Gateway...' -ForegroundColor Gray
+Write-Host 'Starting...' -ForegroundColor Gray
 Write-Host ''
 
-# Launch in new window
-$startInfo = New-Object System.Diagnostics.ProcessStartInfo
-$startInfo.FileName = $node
-$startInfo.Arguments = "`"$indexJs`" gateway run --force"
-$startInfo.WorkingDirectory = "$env:USERPROFILE\.openclaw"
-$startInfo.UseShellExecute = $true
-$startInfo.WindowStyle = 'Normal'
-
-[System.Diagnostics.Process]::Start($startInfo) | Out-Null
-
-Write-Host 'Gateway launched in a new window.' -ForegroundColor Green
-Write-Host ''
-Write-Host 'Press any key to close this launcher...'
-pause >nul
+# Direct execution
+& $node $indexJs gateway run --force

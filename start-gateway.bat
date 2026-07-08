@@ -55,10 +55,12 @@ echo.
 echo Starting...
 echo.
 
-:: ? cmd /c ??????????????
-cmd /c "start ""OpenClaw Gateway"" /min ""%NODE_HOME%\node.exe"" ""%NODE_HOME%\node_modules\openclaw\dist\index.js"" gateway run --force"
+:: ???????? cmd /c start
+"%NODE_HOME%\node.exe" "%NODE_HOME%\node_modules\openclaw\dist\index.js" gateway run --force
 
 echo.
-echo Gateway starting in background window.
+echo ========================================
+echo  Gateway exited
+echo ========================================
 echo.
 pause
