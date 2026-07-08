@@ -1,19 +1,21 @@
 ﻿# Hard sandbox - completely isolate node
 $env:PATH = "C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\"
 
-$node = 'C:\Users\Yuan\AppData\Roaming\nvm\v24.13.0\node.exe'
-$modDir = 'C:\Users\Yuan\AppData\Roaming\nvm\v24.13.0\node_modules'
-$indexJs = Join-Path $modDir 'openclaw\dist\index.js'
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$nodeHome = Join-Path $scriptDir ".node-sandbox"
+$node = Join-Path $nodeHome "node.exe"
+$modDir = Join-Path $nodeHome "node_modules"
+$indexJs = Join-Path $modDir "openclaw\dist\index.js"
 
 Write-Host '========================================' -ForegroundColor DarkGray
 Write-Host ' OpenClaw Gateway (Hard Sandbox)' -ForegroundColor DarkGray
-Write-Host ' Node: v24.13.0 (absolute path only)' -ForegroundColor DarkGray
-Write-Host ' PATH: cleared (no global node)' -ForegroundColor DarkGray
+Write-Host ' Node: .node-sandbox (local, portable)' -ForegroundColor DarkGray
 Write-Host '========================================' -ForegroundColor DarkGray
 Write-Host ''
 
 if (-not (Test-Path $node)) {
-    Write-Host 'ERROR: Node.js v24.13.0 not found!' -ForegroundColor Red
+    Write-Host 'ERROR: Node sandbox not found at .node-sandbox\' -ForegroundColor Red
+    Write-Host 'Please copy your node installation into .node-sandbox' -ForegroundColor Yellow
     pause
     exit 1
 }

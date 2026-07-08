@@ -1,17 +1,15 @@
 @echo off
 setlocal
 
-:: === ?????? node/nvm ???? ===
+:: === ???? PATH?????????? ===
 set "PATH="
 
 :: === ??????????? ===
 set "PATH=C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\"
 
-:: === ?????????????? node/nvm? ===
-set "PATH=%PATH%;%USERPROFILE%\.openclaw"
-
-:: === ?????? node ===
-set "NODE_HOME=C:\Users\Yuan\AppData\Roaming\nvm\v24.13.0"
+:: === ????????? ===
+set "SCRIPT_DIR=%~dp0"
+set "NODE_HOME=%SCRIPT_DIR%.node-sandbox"
 
 :: === ???? gateway ===
 for /f "tokens=*" %%a in ('netstat -ano 2^>nul ^| findstr ":18789.*LISTENING"') do (
@@ -26,11 +24,11 @@ cd /d "%USERPROFILE%\.openclaw"
 echo ========================================
 echo  OpenClaw Gateway (Hard Sandbox)
 echo  Node: %NODE_HOME%\node.exe
-echo  PATH: (system only, no global node)
 echo ========================================
 echo.
 if not exist "%NODE_HOME%\node.exe" (
-    echo ERROR: Node not found at %NODE_HOME%
+    echo ERROR: Node sandbox not found at %NODE_HOME%
+    echo Please copy your node installation to .node-sandbox
     pause
     exit /b 1
 )
