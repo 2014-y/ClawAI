@@ -7,9 +7,26 @@ set "NODE_HOME=%SCRIPT_DIR%.node-sandbox"
 
 :: === ?? node-sandbox ???? ===
 if not exist "%NODE_HOME%\node.exe" (
-    echo ERROR: Node sandbox not found!
+    echo.
+    echo ========================================
+    echo  ERROR: Node sandbox not found!
+    echo ========================================
     echo.
     echo Please run init.bat first to set up the project.
+    echo.
+    pause
+    exit /b 1
+)
+
+:: === ?? openclaw ?????? ===
+if not exist "%NODE_HOME%\node_modules\openclaw\dist\index.js" (
+    echo.
+    echo ========================================
+    echo  ERROR: openclaw module not found!
+    echo ========================================
+    echo.
+    echo The .node-sandbox is incomplete.
+    echo Please run init.bat again.
     echo.
     pause
     exit /b 1
@@ -35,11 +52,13 @@ echo  OpenClaw Gateway Launcher
 echo  Node: %NODE_HOME%\node.exe
 echo ========================================
 echo.
+echo Starting...
+echo.
 
-:: ?? start ??????? gateway???????????
-start "OpenClaw Gateway" "%NODE_HOME%\node.exe" "%NODE_HOME%\node_modules\openclaw\dist\index.js" gateway run --force
+:: ? cmd /c ??????????????
+cmd /c "start ""OpenClaw Gateway"" /min ""%NODE_HOME%\node.exe"" ""%NODE_HOME%\node_modules\openclaw\dist\index.js"" gateway run --force"
 
 echo.
-echo Gateway launched in a new window.
+echo Gateway starting in background window.
 echo.
 pause
