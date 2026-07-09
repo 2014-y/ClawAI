@@ -101,19 +101,7 @@
           "agnes-ai/agnes-1.5-flash"
         ]
       },
-      "models": {
-        "ollama/jarvis": {},
-        "ollama/qwen2.5:7b": {},
-        "ollama/deepseek-coder:6.7b": {},
-        "ollama/qwen2.5:3b": {},
-        "yitong/qwen3-max": {},
-        "yitong/qwen-max": {},
-        "zhipu/glm-4.7": {},
-        "zhipu/GLM-4.7-Flash": {},
-        "agnes-ai/agnes-ai": {},
-        "agnes-ai/agnes-2.0-flash": {},
-        "agnes-ai/agnes-1.5-flash": {}
-      },
+      "models": {},
       "contextPruning": {
         "mode": "off"
       },
