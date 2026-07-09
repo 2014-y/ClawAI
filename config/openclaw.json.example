@@ -129,15 +129,14 @@
                                                                                 }
                                                },
                                     "contextPruning":  {
-                                                           "mode":  "cache-ttl",
-                                                           "ttl":  "1h"
+                                                           "mode":  "none"
                                                        },
                                     "compaction":  {
+                                                       "reserveTokensFloor":  96000,
                                                        "mode":  "safeguard",
                                                        "memoryFlush":  {
-                                                                           "enabled":  true
-                                                                       },
-                                                       "reserveTokensFloor":  64000
+                                                                           "enabled":  false
+                                                                       }
                                                    },
                                     "heartbeat":  {
                                                       "every":  "30m"
