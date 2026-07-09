@@ -116,6 +116,27 @@ console.log('  Config cleaned.');
     Write-Host "  IMPORTANT: Edit $configFile" -ForegroundColor Yellow
     Write-Host "  Replace YOUR_*_API_KEY_HERE with your actual API Keys." -ForegroundColor Yellow
     Write-Host "  Get Agnes key from: https://agnes-ai.com/zh-Hans/docs/agnes-video-v20" -ForegroundColor Yellow
+    # Create workspace files from templates
+    $workspaceDir = Join-Path $configDir "workspace"
+    if (-not (Test-Path $workspaceDir)) {
+        New-Item -ItemType Directory -Path $workspaceDir -Force | Out-Null
+    }
+    $soulSrc = Join-Path $scriptDir "SOUL-template.md"
+    $identitySrc = Join-Path $scriptDir "IDENTITY-template.md"
+    if (Test-Path $soulSrc) {
+        $soulDest = Join-Path $workspaceDir "SOUL.md"
+        if (-not (Test-Path $soulDest)) {
+            Copy-Item $soulSrc $soulDest -Force
+            Write-Host "  Created custom SOUL.md in workspace." -ForegroundColor Green
+        }
+    }
+    if (Test-Path $identitySrc) {
+        $identityDest = Join-Path $workspaceDir "IDENTITY.md"
+        if (-not (Test-Path $identityDest)) {
+            Copy-Item $identitySrc $identityDest -Force
+            Write-Host "  Created custom IDENTITY.md in workspace." -ForegroundColor Green
+        }
+    }
     Write-Host ""
 } else {
     Write-Host "  [ERROR] Template not found at $examplePath" -ForegroundColor Red
@@ -131,3 +152,4 @@ Write-Host ""
 Write-Host "Next: Edit openclaw.json, then double-click start-gateway.bat" -ForegroundColor Cyan
 Write-Host ""
 pause
+

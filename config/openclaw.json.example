@@ -125,7 +125,16 @@
     }
   },
   "messages": {
-    "ackReactionScope": "group-mentions"
+    "ackReactionScope": "group-mentions",
+    "inbound": {
+      "debounceMs": 1000
+    },
+    "queue": {
+      "mode": "steer",
+      "debounceMs": 500,
+      "cap": 20,
+      "drop": "summarize"
+    }
   },
   "commands": {
     "native": "auto",
