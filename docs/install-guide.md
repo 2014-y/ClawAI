@@ -97,7 +97,7 @@ npm -v
 1. 浏览器访问：https://github.com/2014-y/AI-v24.13.0
 2. 点击绿色 **"Code"** 按钮
 3. 选择 **"Download ZIP"**
-4. 解压到任意目录（如 D:\ai\AI-v24.13.0）
+4. 解压到任意目录（如 D:\\ai\\AI-v24.13.0（任意目录均可））
 
 ### 方式二：Git clone
 
@@ -160,7 +160,7 @@ init.bat 会自动完成：
 打开 CMD，进入项目目录：
 
 `ash
-cd D:\ai\AI-v24.13.0
+cd <项目目录>
 npm install -g openclaw@2026.6.11
 `
 

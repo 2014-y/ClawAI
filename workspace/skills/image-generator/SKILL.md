@@ -1,6 +1,6 @@
----
+﻿---
 name: image-generator
-description: Generate images using agnes-ai image API. Supports size, quality, count. Saves to C:/Users/Yuan/.openclaw/media-output/
+description: Generate images using agnes-ai image API. Supports size, quality, count. Saves to $env:USERPROFILE/.openclaw/media-output/
 ---
 
 # Image Generator
@@ -10,7 +10,7 @@ Generate images using the agnes-ai image API.
 ## Usage
 
 ```bash
-node "C:/Users/Yuan/.openclaw/media-cli/agnes-media-cli.js" image --prompt "描述" [options]
+node "$env:USERPROFILE/.openclaw/media-cli/agnes-media-cli.js" image --prompt "鎻忚堪" [options]
 ```
 
 ## Options
@@ -27,14 +27,14 @@ node "C:/Users/Yuan/.openclaw/media-cli/agnes-media-cli.js" image --prompt "描�
 
 ```bash
 # Generate a standard image
-node "C:/Users/Yuan/.openclaw/media-cli/agnes-media-cli.js" image --prompt "a cute cat sitting on a windowsill"
+node "$env:USERPROFILE/.openclaw/media-cli/agnes-media-cli.js" image --prompt "a cute cat sitting on a windowsill"
 
 # Generate 2 HD images
-node "C:/Users/Yuan/.openclaw/media-cli/agnes-media-cli.js" image --prompt "a modern living room interior" --quality hd --count 2
+node "$env:USERPROFILE/.openclaw/media-cli/agnes-media-cli.js" image --prompt "a modern living room interior" --quality hd --count 2
 ```
 
 ## Output
 
-Image files are saved to `C:/Users/Yuan/.openclaw/media-output/` as `image_<timestamp>_<n>.png`.
+Image files are saved to `$env:USERPROFILE/.openclaw/media-output/` as `image_<timestamp>_<n>.png`.
 
 After generation, upload the image files to the chat.

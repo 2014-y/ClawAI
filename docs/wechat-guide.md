@@ -27,7 +27,7 @@
 打开 CMD 或 PowerShell，进入项目目录，执行：
 
 ```bash
-cd D:\ai\AI-v24.13.0
+cd <项目目录>
 npx -y @tencent-weixin/openclaw-weixin-cli install
 ```
 
@@ -58,7 +58,7 @@ openclaw gateway restart
 在 CMD 中执行：
 
 ```bash
-cd D:\ai\AI-v24.13.0
+cd <项目目录>
 openclaw channels login --channel openclaw-weixin
 ```
 

@@ -1,5 +1,4 @@
-﻿
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """OpenClaw Gateway + 对话日志监控 (单终端，不卡住)"""
 import subprocess
 import sys
@@ -9,9 +8,34 @@ import threading
 import json
 from datetime import datetime
 
-NODE_HOME = os.environ.get("NODE_HOME", os.path.join(os.environ.get("USERPROFILE", ""), "AppData", "Roaming", "nvm", "v24.13.0"))
-NODE = os.path.join(NODE_HOME, "node.exe")
-CLI = os.path.join(NODE_HOME, "node_modules", "openclaw", "dist", "index.js")
+def find_node_exe():
+    """动态查找 Node.js 可执行文件"""
+    nvm_dir = os.path.join(os.environ.get("USERPROFILE", ""), "AppData", "Roaming", "nvm")
+    if os.path.isdir(nvm_dir):
+        for entry in sorted(os.listdir(nvm_dir), reverse=True):
+            node_exe = os.path.join(nvm_dir, entry, "node.exe")
+            if os.path.isfile(node_exe):
+                return node_exe
+    prog_files = r"C:\Program Files\nodejs\node.exe"
+    if os.path.isfile(prog_files):
+        return prog_files
+    return "node"
+
+def find_openclaw_index():
+    """动态查找 openclaw dist/index.js"""
+    nvm_dir = os.path.join(os.environ.get("USERPROFILE", ""), "AppData", "Roaming", "nvm")
+    if os.path.isdir(nvm_dir):
+        for entry in sorted(os.listdir(nvm_dir), reverse=True):
+            idx = os.path.join(nvm_dir, entry, "node_modules", "openclaw", "dist", "index.js")
+            if os.path.isfile(idx):
+                return idx
+    prog_files = r"C:\Program Files\nodejs\node_modules\openclaw\dist\index.js"
+    if os.path.isfile(prog_files):
+        return prog_files
+    return None
+
+NODE = find_node_exe()
+CLI = find_openclaw_index()
 LOG_FILE = os.path.join(os.environ.get("TEMP", ""), "openclaw", "openclaw-latest.log")
 
 def colorize(text, level):
@@ -86,6 +110,10 @@ if __name__ == "__main__":
     print("=" * 70)
     print()
 
+    if CLI is None:
+        print(colorize("[ERROR] openclaw not found. Run: npm install -g openclaw", "ERROR"), file=sys.stderr)
+        sys.exit(1)
+
     # 启动日志监控线程
     log_thread = threading.Thread(target=tail_logs, daemon=True)
     log_thread.start()
@@ -110,4 +138,3 @@ if __name__ == "__main__":
         proc.terminate()
         proc.wait()
         print(colorize("[OK] 已停止", "INFO"))
-

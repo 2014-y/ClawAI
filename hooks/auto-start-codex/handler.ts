@@ -3,7 +3,23 @@ import { promisify } from "util";
 
 const execFileAsync = promisify(execFile);
 
-const CODEX_EXE = "C:\\\\Users\\\\Yuan\\\\AppData\\\\Local\\\\OpenAI\\\\Codex\\\\bin\\\\codex.exe";
+// 动态查找 Codex 可执行文件
+function findCodexExe(): string {
+  const candidates = [
+    process.env.LOCALAPPDATA ? `${process.env.LOCALAPPDATA}\\OpenAI\\Codex\\bin\\codex.exe` : undefined,
+    "codex.exe",  // 如果在 PATH 中
+  ].filter(Boolean) as string[];
+
+  for (const candidate of candidates) {
+    try {
+      require("fs").accessSync(candidate, require("fs").constants.F_OK);
+      return candidate;
+    } catch { /* try next */ }
+  }
+  return candidates[0] || "codex.exe";
+}
+
+const CODEX_EXE = findCodexExe();
 
 export default async function handler(event) {
   // Only react to message events (user sends a message)
@@ -44,4 +60,3 @@ async function launchCodex() {
     stdio: "ignore"
   });
 }
-

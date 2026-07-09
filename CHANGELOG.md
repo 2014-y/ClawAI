@@ -2,6 +2,17 @@
 
 # AI-v24.13.0 变更日志
 
+## [1.0.2] - 2026-07-10
+
+### 修复
+- **配置兼容性修复**：init.bat 自动清理配置文件中不被 OpenClaw 识别的 key（如 maxMessages、maxTurns 等），避免启动时报 "Invalid config" 错误
+- **硬编码路径修复**：所有脚本和源码中的 C:\Users\Yuan 路径替换为动态环境变量（%USERPROFILE% / process.env.USERPROFILE）
+- **NVM 版本硬编码修复**：gateway.cmd、start-gateway.bat、run-gateway.py 不再硬编码 24.13.0，改为动态查找最新 NVM 版本
+- **Ollama 路径修复**：auto-finetune.py 改用 shutil.which() 动态查找 ollama，不再硬编码安装路径
+- **Codex 路径修复**：hooks/handler.ts 动态查找 Codex 可执行文件
+- **文档路径修复**：docs/ 中的 D:\ai\AI-v24.13.0 示例路径替换为通用 <项目目录>
+- **SKILL.md 路径修复**：workspace/skills/ 中的硬编码路径替换为 $env:USERPROFILE
+
 
 ## [1.0.1] - 2026-07-09
 
@@ -51,5 +62,6 @@
   - 修补 `NativePipeComputerUseTransport.close()` — 关闭 socket 后等待 500ms 再清理
   - 注册 `process.on("exit")` 兜底清理 — Node.js 进程退出时强制终止残留进程
   - 影响：Windows 平台，修复后解除控制时自动清理残留进程，恢复正常输入
+
 
 

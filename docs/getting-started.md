@@ -113,7 +113,7 @@ ollama pull gemma3:27b
 项目自带一个 jarvis-modelfile.txt，它定义了 Jarvis 助手的系统提示词。在 CMD 中运行：
 
 `ash
-cd D:\ai\AI-v24.13.0
+cd <项目目录>
 ollama create jarvis -f jarvis-modelfile.txt
 `
 

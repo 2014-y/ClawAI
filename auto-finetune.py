@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 OpenClaw Auto-FineTune Pipeline
 Collects training data from learning_log.jsonl and gemma4:latest,
@@ -238,7 +238,7 @@ ADAPTER {adapter_path}
     modelfile_path = CHECKPOINT_DIR / "Modelfile"
     modelfile_path.write_text(modelfile, encoding="utf-8")
 
-    ollama_bin = r"C:\Program Files\Ollama\ollama.exe"
+    ollama_bin = (shutil.which("ollama") or r"C:\\Program Files\\Ollama\\ollama.exe")
     result = subprocess.run(
         [ollama_bin, "create", "gemma4:finetuned", "-f", str(modelfile_path)],
         capture_output=True,

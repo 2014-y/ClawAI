@@ -89,6 +89,29 @@ $examplePath = Join-Path $scriptDir "config\openclaw.json.example"
 if (Test-Path $examplePath) {
     Copy-Item $examplePath $configFile -Force
     Write-Host "  Created openclaw.json from template." -ForegroundColor Green
+
+    # Clean any unrecognized keys that may have been injected by openclaw doctor/wizard
+    Write-Host "  Cleaning unrecognized config keys..." -ForegroundColor Gray
+    $cleanFile = Join-Path $sandboxDir "_clean_config.js"
+    $cleanJs = @"
+const fs = require('fs');
+const cfgPath = process.argv[1];
+const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+const knownKeys = new Set(["model","models","contextPruning","compaction","heartbeat","maxConcurrent","subagents","imageGenerationModel","systemPrompt","tools","permissions","skills","modelFallbacks"]);
+if (cfg.agents && cfg.agents.defaults) {
+    for (const key of Object.keys(cfg.agents.defaults)) {
+        if (!knownKeys.has(key)) {
+            console.log('  Removing unrecognized key: agents.defaults.' + key);
+            delete cfg.agents.defaults[key];
+        }
+    }
+}
+fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n', 'utf8');
+console.log('  Config cleaned.');
+"@
+    $cleanJs | Out-File -Encoding utf8 -NoNewline $cleanFile
+    & "$sandboxDir\node.exe" $cleanFile $configFile
+    Remove-Item $cleanFile -ErrorAction SilentlyContinue
     Write-Host ""
     Write-Host "  IMPORTANT: Edit $configFile" -ForegroundColor Yellow
     Write-Host "  Replace YOUR_*_API_KEY_HERE with your actual API Keys." -ForegroundColor Yellow
@@ -108,4 +131,3 @@ Write-Host ""
 Write-Host "Next: Edit openclaw.json, then double-click start-gateway.bat" -ForegroundColor Cyan
 Write-Host ""
 pause
-
