@@ -121,10 +121,15 @@
                                                    "agnes-ai/agnes-ai":  {
 
                                                                          },
-                                                   "agnes-ai/agnes-2.0-flash": {},
-                                                   "agnes-ai/agnes-1.5-flash": {}
+                                                   "agnes-ai/agnes-2.0-flash":  {
+
+                                                                                },
+                                                   "agnes-ai/agnes-1.5-flash":  {
+
+                                                                                }
                                                },
-                                    "contextPruning": {"mode": "off"
+                                    "contextPruning":  {
+                                                           "mode":  "off"
                                                        },
                                     "compaction":  {
                                                        "reserveTokensFloor":  96000,
@@ -513,7 +518,7 @@
                                                                           }
                                                            },
                                     "memory-core":  {
-                                                        "enabled":  true
+                                                        "enabled":  false
                                                     },
                                     "voice-call":  {
                                                        "enabled":  true
@@ -585,7 +590,7 @@
                                                    "enabled":  true
                                                },
                                     "memory-wiki":  {
-                                                        "enabled":  true
+                                                        "enabled":  false
                                                     },
                                     "tavily":  {
                                                    "enabled":  true
@@ -597,7 +602,7 @@
                                                            "enabled":  true
                                                        },
                                     "active-memory":  {
-                                                          "enabled":  true
+                                                          "enabled":  false
                                                       },
                                     "discord":  {
                                                     "enabled":  true
@@ -660,4 +665,3 @@
                                }
               }
 }
-
