@@ -48,16 +48,34 @@ for /f "tokens=*" %%a in ('netstat -ano 2^>nul ^| findstr ":18789.*LISTENING"') 
 )
 timeout /t 2 /nobreak >nul
 
+:: === ?? nvm ? node_modules?openclaw ????? ===
+set "NVM_MODS=%USERPROFILE%\AppData\Roaming\nvm\v24.13.0\node_modules"
+if not exist "%NVM_MODS%\openclaw\dist\index.js" (
+    set "NVM_MODS=%APPDATA%\nvm\v24.13.0\node_modules"
+)
+if not exist "%NVM_MODS%\openclaw\dist\index.js" (
+    set "NVM_MODS=C:\Program Files\nodejs\node_modules"
+)
+if not exist "%NVM_MODS%\openclaw\dist\index.js" (
+    echo ERROR: openclaw not found!
+    echo Please install openclaw: npm install -g openclaw
+    pause
+    exit /b 1
+)
+
 :: === ?? ===
 cd /d "%USERPROFILE%\.openclaw"
 echo ========================================
 echo  OpenClaw Gateway Launcher
 echo ========================================
 echo.
+echo Node: %NODE_HOME%\node.exe
+echo Modules: %NVM_MODS%
+echo.
 echo Starting...
 echo.
 
-"%NODE_HOME%\node.exe" "%NODE_HOME%\node_modules\openclaw\dist\index.js" gateway run --allow-unconfigured --force
+"%NODE_HOME%\node.exe" --preserve-symlinks-main "%NVM_MODS%\openclaw\dist\index.js" gateway run --allow-unconfigured --force
 
 echo.
 echo Gateway exited.
