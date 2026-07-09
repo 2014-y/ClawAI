@@ -508,12 +508,6 @@
                                }
                },
     "plugins":  {
-                    "load":  {
-                                 "paths":  [
-                                               ".openclaw-plugins"
-                                           ],
-                                 "enabled":  true
-                             },
                     "entries":  {
                                     "dual-model-trainer":  {
                                                                "enabled":  true,
