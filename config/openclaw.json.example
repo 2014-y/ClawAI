@@ -122,10 +122,16 @@
 
                                                                          },
                                                    "agnes-ai/agnes-2.0-flash":  {
-
+                                                                                    "input":  [
+                                                                                                  "text",
+                                                                                                  "image"
+                                                                                              ]
                                                                                 },
                                                    "agnes-ai/agnes-1.5-flash":  {
-
+                                                                                    "input":  [
+                                                                                                  "text",
+                                                                                                  "image"
+                                                                                              ]
                                                                                 }
                                                },
                                     "contextPruning":  {
