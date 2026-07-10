@@ -1015,4 +1015,27 @@ input:checked + .slider-knob:before {
   color: var(--text-primary);
 }
 
+.btn-wechat-unbind {
+  background: rgba(255, 82, 82, 0.12);
+  color: #ff5252;
+  border: 1px solid rgba(255, 82, 82, 0.25);
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  transition: all 0.2s ease;
+  margin-top: 10px;
+}
+
+.btn-wechat-unbind:hover {
+  background: #ff5252;
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 0 12px rgba(255, 82, 82, 0.4);
+}
+
+
 

@@ -813,3 +813,24 @@ function finishGuide() {
 
 // 12. 运行初始化
 window.addEventListener('DOMContentLoaded', init);
+
+// 13. 微信解绑与切换
+document.getElementById('wechat-unbind-btn').addEventListener('click', async () => {
+    const confirmClear = confirm('确定要解绑当前微信并清空微信登录凭证吗？\n\n这将会停止运行中的网关，并在下次启动网关时重新生成二维码供您扫码登录！');
+    if (!confirmClear) return;
+
+    try {
+        const result = await window.api.clearWeChatSession();
+        if (result.success) {
+            alert('微信解绑成功！微信登录缓存已彻底清除。\n\n您现在可以重新点击“启动网关”以扫描绑定新的微信账号。');
+            if (gatewayStatus === 'running') {
+                gatewayStatus = 'stopped';
+                updateGatewayStatusUI('stopped');
+            }
+        } else {
+            alert('解绑失败：' + result.error);
+        }
+    } catch (err) {
+        alert('解绑操作异常：' + err.message);
+    }
+});

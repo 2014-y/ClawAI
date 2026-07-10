@@ -244,6 +244,24 @@ ipcMain.handle('config-save', async (event, newConfig) => {
     }
 });
 
+// 清理微信登录态凭证实现彻底解绑
+ipcMain.handle('wechat-clear', async () => {
+    try {
+        // 1. 如果网关运行中，先停止以解除文件夹句柄锁
+        stopGatewayProcess();
+
+        // 2. 物理清除微信缓存目录 openclaw-weixin
+        const weixinCachePath = path.join(CONFIG_DIR, 'openclaw-weixin');
+        if (fs.existsSync(weixinCachePath)) {
+            fs.rmSync(weixinCachePath, { recursive: true, force: true });
+        }
+        return { success: true };
+    } catch (e) {
+        console.error('Failed to clear WeChat session:', e);
+        return { success: false, error: e.message };
+    }
+});
+
 // 开机自启的设置与获取
 ipcMain.handle('autostart-get', async () => {
     const settings = app.getLoginItemSettings();
