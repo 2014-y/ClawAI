@@ -639,6 +639,11 @@ input:checked + .slider-knob:before {
 }
 
 .guide-step-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 105;
   width: 380px;
   background: var(--bg-panel);
   border: 2px solid var(--accent-color);

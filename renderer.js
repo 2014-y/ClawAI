@@ -526,6 +526,7 @@ function checkAndStartGuide() {
     const isCompleted = localStorage.getItem('guide_completed');
     if (!isCompleted) {
         document.getElementById('guide-overlay').style.display = 'flex';
+        document.getElementById('guide-step-card').style.display = 'flex';
         showGuideStep(0);
     }
 }
@@ -540,7 +541,7 @@ function showGuideStep(index) {
 
     // 清理其他高亮（排除新手引导本身，防定位塌陷及无法点击）
     document.querySelectorAll('.app-container *').forEach(el => {
-        if (el.closest('#guide-overlay')) return;
+        if (el.closest('#guide-overlay') || el.closest('#guide-step-card')) return;
         el.style.position = '';
         el.style.zIndex = '';
         el.style.boxShadow = '';
@@ -582,12 +583,13 @@ document.getElementById('guide-btn-skip').addEventListener('click', () => {
 function finishGuide() {
     // 清理高亮并隐藏遮罩（排除新手引导本身，防定位塌陷及无法点击）
     document.querySelectorAll('.app-container *').forEach(el => {
-        if (el.closest('#guide-overlay')) return;
+        if (el.closest('#guide-overlay') || el.closest('#guide-step-card')) return;
         el.style.position = '';
         el.style.zIndex = '';
         el.style.boxShadow = '';
     });
     document.getElementById('guide-overlay').style.display = 'none';
+    document.getElementById('guide-step-card').style.display = 'none';
     localStorage.setItem('guide_completed', 'true');
     // 跳转回第一个 Tab
     document.getElementById('tour-nav-console').click();
