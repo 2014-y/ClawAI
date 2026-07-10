@@ -1,4 +1,4 @@
-﻿# INSTALL.md
+# INSTALL.md
 
 # AI-v24.13.0 寮€婧愮増 - 瀹夎鎸囧崡
 

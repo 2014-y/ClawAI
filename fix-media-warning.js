@@ -1,4 +1,4 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const path = require('path');
 
 const nvmRoot = path.join(process.env.USERPROFILE, 'AppData', 'Roaming', 'nvm');
