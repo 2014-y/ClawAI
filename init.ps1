@@ -1,4 +1,4 @@
-# AI-v24.13.0 Setup Script
+﻿# AI-v24.13.0 Setup Script
 Write-Host "========================================" -ForegroundColor DarkGray
 Write-Host "  AI-v24.13.0 Setup" -ForegroundColor DarkGray
 Write-Host "========================================" -ForegroundColor DarkGray
@@ -17,7 +17,7 @@ if (Test-Path $sandboxDir) {
 Write-Host "[1/3] Looking for Node.js..." -ForegroundColor Cyan
 $src = $null
 
-$nvmPath = "$env:USERPROFILE\AppData\Roaming\nvm\v24.13.0"
+$nvmPath = "$env:USERPROFILE\AppData\Roaming\nvm"
 if (Test-Path "$nvmPath\node.exe") { $src = $nvmPath }
 
 if (-not $src) {
