@@ -33,7 +33,7 @@
     "logs": "type logs\\openclaw-%date%.log",
     "app:start": "electron .",
     "app:dist": "electron-builder --windows",
-    "app:pack": "electron-packager . \"AI小助理\" --platform=win32 --arch=x64 --out=dist --overwrite --ignore=\"dist\""
+    "app:pack": "electron-packager . \"AI小助理\" --platform=win32 --arch=x64 --out=dist --overwrite"
   },
   "dependencies": {
     "open-computer-use": "^0.1.54",
