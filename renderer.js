@@ -546,15 +546,11 @@ function updateMemoryMock() {
 function setupTabSwitching() {
     tabs.forEach((tab) => {
         tab.addEventListener('click', (e) => {
-            // 排除外部链接面板，直接调起系统默认浏览器打开免密 ACP 控制台
+            // 排除外部链接面板，直接请求主进程调起官方 dashboard 命令行获取免密 URL
             if (tab.id === 'btn-nav-openclaw-web') {
                 e.preventDefault();
                 e.stopPropagation();
-                
-                const port = document.getElementById('gateway-port').value || '18789';
-                const token = document.getElementById('gateway-token').value || '';
-                const url = `http://127.0.0.1:${port}/acp?token=${token}&key=${token}&apiKey=${token}`;
-                window.api.openExternal(url);
+                window.api.openExternal('openclaw-dashboard');
                 return;
             }
 

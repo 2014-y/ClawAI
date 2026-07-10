@@ -358,6 +358,66 @@ ipcMain.handle('stats-get', async () => {
 ipcMain.handle('open-external', async (event, url) => {
     try {
         const { shell } = require('electron');
+        
+        // 特殊处理：如果是打开 OpenClaw 控制面板，我们通过官方 dashboard 命令动态获取带最新令牌的免密 URL
+        if (url === 'openclaw-dashboard') {
+            const path = require('path');
+            const { fork } = require('child_process');
+            
+            let openclawEntry = path.join(__dirname, 'node_modules', 'openclaw', 'dist', 'index.js');
+            if (!require('fs').existsSync(openclawEntry)) {
+                try {
+                    openclawEntry = require.resolve('openclaw/dist/index.js');
+                } catch(e) {
+                    openclawEntry = "C:\\Users\\Yuan\\AppData\\Roaming\\nvm\\v24.13.0\\node_modules\\openclaw\\dist\\index.js";
+                }
+            }
+
+            return new Promise((resolve) => {
+                const child = fork(openclawEntry, ['dashboard', '--no-open'], {
+                    stdio: 'pipe',
+                    env: {
+                        ...process.env,
+                        PATH: "C:\\Users\\Yuan\\AppData\\Roaming\\nvm\\v24.13.0;" + process.env.PATH
+                    }
+                });
+
+                let resolved = false;
+                const handleData = (data) => {
+                    const text = data.toString();
+                    // 正则提取含 token/key 且包含 127.0.0.1 或 localhost 的 URL 链接
+                    const urlMatch = text.match(/https?:\/\/(?:127\.0\.0\.1|localhost):\d+\/[^\s]+/);
+                    if (urlMatch && !resolved) {
+                        resolved = true;
+                        shell.openExternal(urlMatch[0].trim());
+                        child.kill();
+                        resolve(true);
+                    }
+                };
+
+                child.stdout.on('data', handleData);
+                child.stderr.on('data', handleData);
+
+                // 5秒超时安全退出
+                setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        child.kill();
+                        shell.openExternal("http://127.0.0.1:18789/acp");
+                        resolve(false);
+                    }
+                }, 5000);
+
+                child.on('exit', () => {
+                    if (!resolved) {
+                        resolved = true;
+                        shell.openExternal("http://127.0.0.1:18789/acp");
+                        resolve(false);
+                    }
+                });
+            });
+        }
+
         await shell.openExternal(url);
         return true;
     } catch (e) {
