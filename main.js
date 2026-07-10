@@ -8,6 +8,7 @@ let mainWindow = null;
 let tray = null;
 let gatewayProcess = null;
 let isQuitting = false;
+global.latestAcpDashboardUrl = '';
 
 const CONFIG_DIR = path.join(process.env.USERPROFILE || process.env.HOME, '.openclaw');
 const CONFIG_PATH = path.join(CONFIG_DIR, 'openclaw.json');
@@ -163,9 +164,25 @@ ipcMain.on('gateway-action', (event, action) => {
             // 提取日志及匹配登录二维码的公共处理函数
             const handleLogData = (data) => {
                 const text = data.toString();
+                
+                // 实时保存流日志用于诊断
+                try {
+                    require('fs').appendFileSync(
+                        require('path').join(__dirname, 'gateway_stdout.log'),
+                        text,
+                        'utf8'
+                    );
+                } catch(e) {}
+
                 if (mainWindow) {
                     mainWindow.webContents.send('gateway-log', text);
                     
+                    // 拦截带动态密钥的控制台免密登录 URL
+                    const acpMatch = text.match(/https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):\d+\/acp\/[^\s"'\n]+/);
+                    if (acpMatch) {
+                        global.latestAcpDashboardUrl = acpMatch[0].trim();
+                    }
+
                     // 自动匹配微信扫码登录 URL (支持 weixin.qq.com 或者是 wechaty.js.org 专属二维码链接)
                     const qrMatch = text.match(/https?:\/\/(?:login\.)?weixin\.qq\.com\/l\/[^\s"'\n]+/) || 
                                     text.match(/https?:\/\/wechaty\.js\.org\/qrcode\/[^\s"'\n]+/);
@@ -361,6 +378,10 @@ ipcMain.handle('open-external', async (event, url) => {
         
         // 特殊处理：如果是打开 OpenClaw 控制面板，我们通过官方 dashboard 命令动态获取带最新令牌的免密 URL
         if (url === 'openclaw-dashboard') {
+            if (global.latestAcpDashboardUrl) {
+                shell.openExternal(global.latestAcpDashboardUrl);
+                return true;
+            }
             const path = require('path');
             const { fork } = require('child_process');
             
