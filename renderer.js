@@ -627,22 +627,22 @@ async function renderUsageCharts() {
         output: []
     };
 
-    // 如果没有真实调用（冷启动），回填高画质默认值以防画面空洞
+    // 如果没有真实调用（冷启动），全部展示为真实 0，不使用死模拟数据
     if (stats.total_tokens === 0) {
-        stats.total_tokens = 194010524;
-        stats.total_requests = 1371;
+        stats.total_tokens = 0;
+        stats.total_requests = 0;
         stats.total_cost = 0.0000;
-        stats.sub_input_tokens = 190000000;
-        stats.sub_output_tokens = 349000;
-        stats.sub_hit_tokens = 3658000;
-        stats.hit_rate = 1.9;
+        stats.sub_input_tokens = 0;
+        stats.sub_output_tokens = 0;
+        stats.sub_hit_tokens = 0;
+        stats.hit_rate = 0.0;
         
         lineData = {
-            cost: [10, 8, 2, 4, 30, 24, 28, 32, 29, 38, 20, 5],
-            cacheCreate: [5, 4, 1, 2, 12, 10, 15, 18, 14, 22, 11, 2],
-            cacheHit: [2, 1, 0, 1, 8, 25, 12, 35, 20, 48, 15, 1],
-            input: [80, 70, 10, 25, 95, 60, 72, 78, 65, 85, 48, 12],
-            output: [40, 35, 5, 12, 50, 38, 42, 45, 39, 52, 28, 6]
+            cost: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            cacheCreate: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            cacheHit: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            input: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            output: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         };
     } else {
         // 如果有真实数据，进行平滑缩放映射
