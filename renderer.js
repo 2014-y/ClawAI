@@ -538,8 +538,9 @@ function showGuideStep(index) {
     document.getElementById('guide-step-content').innerText = step.content;
     document.getElementById('guide-step-index').innerText = `步骤 ${index + 1} / ${guideSteps.length}`;
 
-    // 清理其他高亮
+    // 清理其他高亮（排除新手引导本身，防定位塌陷及无法点击）
     document.querySelectorAll('.app-container *').forEach(el => {
+        if (el.closest('#guide-overlay')) return;
         el.style.position = '';
         el.style.zIndex = '';
         el.style.boxShadow = '';
@@ -579,8 +580,9 @@ document.getElementById('guide-btn-skip').addEventListener('click', () => {
 });
 
 function finishGuide() {
-    // 清理高亮并隐藏遮罩
+    // 清理高亮并隐藏遮罩（排除新手引导本身，防定位塌陷及无法点击）
     document.querySelectorAll('.app-container *').forEach(el => {
+        if (el.closest('#guide-overlay')) return;
         el.style.position = '';
         el.style.zIndex = '';
         el.style.boxShadow = '';
