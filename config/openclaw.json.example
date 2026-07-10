@@ -70,30 +70,7 @@
       "maxConcurrent": 4
     }
   },
-  "messages": {
-    "ackReactionScope": "group-mentions"
-  },
-  "commands": {
-    "native": "auto",
-    "nativeSkills": "auto"
-  },
   "channels": {
-    "discord": {
-      "enabled": false,
-      "token": "YOUR_DISCORD_BOT_TOKEN_HERE",
-      "allowBots": true,
-      "groupPolicy": "open",
-      "dm": {
-        "enabled": true,
-        "policy": "allowlist"
-      }
-    },
-    "feishu": {
-      "enabled": false,
-      "appId": "YOUR_FEISHU_APP_ID_HERE",
-      "appSecret": "YOUR_FEISHU_APP_SECRET_HERE",
-      "groupPolicy": "open"
-    },
     "openclaw-weixin": {
       "dmPolicy": "open",
       "groupPolicy": "open",
@@ -132,14 +109,7 @@
   "plugins": {
     "entries": {
       "dual-model-trainer": {
-        "enabled": false,
-        "config": {
-          "teacherModel": "yitong/qwen3-max",
-          "studentModel": "ollama/jarvis",
-          "parallelMode": true,
-          "saveAllConversations": true,
-          "minQualityDiff": 10
-        }
+        "enabled": false
       },
       "memory-core": {
         "enabled": false
@@ -280,7 +250,8 @@
       "enabled": true,
       "entries": {
         "emotion-state": {
-          "enabled": true
+          "enabled": true,
+          "skill": "emotion-state"
         }
       }
     }

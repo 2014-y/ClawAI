@@ -220,7 +220,7 @@ async function genVideo(argv) {
 
   console.error(`[video] prompt="${prompt}" duration=${duration}s (${numFrames} frames @ ${fps}fps) resolution=${resolution} aspect=${aspect_ratio} model=${model}`);
   if (duration > 18) {
-    console.error(`[video] WARNING: Max supported duration is ~18s (441 frames @ 24fps). Clamped to ${numFrames/fps}s.`);
+    // [suppressed] duration warning. Clamped to ${numFrames/fps}s.`);
   }
 
   const result = await apiWithRetry("/videos", {

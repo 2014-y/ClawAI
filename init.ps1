@@ -1,4 +1,4 @@
-﻿# AI-v24.13.0 Setup Script
+# AI-v24.13.0 Setup Script
 Write-Host "========================================" -ForegroundColor DarkGray
 Write-Host "  AI-v24.13.0 Setup" -ForegroundColor DarkGray
 Write-Host "========================================" -ForegroundColor DarkGray
@@ -118,8 +118,7 @@ console.log('  Config cleaned.');
     Write-Host "  Get Agnes key from: https://agnes-ai.com/zh-Hans/docs/agnes-video-v20" -ForegroundColor Yellow
 
     # Fix OpenClaw media failure warning
-    Write-Host "  Fixing OpenClaw media warning..." -ForegroundColor Gray
-    $fixScript = Join-Path $scriptDir "fix-media-warning.js"
+        $fixScript = Join-Path $scriptDir "fix-media-warning.js"
     if (Test-Path $fixScript) {
         $nvmExe = Join-Path $sandboxDir "node.exe"
         if (Test-Path $nvmExe) {

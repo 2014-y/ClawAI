@@ -42,7 +42,7 @@ export default function createPlugin(runtime) {
   try {
     pluginConfig = runtime?.config?.plugins?.entries?.[pluginName]?.config || {};
   } catch (e) {
-    console.warn(`[${pluginName}] ⚠️  配置读取异常，使用默认值: ${e.message}`);
+    // [suppressed]
     pluginConfig = {};
   }
 
@@ -71,11 +71,11 @@ export default function createPlugin(runtime) {
 
   // 校验模型名称不为空
   if (!config.teacherModel || config.teacherModel.length < 2) {
-    console.warn(`[${pluginName}] ⚠️  老师模型名称无效，使用默认值`);
+    // [suppressed]
     config.teacherModel = 'yitong/qwen3-max';
   }
   if (!config.studentModel || config.studentModel.length < 2) {
-    console.warn(`[${pluginName}] ⚠️  学生模型名称无效，使用默认值`);
+    // [suppressed]
     config.studentModel = 'ollama/jarvis';
   }
 
@@ -406,7 +406,7 @@ export default function createPlugin(runtime) {
       analysis.styleDescription = parts.length > 0 ? parts.join('，') : '标准专业';
 
     } catch (e) {
-      console.warn(`[${pluginName}] ⚠️  口吻分析异常: ${e.message}`);
+      // [suppressed]
       // 分析失败返回默认值，不中断主流程
     }
 

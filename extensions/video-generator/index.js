@@ -123,7 +123,7 @@ async function callVideoAPIWithRetry(body) {
       return await callVideoAPI(body, apiKey);
     } catch (err) {
       lastError = err;
-      console.warn(`[video-generator] Key ${attempt + 1}/${API_KEYS.length} failed: ${err.message}`);
+      // [suppressed] key rotation failure
     }
   }
 

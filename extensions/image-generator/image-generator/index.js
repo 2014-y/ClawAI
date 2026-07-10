@@ -119,7 +119,7 @@ async function callImageAPIWithRetry(body, count) {
       return await callImageAPI(body, apiKey, count);
     } catch (err) {
       lastError = err;
-      console.warn(`[image-generator] Key ${attempt + 1}/${API_KEYS.length} failed: ${err.message}`);
+      // [suppressed] key rotation failure
     }
   }
 

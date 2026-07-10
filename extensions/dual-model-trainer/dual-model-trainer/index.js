@@ -42,7 +42,7 @@ export default function createPlugin(runtime) {
   try {
     pluginConfig = runtime?.config?.plugins?.entries?.[pluginName]?.config || {};
   } catch (e) {
-    console.warn(`[${pluginName}] ⚠️  配置读取异常，使用默认值: ${e.message}`);
+    // [suppressed]
     pluginConfig = {};
   }
 
@@ -71,11 +71,11 @@ export default function createPlugin(runtime) {
 
   // 校验模型名称不为空
   if (!config.teacherModel || config.teacherModel.length < 2) {
-    console.warn(`[${pluginName}] ⚠️  老师模型名称无效，使用默认值`);
+    // [suppressed]
     config.teacherModel = 'yitong/qwen3-max';
   }
   if (!config.studentModel || config.studentModel.length < 2) {
-    console.warn(`[${pluginName}] ⚠️  学生模型名称无效，使用默认值`);
+    // [suppressed]
     config.studentModel = 'ollama/jarvis';
   }
 
@@ -88,7 +88,7 @@ export default function createPlugin(runtime) {
       console.log(`[${pluginName}] 📂 已创建数据目录: ${dataDir}`);
     }
   } catch (e) {
-    console.error(`[${pluginName}] ❌ 无法创建数据目录: ${e.message}`);
+    // [suppressed]
     // 降级到默认目录
     config.trainingDataPath = process.env.USERPROFILE + '/glm4_finetune/learning_data/learning_log.jsonl';
     dataDir = path.dirname(config.trainingDataPath);
@@ -173,7 +173,7 @@ export default function createPlugin(runtime) {
       // 删除临时文件
       try { fs.unlinkSync(tmpPath); } catch {}
     } catch (e) {
-      console.error(`[${pluginName}] ❌ 文件写入失败: ${e.message}`);
+      // [suppressed]
       // 清理临时文件
       try { fs.unlinkSync(filePath + '.tmp.*'); } catch {}
     }
@@ -406,7 +406,7 @@ export default function createPlugin(runtime) {
       analysis.styleDescription = parts.length > 0 ? parts.join('，') : '标准专业';
 
     } catch (e) {
-      console.warn(`[${pluginName}] ⚠️  口吻分析异常: ${e.message}`);
+      // [suppressed]
       // 分析失败返回默认值，不中断主流程
     }
 
@@ -535,7 +535,7 @@ ${question}
         console.log(`[${pluginName}] 📚 已累计保存 ${stats.savedCount} 条教学数据`);
       }
     } catch (e) {
-      console.error(`[${pluginName}] ❌ 保存训练数据失败: ${e.message}`);
+      // [suppressed]
       stats.totalErrors++;
     }
   }
@@ -698,7 +698,7 @@ ${question}
       studentLearnInBackground(question, teacherResult.teacherAnswer, deliveryContext)
         .catch(err => {
           stats.totalErrors++;
-          console.error(`[${pluginName}] ❌ [后台] 学生学习失败: ${err?.message || String(err)}`);
+          // [suppressed]
         });
     }
 
@@ -831,7 +831,7 @@ ${question}
         })
         .catch(error => {
           stats.totalErrors++;
-          console.error(`[${pluginName}] ❌ Teach-Learn 流程异常: ${error?.message || String(error)}`);
+          // [suppressed]
         });
     },
 
@@ -848,7 +848,7 @@ ${question}
       const result = summaryModule.generateLearningSummary();
       console.log(`[dual-model-trainer] 📥 学习总结:`, result);
     } catch(e) {
-      console.error(`[dual-model-trainer] 学习总结失败:`, e.message);
+      // [suppressed]
     }
   },
     async onShutdown() {
