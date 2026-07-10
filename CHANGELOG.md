@@ -35,7 +35,7 @@
 
 ### 修复
 - **配置兼容性修复**：init.bat 自动清理配置文件中不被 OpenClaw 识别的 key（如 maxMessages、maxTurns 等），避免启动时报 "Invalid config" 错误
-- **硬编码路径修复**：所有脚本和源码中的 C:\Users\Yuan 路径替换为动态环境变量（%USERPROFILE% / process.env.USERPROFILE）
+- **硬编码路径修复**：所有脚本和源码中的 硬编码路径替换为动态环境变量（%USERPROFILE% / process.env.USERPROFILE）
 - **NVM 版本硬编码修复**：gateway.cmd、start-gateway.bat、run-gateway.py 不再硬编码 24.13.0，改为动态查找最新 NVM 版本
 - **Ollama 路径修复**：auto-finetune.py 改用 shutil.which() 动态查找 ollama，不再硬编码安装路径
 - **Codex 路径修复**：hooks/handler.ts 动态查找 Codex 可执行文件
