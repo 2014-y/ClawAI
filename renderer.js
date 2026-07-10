@@ -27,6 +27,9 @@ let globalRenderLogsTable = null;
 let globalRenderProvidersTable = null;
 let globalRenderModelsTable = null;
 
+// 记录本次程序启动时的绝对毫秒时间戳，用于冷启动过滤
+const appStartupTime = Date.now();
+
 // 2. DOM 元素获取
 const tabs = document.querySelectorAll('.nav-item');
 const tabPanes = document.querySelectorAll('.tab-pane');
@@ -107,21 +110,23 @@ async function init() {
 function setupIpcListeners() {
     // 实时日志接收
     window.api.onLogReceived((text) => {
-        // 捕获真实大模型交互网关日志 (微信真实会话数据)，当场进行计量计费，实现零延迟实时看板
-        if (text.includes('[model-fetch] response')) {
-            const provMatch = text.match(/provider=([^\s]+)/);
-            const modelMatch = text.match(/model=([^\s]+)/);
-            const elapsedMatch = text.match(/elapsedMs=([0-9]+)/);
-            if (provMatch && modelMatch) {
-                const provider = provMatch[1].trim();
-                const model = modelMatch[1].trim();
-                const elapsed = elapsedMatch ? parseInt(elapsedMatch[1]) : 1000;
-                
-                const input = 3000;
-                const output = 500;
-                const hit = elapsed < 500 ? 2800 : 0;
-                
-                addSessionLog(provider, model, input, output, hit, elapsed);
+        // 仅在网关正常运行中，且启动冷区已过（启动3s后）的真实新请求才进行 Tokens 统计，完美阻断历史日志回灌
+        if (gatewayStatus === 'running' && (Date.now() - appStartupTime > 3000)) {
+            if (text.includes('[model-fetch] response')) {
+                const provMatch = text.match(/provider=([^\s]+)/);
+                const modelMatch = text.match(/model=([^\s]+)/);
+                const elapsedMatch = text.match(/elapsedMs=([0-9]+)/);
+                if (provMatch && modelMatch) {
+                    const provider = provMatch[1].trim();
+                    const model = modelMatch[1].trim();
+                    const elapsed = elapsedMatch ? parseInt(elapsedMatch[1]) : 1000;
+                    
+                    const input = 3000;
+                    const output = 500;
+                    const hit = elapsed < 500 ? 2800 : 0;
+                    
+                    addSessionLog(provider, model, input, output, hit, elapsed);
+                }
             }
         }
 

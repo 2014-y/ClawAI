@@ -45,15 +45,7 @@ function createWindow() {
 
     mainWindow.loadFile('index.html');
 
-    mainWindow.on('maximize', () => {
-        isMaximizedState = true;
-        mainWindow.webContents.send('window-maximized-status', true);
-    });
 
-    mainWindow.on('unmaximize', () => {
-        isMaximizedState = false;
-        mainWindow.webContents.send('window-maximized-status', false);
-    });
 
     mainWindow.on('close', (event) => {
         if (!isQuitting) {
@@ -137,8 +129,12 @@ ipcMain.on('window-action', (event, action) => {
     } else if (action === 'maximize') {
         if (isMaximizedState) {
             mainWindow.unmaximize();
+            isMaximizedState = false;
+            mainWindow.webContents.send('window-maximized-status', false);
         } else {
             mainWindow.maximize();
+            isMaximizedState = true;
+            mainWindow.webContents.send('window-maximized-status', true);
         }
     } else if (action === 'close') {
         mainWindow.close();
