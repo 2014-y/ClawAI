@@ -29,6 +29,7 @@ let globalRenderModelsTable = null;
 
 // 记录本次程序启动时的绝对毫秒时间戳，用于冷启动过滤
 const appStartupTime = Date.now();
+let gatewayRunningTime = Date.now();
 
 // 2. DOM 元素获取
 const tabs = document.querySelectorAll('.nav-item');
@@ -110,8 +111,8 @@ async function init() {
 function setupIpcListeners() {
     // 实时日志接收
     window.api.onLogReceived((text) => {
-        // 仅在网关正常运行中，且启动冷区已过（启动3s后）的真实新请求才进行 Tokens 统计，完美阻断历史日志回灌
-        if (gatewayStatus === 'running' && (Date.now() - appStartupTime > 3000)) {
+        // 仅在网关真正运行中，且越过网关刚启动时的 5 秒历史控制台日志喷吐垃圾冷区，才对全新实时流量记账
+        if (gatewayStatus === 'running' && (Date.now() - gatewayRunningTime > 5000)) {
             if (text.includes('[model-fetch] response')) {
                 const provMatch = text.match(/provider=([^\s]+)/);
                 const modelMatch = text.match(/model=([^\s]+)/);
@@ -158,6 +159,9 @@ function setupIpcListeners() {
     window.api.onStatusChanged((status) => {
         gatewayStatus = status;
         updateGatewayStatusUI(status);
+        if (status === 'running') {
+            gatewayRunningTime = Date.now();
+        }
     });
 
     // 微信扫码二维码捕获并画图
