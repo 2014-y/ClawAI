@@ -1086,6 +1086,14 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 12px rgba(140, 82, 255, 0.4);
 }
 
+#dashboard-view.active {
+  display: flex !important;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+
 
 
 

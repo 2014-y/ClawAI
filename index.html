@@ -211,25 +211,132 @@
 
         <!-- Tab 4: 用量统计 -->
         <section class="tab-pane" id="dashboard-view">
-          <div class="view-header">
-            <h2>Token 消耗统计</h2>
-            <p>实时监控本地 AI 助手的模型调用频次与流量占比</p>
-          </div>
-          
-          <div class="dashboard-grid">
-            <!-- 大折线图 -->
-            <div class="chart-panel-large" id="tour-chart-line">
-              <div class="chart-header">最近 7 天 Token 消耗走势</div>
-              <div class="svg-chart-container" id="line-chart-svg-box">
-                <!-- SVG 折线图动态渲染 -->
-              </div>
+          <!-- 头部与工具过滤条 -->
+          <div class="view-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-shrink: 0;">
+            <div class="view-header">
+              <h2>使用统计</h2>
+              <p>查看 AI 模型的使用情况和成本统计</p>
             </div>
             
-            <!-- 小饼图 -->
-            <div class="chart-panel-small" id="tour-chart-pie">
-              <div class="chart-header">各提供商用量占比</div>
-              <div class="svg-chart-container" id="pie-chart-svg-box">
-                <!-- SVG 饼图动态渲染 -->
+            <!-- 顶栏过滤工具组 -->
+            <div class="stats-toolbar" style="display: flex; align-items: center; gap: 8px;">
+              <!-- 快捷大模型厂家筛选小图标 -->
+              <div class="provider-filter-icons" style="display: flex; gap: 4px; background: rgba(0,0,0,0.25); padding: 4px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <span class="icon-filter-btn active" data-provider="all" title="全部" style="cursor: pointer; font-size: 11px; padding: 4px 8px; border-radius: 6px; background: var(--accent-color); color: white; font-weight: bold; transition: all 0.2s ease;">ALL</span>
+                <span class="icon-filter-btn" data-provider="openai" title="OpenAI" style="cursor: pointer; font-size: 11px; padding: 4px 8px; border-radius: 6px; color: var(--text-secondary); transition: all 0.2s ease;">OAI</span>
+                <span class="icon-filter-btn" data-provider="deepseek" title="DeepSeek" style="cursor: pointer; font-size: 11px; padding: 4px 8px; border-radius: 6px; color: var(--text-secondary); transition: all 0.2s ease;">DS</span>
+                <span class="icon-filter-btn" data-provider="gemini" title="Gemini" style="cursor: pointer; font-size: 11px; padding: 4px 8px; border-radius: 6px; color: var(--text-secondary); transition: all 0.2s ease;">GEM</span>
+              </div>
+              <select class="toolbar-select" id="stats-source-select" style="height: 30px; font-size: 12px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); padding: 0 8px; outline: none; cursor: pointer;">
+                <option value="all">全部来源</option>
+                <option value="gateway">网关入口</option>
+                <option value="plugins">插件管道</option>
+              </select>
+              <select class="toolbar-select" id="stats-model-select" style="height: 30px; font-size: 12px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); padding: 0 8px; outline: none; cursor: pointer;">
+                <option value="all">全部模型</option>
+                <option value="primary">主用模型</option>
+                <option value="fallback">备用模型</option>
+              </select>
+              <select class="toolbar-select" style="height: 30px; font-size: 12px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); padding: 0 8px; outline: none; cursor: pointer;">
+                <option value="30s">🔄 30s 刷新</option>
+                <option value="manual">手动刷新</option>
+              </select>
+              <select class="toolbar-select" style="height: 30px; font-size: 12px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); padding: 0 8px; outline: none; cursor: pointer;">
+                <option value="today">📅 当天</option>
+                <option value="7days">最近7天</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="stats-scroll-container" style="overflow-y: auto; flex: 1; min-height: 0; padding-right: 4px;">
+            <!-- 1. 核心汇总数据卡片网格 -->
+            <div class="stats-summary-grid" style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+              <!-- 真实消耗大卡片 -->
+              <div class="stat-main-card" style="background: rgba(140, 82, 255, 0.05); border: 1px solid rgba(140, 82, 255, 0.15); border-radius: 12px; padding: 16px; position: relative; overflow: hidden; box-shadow: 0 8px 32px rgba(140, 82, 255, 0.05);">
+                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; font-weight: 500;">真实消耗 Tokens</div>
+                <div style="font-size: 26px; font-weight: 800; color: white; display: flex; align-items: baseline; gap: 8px;">
+                  <span id="summary-tokens">194,010,524</span>
+                  <span style="font-size: 11px; color: var(--text-secondary); font-weight: normal;">≈ 1.94 亿</span>
+                </div>
+              </div>
+              
+              <!-- 总请求数卡片 -->
+              <div class="stat-sub-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px;">
+                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">总请求数</div>
+                <div style="font-size: 26px; font-weight: 800; color: white;" id="summary-requests">1,371</div>
+              </div>
+ 
+              <!-- 总成本卡片 -->
+              <div class="stat-sub-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px;">
+                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">总成本</div>
+                <div style="font-size: 26px; font-weight: 800; color: #00e676;" id="summary-cost">$0.0000</div>
+              </div>
+            </div>
+ 
+            <!-- 子细分指标排 -->
+            <div class="stats-sub-row" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 12px;">
+              <div class="stat-mini-pill" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px;">
+                <div style="font-size: 10px; color: var(--text-secondary);">📥 新增输入</div>
+                <div style="font-size: 14px; font-weight: 700; margin-top: 4px; color: white;" id="sub-input">1.90 亿</div>
+              </div>
+              <div class="stat-mini-pill" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px;">
+                <div style="font-size: 10px; color: var(--text-secondary);">📤 Output</div>
+                <div style="font-size: 14px; font-weight: 700; margin-top: 4px; color: white;" id="sub-output">34.9 万</div>
+              </div>
+              <div class="stat-mini-pill" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px;">
+                <div style="font-size: 10px; color: var(--text-secondary);">📄 创建</div>
+                <div style="font-size: 14px; font-weight: 700; margin-top: 4px; color: var(--text-secondary);" id="sub-create">N/A</div>
+              </div>
+              <div class="stat-mini-pill" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px;">
+                <div style="font-size: 10px; color: var(--text-secondary);">🎯 命中</div>
+                <div style="font-size: 14px; font-weight: 700; margin-top: 4px; color: white;" id="sub-hit">365.8 万</div>
+              </div>
+              <div class="stat-mini-pill" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px;">
+                <div style="font-size: 10px; color: var(--text-secondary); display: flex; justify-content: space-between;">
+                  <span>缓存命中率</span>
+                  <span style="color: #00e676; font-weight: bold;" id="hit-rate-val">1.9%</span>
+                </div>
+                <div style="margin-top: 6px; background: rgba(255,255,255,0.08); height: 4px; border-radius: 2px; overflow: hidden;">
+                  <div style="background: #00e676; width: 1.9%; height: 100%;" id="hit-rate-bar"></div>
+                </div>
+              </div>
+            </div>
+ 
+            <!-- 2. 使用趋势波浪折线图 -->
+            <div class="chart-panel-large" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; margin-bottom: 12px; display: flex; flex-direction: column;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">使用趋势</div>
+                <div style="font-size: 10px; color: var(--text-secondary);">当前展示: 当天 24小时走势</div>
+              </div>
+              
+              <!-- 平滑 SVG 大曲线图容器 -->
+              <div class="svg-chart-container" id="stats-wave-chart-box" style="height: 200px; width: 100%; position: relative;">
+                <!-- 由 JS 动态渲染的平滑 Bezier SVG 图表 -->
+              </div>
+ 
+              <!-- 图表图例 -->
+              <div class="chart-legends" style="display: flex; justify-content: center; gap: 14px; margin-top: 12px; font-size: 10px; color: var(--text-secondary);">
+                <span style="display: flex; align-items: center; gap: 4px;"><i style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #ff5252;"></i>成本</span>
+                <span style="display: flex; align-items: center; gap: 4px;"><i style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #ff9100;"></i>缓存创建</span>
+                <span style="display: flex; align-items: center; gap: 4px;"><i style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #2979ff;"></i>缓存命中</span>
+                <span style="display: flex; align-items: center; gap: 4px;"><i style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #00e676;"></i>输入</span>
+                <span style="display: flex; align-items: center; gap: 4px;"><i style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-color);"></i>输出</span>
+              </div>
+            </div>
+ 
+            <!-- 3. 底部多维切页与日志列表 -->
+            <div class="stats-tabs-section" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; margin-bottom: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                <div class="stats-sub-tabs" style="display: flex; gap: 6px;">
+                  <button type="button" class="btn-cancel active" id="btn-stats-tab-logs" style="margin-top: 0; padding: 5px 14px; font-size: 11px; background: var(--accent-color); color: white; border-color: transparent;">📋 请求日志</button>
+                  <button type="button" class="btn-cancel" id="btn-stats-tab-providers" style="margin-top: 0; padding: 5px 14px; font-size: 11px;">🔌 Provider 统计</button>
+                  <button type="button" class="btn-cancel" id="btn-stats-tab-models" style="margin-top: 0; padding: 5px 14px; font-size: 11px;">🤖 模型统计</button>
+                </div>
+              </div>
+ 
+              <!-- 数据列表面板 -->
+              <div id="stats-data-table-container" style="max-height: 220px; overflow-y: auto;">
+                <!-- 动态表格 -->
               </div>
             </div>
           </div>
