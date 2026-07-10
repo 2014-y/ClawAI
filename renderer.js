@@ -660,6 +660,19 @@ async function renderUsageCharts() {
 
     // 更新界面核心汇总卡片的数字看板
     document.getElementById('summary-tokens').innerText = stats.total_tokens.toLocaleString();
+    const tokensApprox = document.getElementById('summary-tokens-approx');
+    if (tokensApprox) {
+        if (stats.total_tokens < 10000) {
+            tokensApprox.style.display = 'none';
+        } else {
+            tokensApprox.style.display = 'inline';
+            if (stats.total_tokens >= 100000000) {
+                tokensApprox.innerText = `≈ ${(stats.total_tokens / 100000000).toFixed(2)} 亿`;
+            } else {
+                tokensApprox.innerText = `≈ ${(stats.total_tokens / 10000).toFixed(1)} 万`;
+            }
+        }
+    }
     document.getElementById('summary-requests').innerText = stats.total_requests.toLocaleString();
     document.getElementById('summary-cost').innerText = `$${stats.total_cost.toFixed(4)}`;
     document.getElementById('sub-input').innerText = stats.sub_input_tokens >= 100000000 
