@@ -25,29 +25,7 @@ if not exist "%USERPROFILE%\.openclaw" (
 
 :: === ??????????????????? key? ===
 set "CONFIG_FILE=%USERPROFILE%\.openclaw\openclaw.json"
-if exist "%CONFIG_FILE%" (
-    set "NEED_FIX=0"
-    :: ???????
-    findstr /C:"C:\\Users\\Yuan" "%CONFIG_FILE%" >nul 2>&1
-    if not errorlevel 1 set "NEED_FIX=1"
-    :: ?????????????????????
-    findstr /C:"YOUR_*_API_KEY_HERE" "%CONFIG_FILE%" >nul 2>&1
-    if not errorlevel 1 set "NEED_FIX=1"
-    
-    if "%NEED_FIX%"=="1" (
-        if exist "%SCRIPT_DIR%config\openclaw.json.example" (
-            copy /Y "%SCRIPT_DIR%config\openclaw.json.example" "%CONFIG_FILE%" >nul
-        )
-    )
-)
-
-:: === ?????????????????===
-set "FIX_NEEDED=0"
-if exist "%CONFIG_FILE%" (
-    findstr /C:"plugins.allow" "%CONFIG_FILE%" >nul 2>&1
-    if errorlevel 1 set "FIX_NEEDED=1"
-)
-if "%FIX_NEEDED%"=="1" (
+if not exist "%CONFIG_FILE%" (
     if exist "%SCRIPT_DIR%config\openclaw.json.example" (
         copy /Y "%SCRIPT_DIR%config\openclaw.json.example" "%CONFIG_FILE%" >nul
     )

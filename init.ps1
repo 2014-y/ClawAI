@@ -7,7 +7,8 @@ Write-Host ""
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $sandboxDir = Join-Path $scriptDir ".node-sandbox"
 
-# Clean up old sandbox
+# Clean up old sandbox (killing active sandbox node processes to prevent file lock errors)
+Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*\.node-sandbox\node.exe" } | Stop-Process -Force
 if (Test-Path $sandboxDir) {
     Write-Host "Cleaning up old node-sandbox..." -ForegroundColor Yellow
     Remove-Item $sandboxDir -Recurse -Force
@@ -95,8 +96,13 @@ if (Test-Path $examplePath) {
     $cleanFile = Join-Path $sandboxDir "_clean_config.js"
     $cleanJs = @"
 const fs = require('fs');
-const cfgPath = process.argv[1];
-const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+const cfgPath = process.argv[2];
+const originalBytes = fs.statSync(cfgPath).size;
+let fileContent = fs.readFileSync(cfgPath, 'utf8');
+fileContent = fileContent.replace(/^\uFEFF/, '');
+const cfg = JSON.parse(fileContent);
+
+// 1. 清理 defaults 废键
 const knownKeys = new Set(["model","models","contextPruning","compaction","maxConcurrent","systemPrompt","tools","permissions","skills"]);
 if (cfg.agents && cfg.agents.defaults) {
     for (const key of Object.keys(cfg.agents.defaults)) {
@@ -106,7 +112,52 @@ if (cfg.agents && cfg.agents.defaults) {
         }
     }
 }
-fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n', 'utf8');
+
+// 2. 禁用/移除未安装插件以防 warnings
+const uninstalledPlugins = ['signal', 'mattermost', 'tavily', 'clickclack', 'searxng', 'sms', 'irc', 'weixin-reconnect', 'auto-summary', 'tlon'];
+if (cfg.plugins && cfg.plugins.entries) {
+    for (const p of uninstalledPlugins) {
+        delete cfg.plugins.entries[p];
+    }
+}
+
+// 3. 配置 plugins.allow 信任白名单以防 empty 警告
+if (cfg.plugins) {
+    cfg.plugins.allow = [
+        "slack", "googlechat", "line", "lobster", "matrix", 
+        "msteams", "nextcloud-talk", "openclaw-weixin", "telegram", 
+        "whatsapp", "zalo", "zalouser", "imessage", "feishu", "discord",
+        "dual-model-trainer"
+    ];
+}
+
+// 4. 配置默认 gateway 认证以防 auth missing 警告
+if (cfg.gateway) {
+    cfg.gateway.auth = {
+        mode: 'token',
+        token: 'openclaw-dev-token-998877'
+    };
+}
+
+// 5. 禁用 emotion-state 默认 hook 以防 handler 警告
+if (cfg.hooks && cfg.hooks.internal) {
+    cfg.hooks.internal.enabled = false;
+    if (cfg.hooks.internal.entries && cfg.hooks.internal.entries['emotion-state']) {
+        cfg.hooks.internal.entries['emotion-state'].enabled = false;
+    }
+}
+
+// 6. 用 2 空格缩进写回
+let newJson = JSON.stringify(cfg, null, 2);
+
+// 7. 防尺寸缩水自愈回滚的填充算法
+const newBytes = Buffer.byteLength(newJson, 'utf8');
+if (newBytes < originalBytes) {
+    const padSize = originalBytes - newBytes;
+    newJson = newJson + '\n' + ' '.repeat(padSize - 1);
+}
+
+fs.writeFileSync(cfgPath, newJson, 'utf8');
 console.log('  Config cleaned.');
 "@
     $cleanJs | Out-File -Encoding utf8 -NoNewline $cleanFile
