@@ -73,8 +73,8 @@ body {
 
 /* 无边框视窗容器 */
 .app-container {
-  width: 1120px;
-  height: 760px;
+  width: 100vw;
+  height: 100vh;
   background: var(--bg-panel);
   backdrop-filter: blur(25px);
   -webkit-backdrop-filter: blur(25px);
@@ -340,6 +340,7 @@ body {
   border-radius: 12px;
   padding: 16px;
   min-height: 0;
+  min-width: 0; /* 强制防止被超长日志行强行撑开宽度，从而挤压右边卡片 */
 }
 
 .log-terminal {
@@ -350,6 +351,7 @@ body {
   color: #c4b9d0;
   overflow-y: auto;
   white-space: pre-wrap;
+  word-break: break-all; /* 强制无空格的长英文字符串（如绝对路径）折行，防止撑大窗口 */
   user-select: text;
   min-height: 0;
 }

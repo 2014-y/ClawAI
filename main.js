@@ -30,8 +30,8 @@ function createWindow() {
         width: 1120,
         height: 760,
         frame: false, // 无边框窗口
-        resizable: false,
-        maximizable: false,
+        resizable: true, // 允许用户自定义拖拽放大缩小窗口
+        maximizable: true, // 允许最大化
         transparent: true, // 半透明支持
         icon: path.join(__dirname, 'config', 'icon.jpg'), // 窗口图标
         webPreferences: {
