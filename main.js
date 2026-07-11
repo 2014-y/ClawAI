@@ -48,6 +48,7 @@ function createWindow() {
         frame: false, // 无边框窗口
         resizable: true, // 允许用户自定义拖拽放大缩小窗口
         maximizable: true, // 允许最大化
+        show: false, // 默认隐藏，在 ready-to-show 时一次性优雅展出，防止启动黑屏闪烁
         backgroundColor: '#0d0b18', // 曜石黑暗色底底色，平滑窗口拉起首屏加载
         icon: path.join(__dirname, 'config', 'icon.jpg'), // 窗口图标
         webPreferences: {
@@ -66,6 +67,11 @@ function createWindow() {
     const resolvedPath = path.resolve(__dirname, 'index.html');
 
     mainWindow.loadFile('index.html');
+
+    // 🌟 在 Chromium 首屏完全解析并绘制就绪后才弹出，实现 100% 无黑屏白屏瞬间秒开！
+    mainWindow.once('ready-to-show', () => {
+        mainWindow.show();
+    });
 
     mainWindow.webContents.on('did-finish-load', async () => {
         try {
