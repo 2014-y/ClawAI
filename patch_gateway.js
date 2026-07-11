@@ -157,12 +157,15 @@ function wrapFetch(originalFetch) {
         if (isCompletions) {
             try {
                 const response = await originalFetch.apply(this, arguments);
-                const cloneRes = response.clone();
-                const elapsed = Date.now() - startMs;
-                
-                cloneRes.text().then(bodyText => {
-                    parseAndSaveCompletionsLog(bodyText, url, elapsed);
-                }).catch(() => {});
+                const contentType = response.headers.get('content-type') || '';
+                if (!contentType.includes('text/event-stream')) {
+                    const cloneRes = response.clone();
+                    const elapsed = Date.now() - startMs;
+                    
+                    cloneRes.text().then(bodyText => {
+                        parseAndSaveCompletionsLog(bodyText, url, elapsed);
+                    }).catch(() => {});
+                }
                 
                 return response;
             } catch (err) {
