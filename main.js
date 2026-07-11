@@ -297,7 +297,7 @@ ipcMain.on('gateway-action', (event, action) => {
                 // 实时保存流日志用于诊断
                 try {
                     require('fs').appendFileSync(
-                        require('path').join(__dirname, 'gateway_stdout.log'),
+                        require('path').join(CONFIG_DIR, 'gateway_stdout.log'),
                         text,
                         'utf8'
                     );
@@ -449,7 +449,7 @@ ipcMain.handle('wechat-check-status', async () => {
 // 读取本地持久化系统日志 gateway_stdout.log (支持提取最近 256KB 内容，防撑爆渲染进程)
 ipcMain.handle('read-system-logs', async () => {
     try {
-        const logPath = path.join(__dirname, 'gateway_stdout.log');
+        const logPath = path.join(CONFIG_DIR, 'gateway_stdout.log');
         if (fs.existsSync(logPath)) {
             const stats = fs.statSync(logPath);
             const fd = fs.openSync(logPath, 'r');
@@ -468,7 +468,7 @@ ipcMain.handle('read-system-logs', async () => {
 // 清空本地持久化系统日志 gateway_stdout.log
 ipcMain.handle('clear-system-logs', async () => {
     try {
-        const logPath = path.join(__dirname, 'gateway_stdout.log');
+        const logPath = path.join(CONFIG_DIR, 'gateway_stdout.log');
         if (fs.existsSync(logPath)) {
             fs.writeFileSync(logPath, '', 'utf8');
         }
@@ -597,7 +597,7 @@ ipcMain.handle('get-dashboard-url', async () => {
         return global.latestAcpDashboardUrl;
     }
     try {
-        const logPath = path.join(__dirname, 'gateway_stdout.log');
+        const logPath = path.join(CONFIG_DIR, 'gateway_stdout.log');
         if (fs.existsSync(logPath)) {
             const logContent = fs.readFileSync(logPath, 'utf8');
             const matches = logContent.match(/https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):\d+\/acp\/[^\s"'\n]+/g);
@@ -642,7 +642,7 @@ ipcMain.handle('open-external', async (event, url) => {
 
             // 次优先：从本地持久化日志流中扫描是否有最近一次网关启动时输出的免密登录链接
             try {
-                const logPath = path.join(__dirname, 'gateway_stdout.log');
+                const logPath = path.join(CONFIG_DIR, 'gateway_stdout.log');
                 if (fs.existsSync(logPath)) {
                     const logContent = fs.readFileSync(logPath, 'utf8');
                     const matches = logContent.match(/https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):\d+\/acp\/[^\s"'\n]+/g);
