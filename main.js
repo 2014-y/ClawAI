@@ -284,10 +284,15 @@ ipcMain.on('gateway-action', (event, action) => {
             const forkOptions = {
                 cwd: CONFIG_DIR,
                 stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
-                execArgv: ['--require', patchPath]
+                execArgv: ['--require', patchPath],
+                env: { ...process.env } // 拷贝当前环境变量以便注入沙箱路径
             };
             if (fs.existsSync(nodeExePath)) {
                 forkOptions.execPath = nodeExePath;
+                const sandboxDir = path.dirname(nodeExePath);
+                const pathKey = process.platform === 'win32' ? 'Path' : 'PATH';
+                const originalPath = process.env[pathKey] || '';
+                forkOptions.env[pathKey] = `${sandboxDir}${path.delimiter}${originalPath}`;
             }
 
             // 启动子进程运行网关
