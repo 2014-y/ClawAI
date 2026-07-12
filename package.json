@@ -67,7 +67,8 @@
       "shortcutName": "ClawAI",
       "include": "config/installer.nsh",
       "installerIcon": "config/icon.ico",
-      "uninstallerIcon": "config/icon.ico"
+      "uninstallerIcon": "config/icon.ico",
+      "showDetailsPage": "show"
     },
     "files": [
       "main.js",
