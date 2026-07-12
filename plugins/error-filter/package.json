@@ -1,0 +1,12 @@
+{
+  "name": "@openclaw-plugin/error-filter",
+  "version": "1.0.0",
+  "description": "OpenClaw plugin: error-filter",
+  "main": "index.js",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
+}

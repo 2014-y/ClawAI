@@ -1,0 +1,12 @@
+{
+  "name": "@openclaw-plugin/compaction-memory-guard",
+  "version": "1.0.0",
+  "description": "OpenClaw plugin: compaction-memory-guard",
+  "main": "index.js",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
+}

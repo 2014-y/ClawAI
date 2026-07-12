@@ -1,0 +1,12 @@
+{
+  "name": "@openclaw-plugin/auto-summary",
+  "version": "1.0.0",
+  "description": "OpenClaw plugin: auto-summary",
+  "main": "index.js",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
+}

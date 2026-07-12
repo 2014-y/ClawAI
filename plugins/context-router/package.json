@@ -1,0 +1,12 @@
+{
+  "name": "@openclaw-plugin/context-router",
+  "version": "1.0.0",
+  "description": "OpenClaw plugin: context-router",
+  "main": "index.js",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
+}

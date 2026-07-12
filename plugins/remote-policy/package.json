@@ -1,0 +1,12 @@
+{
+  "name": "@openclaw-plugin/remote-policy",
+  "version": "1.0.0",
+  "description": "OpenClaw plugin: remote-policy",
+  "main": "index.js",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
+}

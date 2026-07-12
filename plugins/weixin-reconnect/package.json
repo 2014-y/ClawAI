@@ -1,0 +1,12 @@
+{
+  "name": "@openclaw-plugin/weixin-reconnect",
+  "version": "1.0.0",
+  "description": "OpenClaw plugin: weixin-reconnect",
+  "main": "index.js",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
+}

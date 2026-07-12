@@ -1,0 +1,12 @@
+{
+  "name": "@openclaw-plugin/disk-compact",
+  "version": "1.0.0",
+  "description": "OpenClaw plugin: disk-compact",
+  "main": "index.js",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
+}

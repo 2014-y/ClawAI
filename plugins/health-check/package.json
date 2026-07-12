@@ -1,0 +1,12 @@
+{
+  "name": "@openclaw-plugin/health-check",
+  "version": "1.0.0",
+  "description": "OpenClaw plugin: health-check",
+  "main": "index.js",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
+}

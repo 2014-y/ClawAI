@@ -1,0 +1,12 @@
+{
+  "name": "@openclaw-plugin/memory-rotate",
+  "version": "1.0.0",
+  "description": "OpenClaw plugin: memory-rotate",
+  "main": "index.js",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
+}
