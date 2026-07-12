@@ -1040,10 +1040,10 @@ ipcMain.handle('start-download-update', async (event, { downloadUrl, fileName })
     
     if (!downloadUrl) return { success: false, message: '无效的下载链接' };
     
-    // 使用国内镜像加速下载
+    // 使用国内最新稳定镜像加速下载
     let finalUrl = downloadUrl;
     if (downloadUrl.startsWith('https://github.com')) {
-        finalUrl = 'https://mirror.ghproxy.com/' + downloadUrl;
+        finalUrl = 'https://ghproxy.net/' + downloadUrl;
     }
     
     const tempDir = app.getPath('temp');
@@ -1056,11 +1056,12 @@ ipcMain.handle('start-download-update', async (event, { downloadUrl, fileName })
     }
     
     return new Promise((resolve) => {
-        const fileStream = fs.createWriteStream(savePath);
+        let currentFileStream = fs.createWriteStream(savePath);
         let receivedBytes = 0;
         let totalBytes = 0;
+        let hasRetried = false;
         
-        function download(url) {
+        function download(url, fileStream) {
             const options = {
                 headers: {
                     'User-Agent': 'ClawAI-Updater'
@@ -1072,13 +1073,24 @@ ipcMain.handle('start-download-update', async (event, { downloadUrl, fileName })
                 if (res.statusCode === 301 || res.statusCode === 302) {
                     let redirectUrl = res.headers.location;
                     if (redirectUrl.startsWith('https://github.com')) {
-                        redirectUrl = 'https://mirror.ghproxy.com/' + redirectUrl;
+                        redirectUrl = 'https://ghproxy.net/' + redirectUrl;
                     }
-                    download(redirectUrl);
+                    download(redirectUrl, fileStream);
                     return;
                 }
                 
                 if (res.statusCode !== 200) {
+                    if (!hasRetried && url.includes('ghproxy.net')) {
+                        hasRetried = true;
+                        try {
+                            fileStream.close();
+                            fs.unlinkSync(savePath);
+                        } catch(e) {}
+                        const newFileStream = fs.createWriteStream(savePath);
+                        receivedBytes = 0;
+                        download(downloadUrl, newFileStream);
+                        return;
+                    }
                     fileStream.close();
                     resolve({ success: false, message: `下载失败，状态码: ${res.statusCode}` });
                     return;
@@ -1104,24 +1116,57 @@ ipcMain.handle('start-download-update', async (event, { downloadUrl, fileName })
                 });
                 
                 res.on('error', (err) => {
+                    if (!hasRetried && url.includes('ghproxy.net')) {
+                        hasRetried = true;
+                        try {
+                            fileStream.close();
+                            fs.unlinkSync(savePath);
+                        } catch(e) {}
+                        const newFileStream = fs.createWriteStream(savePath);
+                        receivedBytes = 0;
+                        download(downloadUrl, newFileStream);
+                        return;
+                    }
                     fileStream.close();
                     resolve({ success: false, message: `下载数据流出错: ${err.message}` });
                 });
             });
             
             req.on('error', (err) => {
+                if (!hasRetried && url.includes('ghproxy.net')) {
+                    hasRetried = true;
+                    try {
+                        fileStream.close();
+                        fs.unlinkSync(savePath);
+                    } catch(e) {}
+                    const newFileStream = fs.createWriteStream(savePath);
+                    receivedBytes = 0;
+                    download(downloadUrl, newFileStream);
+                    return;
+                }
                 fileStream.close();
                 resolve({ success: false, message: `请求出错: ${err.message}` });
             });
             
             req.on('timeout', () => {
                 req.destroy();
+                if (!hasRetried && url.includes('ghproxy.net')) {
+                    hasRetried = true;
+                    try {
+                        fileStream.close();
+                        fs.unlinkSync(savePath);
+                    } catch(e) {}
+                    const newFileStream = fs.createWriteStream(savePath);
+                    receivedBytes = 0;
+                    download(downloadUrl, newFileStream);
+                    return;
+                }
                 fileStream.close();
                 resolve({ success: false, message: '下载请求超时' });
             });
         }
         
-        download(finalUrl);
+        download(finalUrl, currentFileStream);
     });
 });
 
