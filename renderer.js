@@ -729,7 +729,7 @@ function setupIpcListeners() {
                 cleanLine.includes('To trust them') ||
                 cleanLine.includes('Run \'openclaw plugins') ||
                 cleanLine.includes('you trust to plugins') ||
-                (cleanLine.startsWith('o ') && (cleanLine.includes('Warning') || cleanLine.includes('Warnings'))) || // 过滤警告边框头部 (例如 o Config Warnings ---+)
+                ((cleanLine.includes('Warning') || cleanLine.includes('Warnings')) && cleanLine.includes('--')) || // 过滤警告边框头部 (包含 Warning/Warnings 且有虚线)
                 /^[+\s-]+$/.test(cleanLine) // 过滤警告边框底部或线 (由 + 和 - 组成)
             );
         });
