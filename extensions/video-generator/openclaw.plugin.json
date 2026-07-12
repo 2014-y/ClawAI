@@ -1,0 +1,18 @@
+{
+  "id": "video-generator",
+  "name": "Video Generator",
+  "description": "Generate videos via agnes-ai video API",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否启用该扩展插件"
+      }
+    }
+  }
+}
