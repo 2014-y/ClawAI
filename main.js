@@ -286,7 +286,7 @@ ipcMain.on('gateway-action', (event, action) => {
                 cwd: CONFIG_DIR,
                 stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
                 execArgv: ['--require', patchPath],
-                env: { ...process.env } // 拷贝当前环境变量以便注入沙箱路径
+                env: { ...process.env, NODE_TLS_REJECT_UNAUTHORIZED: '0' } // 拷贝当前环境变量以便注入沙箱路径
             };
             if (fs.existsSync(nodeExePath)) {
                 forkOptions.execPath = nodeExePath;
@@ -846,7 +846,8 @@ ipcMain.handle('open-external', async (event, url) => {
                 const forkOptions = {
                     stdio: 'pipe',
                     env: {
-                        ...process.env
+                        ...process.env,
+                        NODE_TLS_REJECT_UNAUTHORIZED: '0'
                     }
                 };
                 if (fs.existsSync(nodeExePath)) {
