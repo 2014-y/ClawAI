@@ -75,7 +75,7 @@
                 <path d="M11 8c-1-2-2.5-3-4.5-3.5"/>
                 <path d="M13 8c1-2 2.5-3 4.5-3.5"/>
               </svg>
-              <span data-i18n="nav.openclaw_panel">OpenClaw 面板</span>
+              <span data-i18n="nav.openclaw_panel">OpenClaw</span>
             </div>
             
             <!-- 新增“系统日志”菜单项 -->
@@ -685,6 +685,18 @@
               </div>
               <label class="switch-slider-btn" for="setting-built-in-models-toggle">
                 <input type="checkbox" id="setting-built-in-models-toggle">
+                <span class="slider-knob"></span>
+              </label>
+            </div>
+
+            <!-- 自动检查更新 -->
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 12px;">
+              <div>
+                <div style="font-size: 13px; font-weight: bold; color: white;" data-i18n="settings.auto_update.title">🔄 自动检查更新</div>
+                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;" data-i18n="settings.auto_update.desc">开启后，每次进入客户端都会自动在后台检查新版本。</div>
+              </div>
+              <label class="switch-slider-btn" for="setting-auto-update-toggle">
+                <input type="checkbox" id="setting-auto-update-toggle" checked>
                 <span class="slider-knob"></span>
               </label>
             </div>

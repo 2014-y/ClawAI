@@ -396,6 +396,21 @@ async function init() {
         });
     }
 
+    // 自动检查更新初始化与绑定
+    const settingAutoUpdateToggle = document.getElementById('setting-auto-update-toggle');
+    if (settingAutoUpdateToggle) {
+        settingAutoUpdateToggle.checked = localStorage.getItem('setting_auto_update') !== 'false';
+        settingAutoUpdateToggle.addEventListener('change', (e) => {
+            const isChecked = e.target.checked;
+            localStorage.setItem('setting_auto_update', isChecked ? 'true' : 'false');
+            if (isChecked) {
+                showToast(t('toast.auto_update.enabled'));
+            } else {
+                showToast(t('toast.auto_update.disabled'));
+            }
+        });
+    }
+
     // 绑定图片与视频生成测试连通性
     const btnTestImage = document.getElementById('btn-test-image-generator');
     if (btnTestImage) {
@@ -450,7 +465,9 @@ async function init() {
 
     // 延迟 3 秒自动静默检测一次更新
     setTimeout(() => {
-        triggerUpdateCheck(false);
+        if (localStorage.getItem('setting_auto_update') !== 'false') {
+            triggerUpdateCheck(false);
+        }
     }, 3000);
 
     // 初始化 Tab 切换
@@ -4339,6 +4356,8 @@ let updateInfo = null; // 存放当前的更新包信息
 async function triggerUpdateCheck(isManual = false) {
     if (isManual) {
         showToast('正在检查云端新版本，请稍候...');
+    } else {
+        showToast(t('toast.auto_update.checking'));
     }
     
     try {
@@ -4347,6 +4366,8 @@ async function triggerUpdateCheck(isManual = false) {
         if (!result.hasUpdate) {
             if (isManual) {
                 showToast('当前已是最新版本！');
+            } else {
+                showToast(t('toast.auto_update.latest'));
             }
             return;
         }
@@ -4371,6 +4392,8 @@ async function triggerUpdateCheck(isManual = false) {
         console.error('更新检查失败:', err);
         if (isManual) {
             showToast('更新检测失败，请检查网络是否通畅');
+        } else {
+            showToast(t('toast.auto_update.failed'));
         }
     }
 }
