@@ -717,19 +717,22 @@ function setupIpcListeners() {
         }
 
         // 🌟 过滤冗余的未安装插件警告、框架表格线与垃圾说明，使终端日志框只保留核心关键步骤
-        const filteredLines = text.split('\n').filter(line => !(
-            line.includes('|') || 
-            line.includes('plugin not installed') || 
-            line.includes('failed probing with reason') || // 过滤云电脑/虚拟网卡回环导致的 Bonjour 冲突报错
-            line.includes('Can\'t probe for a service which is announced already') ||
-            line.includes('plugins.allow is empty') || 
-            line.includes('discovered non-bundled plugins') || 
-            line.includes('To trust them') ||
-            line.includes('Run \'openclaw plugins') ||
-            line.includes('you trust to plugins') ||
-            (line.trim().startsWith('o ') && (line.includes('Warning') || line.includes('Warnings'))) || // 过滤警告边框头部 (例如 o Config Warnings ---+)
-            /^[+\s-]+$/.test(line.trim()) // 过滤警告边框底部或线 (由 + 和 - 组成)
-        ));
+        const filteredLines = text.split('\n').filter(line => {
+            const cleanLine = line.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').trim();
+            return !(
+                cleanLine.includes('|') || 
+                cleanLine.includes('plugin not installed') || 
+                cleanLine.includes('failed probing with reason') || // 过滤云电脑/虚拟网卡回环导致的 Bonjour 冲突报错
+                cleanLine.includes('Can\'t probe for a service which is announced already') ||
+                cleanLine.includes('plugins.allow is empty') || 
+                cleanLine.includes('discovered non-bundled plugins') || 
+                cleanLine.includes('To trust them') ||
+                cleanLine.includes('Run \'openclaw plugins') ||
+                cleanLine.includes('you trust to plugins') ||
+                (cleanLine.startsWith('o ') && (cleanLine.includes('Warning') || cleanLine.includes('Warnings'))) || // 过滤警告边框头部 (例如 o Config Warnings ---+)
+                /^[+\s-]+$/.test(cleanLine) // 过滤警告边框底部或线 (由 + 和 - 组成)
+            );
+        });
         
         if (filteredLines.length === 0) {
             return;
