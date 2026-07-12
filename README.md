@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/2014-y/AI-v24.13.0/releases"><img src="https://img.shields.io/github/v/release/2014-y/AI-v24.13.0?color=purple&label=Release" alt="Latest Release" /></a>
+  <a href="https://github.com/2014-y/ClawAI/releases"><img src="https://img.shields.io/github/v/release/2014-y/ClawAI?color=purple&label=Release" alt="Latest Release" /></a>
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js-%3E%3D24.x-green?logo=node.js" alt="Node Version" /></a>
   <a href="https://github.com/electron/electron"><img src="https://img.shields.io/badge/Electron-Latest-blue?logo=electron" alt="Electron Version" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-orange" alt="License" /></a>
@@ -41,8 +41,8 @@
 本项目已经过深度沙箱模块封装，提供了**一键安装程序**，无需在电脑上预先安装任何 Node.js、Python 或 Git 环境！
 
 ### 📥 1. 一键下载
-请直接前往本项目的 **[GitHub Releases 页面](https://github.com/2014-y/AI-v24.13.0/releases)** 下载最新编译好的安装程序：
-* **文件名格式**：`ClawAI Setup <版本号>.exe`
+请直接前往本项目的 **[GitHub Releases 页面](https://github.com/2014-y/ClawAI/releases)** 下载最新编译好的安装程序：
+* **文件名格式**：`ClawAI Setup <Version>.exe`
 
 ### 💿 2. 简易安装
 1. 双击运行下载好的安装程序文件。
@@ -111,8 +111,8 @@ nvm use 24
 
 ### 2. 下载并解压项目
 ```cmd
-git clone https://github.com/2014-y/AI-v24.13.0.git
-cd AI-v24.13.0
+git clone https://github.com/2014-y/ClawAI.git
+cd ClawAI
 ```
 
 ### 3. 安装 openclaw 核心
@@ -168,5 +168,5 @@ npm run app:dist
 
 ## 📬 联系与交流
 
-*   **GitHub 仓库**: [2014-y/AI-v24.13.0](https://github.com/2014-y/AI-v24.13.0)
+*   **GitHub 仓库**: [2014-y/ClawAI](https://github.com/2014-y/ClawAI)
 *   **API 提供商官网**: [agnes-ai.com](https://agnes-ai.com/zh-Hans/docs/agnes-video-v20)

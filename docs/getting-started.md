@@ -1,4 +1,4 @@
-# AI-v24.13.0 完整使用流程
+# ClawAI 完整使用流程
 
 > 从下载项目到微信聊天，跟着做就行。
 
@@ -22,7 +22,7 @@
 node -v
 `
 
-如果显示版本号（如 v24.13.0），跳过这一步。
+如果显示版本号（如 v24.x），跳过这一步。
 
 如果没有，去 https://github.com/coreybutler/nvm-windows/releases 下载 nvm-windows，安装后运行：
 
@@ -113,7 +113,7 @@ ollama pull gemma3:27b
 项目自带一个 jarvis-modelfile.txt，它定义了 Jarvis 助手的系统提示词。在 CMD 中运行：
 
 `ash
-cd D:\ai\AI-v24.13.0
+cd D:\ai\ClawAI
 ollama create jarvis -f jarvis-modelfile.txt
 `
 

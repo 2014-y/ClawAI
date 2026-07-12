@@ -18,9 +18,9 @@
 ```powershell
 npm run app:dist
 ```
-- **打包产物**：会在当前工程的 `dist/` 目录下生成一个 `ClawAI Setup 1.0.9.exe`。
+- **打包产物**：会在当前工程的 `dist/` 目录下生成一个 `ClawAI Setup <Version>.exe`。
 - **零环境支持原理**：该打包机制会完美排除打包工具自身的多余代码，但会高压缩地将 `.node-sandbox/`（内置独立 Node 运行时）、`node_modules/`（含 openclaw 和 40+ 插件依赖）和配置模板封入安装包中。
-- **白机部署**：白机用户拿到 `ClawAI Setup 1.0.9.exe` 双击安装后，应用会在首次启动时自动建立用户主目录的 `.openclaw/` 环境，**直接即可双击拉起网关运行，100% 免配置、免安装全局 Node**！
+- **白机部署**：白机用户拿到 `ClawAI Setup <Version>.exe` 双击安装后，应用会在首次启动时自动建立用户主目录的 `.openclaw/` 环境，**直接即可双击拉起网关运行，100% 免配置、免安装全局 Node**！
 
 ---
 
@@ -32,12 +32,12 @@ npm run app:dist
 2. 安装 nvm-setup.exe
 3. 验证: `nvm version`
 
-### 第二步：安装 Node.js v24.13.0
+### 第二步：安装 Node.js v24.x
 
 ```powershell
-nvm install 24.13.0
-nvm use 24.13.0
-node --version  # 应显示 v24.13.0
+nvm install 24
+nvm use 24
+node --version  # 应显示 v24.x
 ```
 
 ### 第三步：安装全局依赖
@@ -55,7 +55,7 @@ npm install -g open-computer-use@0.1.54
 ### 第五步：配置 API Key
 
 ```powershell
-cd AI-v24.13.0-开源版
+cd ClawAI
 copy config\openclaw.json.example openclaw.json
 notepad openclaw.json
 # 将 YOUR_AGNES_API_KEY_HERE 替换为你的实际 Key

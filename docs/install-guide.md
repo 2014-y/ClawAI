@@ -1,6 +1,6 @@
-# 安装指南
+# ClawAI 安装指南
 
-> 从零开始，一步步把 AI-v24.13.0 跑起来。
+> 从零开始，一步步把 ClawAI 跑起来。
 
 ---
 
@@ -30,7 +30,7 @@
 
 ## 第一步：安装 Node.js
 
-AI-v24.13.0 需要 Node.js v24.x 才能运行。
+ClawAI 需要 Node.js v24.x 才能运行。
 
 ### 方法一：nvm-windows（推荐）
 
@@ -94,16 +94,16 @@ npm -v
 
 ### 方式一：下载 ZIP
 
-1. 浏览器访问：https://github.com/2014-y/AI-v24.13.0
+1. 浏览器访问：https://github.com/2014-y/ClawAI
 2. 点击绿色 **"Code"** 按钮
 3. 选择 **"Download ZIP"**
-4. 解压到任意目录（如 D:\ai\AI-v24.13.0）
+4. 解压到任意目录（如 D:\ai\ClawAI）
 
 ### 方式二：Git clone
 
-`ash
-git clone https://github.com/2014-y/AI-v24.13.0.git
-cd AI-v24.13.0
+` ash
+git clone https://github.com/2014-y/ClawAI.git
+cd ClawAI
 `
 
 ---
@@ -160,7 +160,7 @@ init.bat 会自动完成：
 打开 CMD，进入项目目录：
 
 `ash
-cd D:\ai\AI-v24.13.0
+cd D:\ai\ClawAI
 npm install -g openclaw@2026.6.11
 `
 
