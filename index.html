@@ -30,8 +30,8 @@
           <div class="status-badge-container" id="tour-status">
             <div class="status-dot" id="status-light"></div>
             <div class="status-text-zone">
-              <h4>网关通道状态</h4>
-              <p id="status-label">未启用</p>
+              <h4 data-i18n="sidebar.status_title">网关通道状态</h4>
+              <p id="status-label" data-i18n="sidebar.status.stopped">未启用</p>
             </div>
             <!-- 未启用状态下显示的应用图标 -->
             <img src="config/icon.png" class="status-app-icon" id="sidebar-status-icon" style="width: 24px; height: 24px; border-radius: 4px; object-fit: cover; margin-left: auto; transition: all 0.3s ease;">
@@ -43,23 +43,23 @@
           <nav class="sidebar-nav">
             <div class="nav-item active" data-tab="console-view" id="tour-nav-console">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="15" x2="23" y2="15"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="15" x2="4" y2="15"/></svg>
-              控制台
+              <span data-i18n="nav.console">控制台</span>
             </div>
             <div class="nav-item" data-tab="chat-view" id="tour-nav-chat">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-              模型会话
+              <span data-i18n="nav.chat">模型会话</span>
             </div>
             <div class="nav-item" data-tab="config-view" id="tour-nav-config">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8V5"/><circle cx="12" cy="4" r="1"/><circle cx="8.5" cy="13" r="1.5" fill="currentColor" stroke="none"/><circle cx="15.5" cy="13" r="1.5" fill="currentColor" stroke="none"/><path d="M9 17h6"/></svg>
-              模型配置
+              <span data-i18n="nav.config">模型配置</span>
             </div>
             <div class="nav-item" data-tab="plugins-view" id="tour-nav-plugins">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/></svg>
-              插件管理
+              <span data-i18n="nav.plugins">插件管理</span>
             </div>
             <div class="nav-item" data-tab="dashboard-view" id="tour-nav-stats">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-              用量监控
+              <span data-i18n="nav.stats">用量监控</span>
             </div>
             <div class="nav-item" data-tab="openclaw-panel-view" id="btn-nav-openclaw-web">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -75,22 +75,22 @@
                 <path d="M11 8c-1-2-2.5-3-4.5-3.5"/>
                 <path d="M13 8c1-2 2.5-3 4.5-3.5"/>
               </svg>
-              OpenClaw 面板
+              <span data-i18n="nav.openclaw_panel">OpenClaw 面板</span>
             </div>
             
             <!-- 新增“系统日志”菜单项 -->
             <div class="nav-item" data-tab="system-logs-view" id="tour-nav-system-logs">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-              系统日志
+              <span data-i18n="nav.system_logs">系统日志</span>
             </div>
-
+ 
             <div class="nav-item" data-tab="settings-view" id="tour-nav-settings">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-              系统设置
+              <span data-i18n="nav.settings">系统设置</span>
             </div>
             <div class="nav-item" data-tab="about-view" id="tour-nav-about">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              关于AI助手
+              <span data-i18n="nav.about">关于AI助手</span>
             </div>
           </nav>
         </div>
@@ -114,8 +114,8 @@
         <section class="tab-pane active" id="console-view">
           <div class="view-header" style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-              <h2 style="margin: 0;">网关控制台</h2>
-              <p style="margin: 4px 0 0 0;">实时监控本地 AI 助手的消息处理流与日志输出</p>
+              <h2 style="margin: 0;" data-i18n="console.title">网关控制台</h2>
+              <p style="margin: 4px 0 0 0;" data-i18n="console.desc">实时监控本地 AI 助手的消息处理流与日志输出</p>
             </div>
             <!-- 右上角科技风实时监控时钟 -->
             <div class="console-clock-zone" style="text-align: right; font-family: var(--font-mono); line-height: 1.2; user-select: none;">
@@ -139,16 +139,14 @@
                  <path d="M42 54 Q 50 58 58 54" stroke-width="2" stroke-linecap="round"/>
                  <rect x="42" y="65" width="16" height="8" rx="2" stroke-width="2"/>
                  <path d="M22 82 C 22 75, 78 75, 78 82" stroke-width="2" stroke-linecap="round"/>
-               </svg>
-               <div class="log-terminal" id="log-terminal-output">&gt;&gt;&gt; AI-Assistant Local Daemon Initialized.
-&gt;&gt;&gt; [系统状态] 核心进程检测完成，当前处于【已停止】闲置状态。
-&gt;&gt;&gt; [操作指引] 请点击右侧“启动网关”按钮，拉起本地 AI 服务总线...</div>
+                </svg>
+                <div class="log-terminal" id="log-terminal-output"><div data-i18n="console.log.init">&gt;&gt;&gt; AI-Assistant Local Daemon Initialized.</div><div data-i18n="console.log.stopped">&gt;&gt;&gt; [系统状态] 核心进程检测完成，当前处于【已停止】闲置状态。</div><div data-i18n="console.log.guide">&gt;&gt;&gt; [操作指引] 请点击右侧“启动网关”按钮，拉起本地 AI 服务总线...</div></div>
                <div class="terminal-progress-container" id="terminal-progress-bar-container" style="display: none;">
                  <div class="terminal-progress-track">
                    <div class="terminal-progress-fill" id="terminal-progress-bar-fill"></div>
                  </div>
                  <div class="terminal-progress-text">
-                   <span id="terminal-progress-bar-text">网关正在启动中...</span>
+                   <span id="terminal-progress-bar-text" data-i18n="console.progress.starting">网关正在启动中...</span>
                    <span id="terminal-progress-bar-percent">0%</span>
                  </div>
                </div>
@@ -163,50 +161,50 @@
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" id="btn-icon-stop" style="display: none;">
                   <rect x="4" y="4" width="16" height="16" rx="2" ry="2"/>
                 </svg>
-                <span id="btn-label-text">启动网关</span>
+                <span id="btn-label-text" data-i18n="console.btn.start">启动网关</span>
               </button>
               
               <div class="console-stats-grid">
                 <div class="stat-card-mini">
-                  <span>网关监听端口</span>
+                  <span data-i18n="console.port">网关监听端口</span>
                   <div class="stat-card-name-val" id="stat-port">18789</div>
                 </div>
                 <div class="stat-card-mini">
-                  <span>运行内存占用</span>
+                  <span data-i18n="console.mem">运行内存占用</span>
                   <div class="stat-card-name-val" id="stat-mem">-- MB</div>
                 </div>
                 <div class="stat-card-mini">
-                  <span>网关运行时间</span>
+                  <span data-i18n="console.uptime">网关运行时间</span>
                   <div class="stat-card-name-val" id="stat-uptime">--:--:--</div>
                 </div>
                 <div class="stat-card-mini">
-                  <span>今日请求次数</span>
+                  <span data-i18n="console.today_requests">今日请求次数</span>
                   <div class="stat-card-name-val" id="stat-total-requests">0 次</div>
                 </div>
                 <div class="stat-card-mini" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 48px;">
-                  <span style="font-size: 10px; color: var(--text-secondary); margin-bottom: 2px;">微信通道状态</span>
-                  <div class="stat-card-name-val" id="stat-wechat-status" style="font-size: 13px; font-weight: bold; color: #ff5252;">未绑定</div>
+                  <span style="font-size: 10px; color: var(--text-secondary); margin-bottom: 2px;" data-i18n="console.wechat_status_title">微信通道状态</span>
+                  <div class="stat-card-name-val" id="stat-wechat-status" style="font-size: 13px; font-weight: bold; color: #ff5252;" data-i18n="wechat.status.unbound">未绑定</div>
                 </div>
               </div>
               <div class="wechat-control-group" style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px; width: 100%;">
-                <button class="btn-wechat-bind" id="wechat-bind-btn" title="点击手动生成登录二维码，以绑定微信" style="width: 100%;">
+                <button class="btn-wechat-bind" id="wechat-bind-btn" title="点击手动生成登录二维码，以绑定微信" style="width: 100%;" data-i18n="console.wechat_btn.bind">
                   🔑 绑定微信
                 </button>
                 
                 <!-- 微信绑定详细信息容器，默认隐藏 -->
                 <div id="wechat-details-panel" style="display: none; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; font-size: 11px; margin-bottom: 4px; width: 100%; box-sizing: border-box; line-height: 1.6; color: var(--text-secondary); text-align: left;">
-                  <div style="font-weight: bold; color: var(--text-primary); margin-bottom: 6px; border-bottom: 1px dashed rgba(255,255,255,0.08); padding-bottom: 4px; display: flex; align-items: center; gap: 4px;">👤 绑定账户凭证</div>
-                  <div><span style="color: var(--text-secondary);">账户标识: </span><span id="wechat-detail-id" style="font-family: var(--font-mono); color: white; font-weight: bold;">--</span></div>
-                  <div><span style="color: var(--text-secondary);">绑定时间: </span><span id="wechat-detail-time" style="color: white;">--</span></div>
-                  <div><span style="color: var(--text-secondary);">通道协议: </span><span style="color: #b388ff; font-weight: bold;">WeChat / WA (iLink)</span></div>
+                  <div style="font-weight: bold; color: var(--text-primary); margin-bottom: 6px; border-bottom: 1px dashed rgba(255,255,255,0.08); padding-bottom: 4px; display: flex; align-items: center; gap: 4px;" data-i18n="console.wechat_title.credentials">👤 绑定账户凭证</div>
+                  <div><span style="color: var(--text-secondary);" data-i18n="console.wechat_label.id">账户标识: </span><span id="wechat-detail-id" style="font-family: var(--font-mono); color: white; font-weight: bold;">--</span></div>
+                  <div><span style="color: var(--text-secondary);" data-i18n="console.wechat_label.time">绑定时间: </span><span id="wechat-detail-time" style="color: white;">--</span></div>
+                  <div><span style="color: var(--text-secondary);" data-i18n="console.wechat_label.protocol">通道协议: </span><span style="color: #b388ff; font-weight: bold;">WeChat / WA (iLink)</span></div>
                 </div>
 
-                <button class="btn-wechat-unbind" id="wechat-unbind-btn" title="点击清空微信登录缓存，以解绑微信号" style="margin-top: 0; width: 100%;">
+                <button class="btn-wechat-unbind" id="wechat-unbind-btn" title="点击清空微信登录缓存，以解绑微信号" style="margin-top: 0; width: 100%;" data-i18n="console.wechat_btn.unbind">
                   💬 微信解绑
                 </button>
               </div>
               <div class="app-uptime-zone">
-                <span>应用已运行时间:</span>
+                <span data-i18n="console.app_uptime">应用已运行时间:</span>
                 <span id="stat-app-uptime">00:00:00</span>
               </div>
             </div>
@@ -219,7 +217,7 @@
           <div class="chat-header-bar" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
             <div style="display: flex; align-items: center; gap: 10px;">
               <div class="status-dot running" style="width: 8px; height: 8px;"></div>
-              <span style="font-size: 14px; font-weight: 700; color: white;">模型会话测试舱</span>
+              <span style="font-size: 14px; font-weight: 700; color: white;" data-i18n="chat.title">模型会话测试舱</span>
             </div>
             
             <div style="display: flex; align-items: center; gap: 12px;">
@@ -232,7 +230,7 @@
               </button>
               <button id="btn-clear-chat-history" title="清除会话缓存" onclick="clearChatHistory()" style="background: rgba(255, 82, 82, 0.08); border: 1px solid rgba(255, 82, 82, 0.25); color: #ff7070; border-radius: 8px; height: 32px; padding: 0 12px; display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; transition: all 0.2s ease; white-space: nowrap;" onmouseover="this.style.background='rgba(255,82,82,0.18)';this.style.borderColor='rgba(255,82,82,0.5)'" onmouseout="this.style.background='rgba(255,82,82,0.08)';this.style.borderColor='rgba(255,82,82,0.25)'">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                清除会话
+                <span data-i18n="chat.btn.clear">清除会话</span>
               </button>
             </div>
           </div>
@@ -243,12 +241,12 @@
             <div style="display: flex; gap: 12px; max-width: 80%; align-self: flex-start;">
               <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #8c52ff, #00d2ff); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; color: white; flex-shrink: 0; box-shadow: 0 0 10px rgba(140,82,255,0.3);">AI</div>
               <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 16px; color: var(--text-primary); font-size: 13px; line-height: 1.5; border-top-left-radius: 2px;">
-                您好！我是您的智能助手。<span id="gateway-connection-status-text" style="color: #ff9800;">当前本地的 OpenClaw 网关未启动，请前往【控制台】启动网关。</span>
+                <span data-i18n="chat.welcome.greeting">您好！我是您的智能助手。</span><span id="gateway-connection-status-text" style="color: #ff9800;">当前本地的 OpenClaw 网关未启动，请前往【控制台】启动网关。</span>
                 <br><br>
-                在这里您可以：
-                <br>💬 与当前选中的大模型进行实时对话及可用性测试；
-                <br>🖼️ 点击左下角按钮上传图片，让支持多模态的模型进行**识图对话**；
-                <br>🎨 输入指令并点击下方生图/生视频快捷键，快速体验生成式创作。
+                <span data-i18n="chat.welcome.functions">在这里您可以：</span>
+                <br>💬 <span data-i18n="chat.welcome.chat_mode">与当前选中的大模型进行实时对话及可用性测试；</span>
+                <br>🖼️ <span data-i18n="chat.welcome.image_mode">点击左下角按钮上传图片，让支持多模态的模型进行**识图对话**；</span>
+                <br>🎨 <span data-i18n="chat.welcome.generator_mode">输入指令并点击下方生图/生视频快捷键，快速体验生成式创作。</span>
               </div>
             </div>
           </div>
@@ -268,11 +266,11 @@
             <div style="display: flex; gap: 8px;">
               <button id="btn-chat-action-draw" style="background: rgba(140, 82, 255, 0.1); border: 1px solid rgba(140, 82, 255, 0.3); color: #b894ff; border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s ease;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 14.7255 3.09032 17.1962 4.85857 19C5.35654 19.5 5.25 20.5 4.5 21C3.5 21.6 3 22 3 22H12Z"/></svg>
-                🎨 智能生图 (Draw)
+                🎨 <span data-i18n="chat.btn.draw">智能生图 (Draw)</span>
               </button>
               <button id="btn-chat-action-video" style="background: rgba(0, 210, 255, 0.1); border: 1px solid rgba(0, 210, 255, 0.3); color: #7fe6ff; border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s ease;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                🎥 创意生视频 (Video)
+                🎥 <span data-i18n="chat.btn.video">创意生视频 (Video)</span>
               </button>
             </div>
 
@@ -280,12 +278,12 @@
             <div style="display: flex; gap: 8px; align-items: flex-end;">
               <!-- 附件上传 (识图) -->
               <input type="file" id="chat-file-upload-input" accept="image/*" style="display: none;">
-              <button id="btn-chat-upload-media" title="选择上传的识图图片" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-secondary); border-radius: 10px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; flex-shrink: 0;">
+              <button id="btn-chat-upload-media" title="选择上传的识图图片" data-i18n-title="chat.tooltip.upload_media" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-secondary); border-radius: 10px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; flex-shrink: 0;">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
               </button>
               
               <!-- 文本框 -->
-              <textarea id="chat-text-input" placeholder="输入对话内容... (生图指令请直接输入描述，并点击生图快捷键)" rows="1" style="flex: 1; background: rgba(14, 11, 23, 0.7) !important; border: 1px solid var(--border-color); border-radius: 10px; color: white !important; font-family: inherit; font-size: 13px; padding: 12px; outline: none; resize: none; min-height: 44px; max-height: 120px; box-sizing: border-box; transition: all 0.2s ease;"></textarea>
+              <textarea id="chat-text-input" placeholder="输入对话内容... (生图指令请直接输入描述，并点击生图快捷键)" data-i18n-placeholder="chat.placeholder.input_prompt" rows="1" style="flex: 1; background: rgba(14, 11, 23, 0.7) !important; border: 1px solid var(--border-color); border-radius: 10px; color: white !important; font-family: inherit; font-size: 13px; padding: 12px; outline: none; resize: none; min-height: 44px; max-height: 120px; box-sizing: border-box; transition: all 0.2s ease;"></textarea>
               
               <!-- 发送按钮 -->
               <button id="btn-chat-send" style="background: linear-gradient(135deg, #8c52ff, #702aff); border: none; color: white; border-radius: 10px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 15px rgba(140,82,255,0.25); flex-shrink: 0;">
@@ -299,11 +297,11 @@
         <section class="tab-pane" id="config-view">
           <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <div>
-              <h2 style="margin: 0;">网关模型配置</h2>
-              <p style="margin: 4px 0 0 0;">可视化配置多提供商 API Key 与核心模型选型</p>
+              <h2 style="margin: 0;" data-i18n="config.title">网关模型配置</h2>
+              <p style="margin: 4px 0 0 0;" data-i18n="config.desc">可视化配置多提供商 API Key 与核心模型选型</p>
             </div>
             <div>
-              <button type="button" class="btn-primary" id="config-save-btn-top" style="padding: 10px 28px; font-size: 14px; font-weight: 600; border-radius: 8px; box-shadow: var(--accent-glow); cursor: pointer;">保存配置</button>
+              <button type="button" class="btn-primary" id="config-save-btn-top" style="padding: 10px 28px; font-size: 14px; font-weight: 600; border-radius: 8px; box-shadow: var(--accent-glow); cursor: pointer;" data-i18n="config.btn.save">保存配置</button>
             </div>
           </div>
           
@@ -313,7 +311,7 @@
                 <!-- 动态提供商与模型管理看板 -->
                 <div class="form-group-section">
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                    <h3 style="margin-bottom: 0; border-left: 3px solid var(--accent-color); padding-left: 10px;">🔌 大模型厂家（提供商）管理</h3>
+                    <h3 style="margin-bottom: 0; border-left: 3px solid var(--accent-color); padding-left: 10px;" data-i18n="config.section.providers">🔌 大模型厂家（提供商）管理</h3>
                   </div>
                   
                   <!-- 动态厂家卡片列表容器 -->
@@ -321,21 +319,21 @@
                   
                   <!-- 添加厂家虚线按钮 -->
                   <div class="btn-add-provider-box" id="btn-add-provider">
-                    ➕ 添加自定义大模型提供商（厂家）
+                    ➕ <span data-i18n="config.btn.add_provider">添加自定义大模型提供商（厂家）</span>
                   </div>
                 </div>
 
                 <!-- 模型选择与权重 -->
                 <div class="form-group-section">
-                  <h3>🤖 默认模型选型</h3>
+                  <h3 data-i18n="config.section.default_models">🤖 默认模型选型</h3>
                   <div class="form-row">
                     <div class="form-field">
-                      <label for="model-primary">主用模型 (Primary Model)</label>
-                      <input type="text" id="model-primary" list="models-datalist" autocomplete="off" placeholder="请选择或输入, 例如: agnes-ai/agnes-2.0-flash">
+                      <label for="model-primary" data-i18n="config.label.primary_model">主用模型 (Primary Model)</label>
+                      <input type="text" id="model-primary" list="models-datalist" autocomplete="off" placeholder="请选择或输入, 例如: agnes-ai/agnes-2.0-flash" data-i18n-placeholder="config.placeholder.primary_model">
                     </div>
                     <div class="form-field">
-                      <label for="model-fallback">备用模型 (Fallback Model)</label>
-                      <input type="text" id="model-fallback" list="models-datalist" autocomplete="off" placeholder="请选择或输入, 例如: agnes-ai/agnes-1.5-flash">
+                      <label for="model-fallback" data-i18n="config.label.fallback_model">备用模型 (Fallback Model)</label>
+                      <input type="text" id="model-fallback" list="models-datalist" autocomplete="off" placeholder="请选择或输入, 例如: agnes-ai/agnes-1.5-flash" data-i18n-placeholder="config.placeholder.fallback_model">
                     </div>
                   </div>
                   <!-- 供模糊匹配选型的动态列表 -->
@@ -343,7 +341,7 @@
                   
                   <div class="form-row">
                     <div class="form-field half">
-                      <label for="max-concurrent">最大并发请求数 (Max Concurrent)</label>
+                      <label for="max-concurrent" data-i18n="config.label.max_concurrent">最大并发请求数 (Max Concurrent)</label>
                       <input type="number" id="max-concurrent" min="1" max="10" value="4">
                     </div>
                   </div>
@@ -351,18 +349,18 @@
 
                 <!-- 双模型教学配置 -->
                 <div class="form-group-section" id="section-dual-model-trainer">
-                  <h3>🧠 双模型教学配置 (Teach-Learn Mode)</h3>
-                  <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; margin-top: -8px;">
+                  <h3 data-i18n="config.section.dual_model">🧠 双模型教学配置 (Teach-Learn Mode)</h3>
+                  <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; margin-top: -8px;" data-i18n="config.desc.dual_model">
                     启用双模型教学时，网关将使用“教学老师模型”生成的回答，训练并让“模仿学生模型”（专属本地模型）进行 1:1 的口吻模仿
                   </p>
                   <div class="form-row">
                     <div class="form-field">
-                      <label for="model-teacher">教学老师模型 (Teacher Model - 推荐云端高智能模型)</label>
-                      <input type="text" id="model-teacher" list="models-datalist" autocomplete="off" placeholder="例如: yitong/qwen3-max 或 deepseek/deepseek-chat">
+                      <label for="model-teacher" data-i18n="config.label.teacher_model">教学老师模型 (Teacher Model - 推荐云端高智能模型)</label>
+                      <input type="text" id="model-teacher" list="models-datalist" autocomplete="off" placeholder="例如: yitong/qwen3-max 或 deepseek/deepseek-chat" data-i18n-placeholder="config.placeholder.teacher_model">
                     </div>
                     <div class="form-field">
-                      <label for="model-student">模仿学生模型 (Student Model - 专属本地模型)</label>
-                      <input type="text" id="model-student" list="models-datalist" autocomplete="off" placeholder="例如: ollama/qwen2.5:7b 或 ollama/llama3">
+                      <label for="model-student" data-i18n="config.label.student_model">模仿学生模型 (Student Model - 专属本地模型)</label>
+                      <input type="text" id="model-student" list="models-datalist" autocomplete="off" placeholder="例如: ollama/qwen2.5:7b 或 ollama/llama3" data-i18n-placeholder="config.placeholder.student_model">
                     </div>
                   </div>
                 </div>
@@ -378,45 +376,45 @@
                     <div class="form-field">
                       <label for="image-api-key">图片生成 API 密钥 (API Key)</label>
                       <div class="password-input-wrapper" style="position: relative; display: flex; align-items: center;">
-                        <input type="password" id="image-api-key" autocomplete="off" placeholder="不填则使用默认内置密钥" style="padding-right: 36px; width: 100%;">
+                        <input type="password" id="image-api-key" autocomplete="off" placeholder="不填则使用默认内置密钥" style="padding-right: 36px; width: 100%;" data-i18n-placeholder="config.placeholder.key_default">
                         <span id="btn-toggle-image-key" style="position: absolute; right: 10px; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-size: 16px; user-select: none;">👁️</span>
                       </div>
                     </div>
                     <div class="form-field">
-                      <label for="model-image">生图模型 (Image Model ID)</label>
-                      <input type="text" id="model-image" list="models-datalist" autocomplete="off" placeholder="例如: dall-e-3">
+                      <label for="model-image" data-i18n="config.label.image_model">生图模型 (Image Model ID)</label>
+                      <input type="text" id="model-image" list="models-datalist" autocomplete="off" placeholder="例如: dall-e-3" data-i18n-placeholder="config.placeholder.image_model">
                     </div>
                   </div>
                   <div style="display: flex !important; flex-direction: row !important; align-items: center !important; gap: 8px; margin-top: 12px;">
-                    <button type="button" class="btn-primary" id="btn-test-image-generator" style="margin-top: 0; padding: 0 14px; font-size: 12px; height: 32px; border-radius: 6px; white-space: nowrap;">⚡ 测试图片服务连通性</button>
-                    <button type="button" class="btn-secondary" id="btn-test-image-key" style="margin-top: 0; padding: 0 14px; font-size: 12px; height: 32px; border-radius: 6px; white-space: nowrap; background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%); border: none; color: white;">🔑 测试密钥</button>
+                    <button type="button" class="btn-primary" id="btn-test-image-generator" style="margin-top: 0; padding: 0 14px; font-size: 12px; height: 32px; border-radius: 6px; white-space: nowrap;">⚡ <span data-i18n="config.btn.test_image_service">测试图片服务连通性</span></button>
+                    <button type="button" class="btn-secondary" id="btn-test-image-key" style="margin-top: 0; padding: 0 14px; font-size: 12px; height: 32px; border-radius: 6px; white-space: nowrap; background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%); border: none; color: white;">🔑 <span data-i18n="config.btn.test_key">测试密钥</span></button>
                     <span id="test-result-image-generator" style="font-size: 12px; font-weight: bold; display: none; white-space: nowrap;"></span>
                   </div>
                 </div>
 
                 <!-- 视频生成设置 -->
                 <div class="form-group-section">
-                  <h3>🎥 视频生成服务配置 (Video Generator)</h3>
+                  <h3 data-i18n="config.section.video_generator">🎥 视频生成服务配置 (Video Generator)</h3>
                   <div class="form-row">
                     <div class="form-field">
-                      <label for="video-api-base">视频生成 API 地址 (Base URL)</label>
-                      <input type="text" id="video-api-base" autocomplete="off" placeholder="例如: https://apihub.agnes-ai.com/v1/videos">
+                      <label for="video-api-base" data-i18n="config.label.video_api_base">视频生成 API 地址 (Base URL)</label>
+                      <input type="text" id="video-api-base" autocomplete="off" placeholder="例如: https://apihub.agnes-ai.com/v1/videos" data-i18n-placeholder="config.placeholder.video_api_base">
                     </div>
                     <div class="form-field">
-                      <label for="video-api-key">视频生成 API 密钥 (API Key)</label>
+                      <label for="video-api-key" data-i18n="config.label.video_api_key">视频生成 API 密钥 (API Key)</label>
                       <div class="password-input-wrapper" style="position: relative; display: flex; align-items: center;">
-                        <input type="password" id="video-api-key" autocomplete="off" placeholder="不填则使用默认内置密钥" style="padding-right: 36px; width: 100%;">
+                        <input type="password" id="video-api-key" autocomplete="off" placeholder="不填则使用默认内置密钥" style="padding-right: 36px; width: 100%;" data-i18n-placeholder="config.placeholder.key_default">
                         <span id="btn-toggle-video-key" style="position: absolute; right: 10px; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-size: 16px; user-select: none;">👁️</span>
                       </div>
                     </div>
                     <div class="form-field">
-                      <label for="model-video">生视频模型 (Video Model ID)</label>
-                      <input type="text" id="model-video" list="models-datalist" autocomplete="off" placeholder="例如: agnes-video-v2.0">
+                      <label for="model-video" data-i18n="config.label.video_model">生视频模型 (Video Model ID)</label>
+                      <input type="text" id="model-video" list="models-datalist" autocomplete="off" placeholder="例如: agnes-video-v2.0" data-i18n-placeholder="config.placeholder.video_model">
                     </div>
                   </div>
                   <div style="display: flex !important; flex-direction: row !important; align-items: center !important; gap: 8px; margin-top: 12px;">
-                    <button type="button" class="btn-primary" id="btn-test-video-generator" style="margin-top: 0; padding: 0 14px; font-size: 12px; height: 32px; border-radius: 6px; white-space: nowrap;">⚡ 测试视频服务连通性</button>
-                    <button type="button" class="btn-secondary" id="btn-test-video-key" style="margin-top: 0; padding: 0 14px; font-size: 12px; height: 32px; border-radius: 6px; white-space: nowrap; background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%); border: none; color: white;">🔑 测试密钥</button>
+                    <button type="button" class="btn-primary" id="btn-test-video-generator" style="margin-top: 0; padding: 0 14px; font-size: 12px; height: 32px; border-radius: 6px; white-space: nowrap;">⚡ <span data-i18n="config.btn.test_video_service">测试视频服务连通性</span></button>
+                    <button type="button" class="btn-secondary" id="btn-test-video-key" style="margin-top: 0; padding: 0 14px; font-size: 12px; height: 32px; border-radius: 6px; white-space: nowrap; background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%); border: none; color: white;">🔑 <span data-i18n="config.btn.test_key">测试密钥</span></button>
                     <span id="test-result-video-generator" style="font-size: 12px; font-weight: bold; display: none; white-space: nowrap;"></span>
                   </div>
                 </div>
@@ -426,11 +424,11 @@
                   <h3>🌐 网络网关设置</h3>
                   <div class="form-row">
                     <div class="form-field">
-                      <label for="gateway-port">网关运行端口</label>
+                      <label for="gateway-port" data-i18n="config.label.gateway_port">网关运行端口</label>
                       <input type="number" id="gateway-port" min="1024" max="65535" value="18789">
                     </div>
                     <div class="form-field">
-                      <label for="gateway-token">客户端连接 Token (凭证)</label>
+                      <label for="gateway-token" data-i18n="config.label.gateway_token">客户端连接 Token (凭证)</label>
                       <input type="text" id="gateway-token" readonly>
                     </div>
                   </div>
@@ -442,16 +440,16 @@
               <!-- 右侧配置文件实时预览与手写直接修改区 -->
               <div class="config-preview-panel">
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                  <h3>📄 openclaw.json 实时预览</h3>
+                  <h3 data-i18n="config.section.json_preview">📄 openclaw.json 实时预览</h3>
                   <div style="display: flex; gap: 8px; align-items: center;">
-                    <button type="button" class="btn-secondary" id="config-reset-btn" style="padding: 0 14px; font-size: 12px; font-weight: 500; border-radius: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); color: var(--text-primary); transition: all 0.3s ease; cursor: pointer; height: 28px; line-height: 28px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; margin-top: 0;">放弃修改</button>
-                    <button type="button" class="btn-primary" id="config-save-btn" style="padding: 0 16px; font-size: 12px; font-weight: 600; border-radius: 6px; box-shadow: var(--accent-glow); cursor: pointer; height: 28px; line-height: 28px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; margin-top: 0;">保存配置</button>
-                    <span style="font-size: 11px; color: var(--text-secondary); background: rgba(255,255,255,0.06); padding: 0 8px; border-radius: 4px; font-weight: 500; height: 28px; display: inline-flex; align-items: center; box-sizing: border-box;">支持手动直接修改</span>
+                    <button type="button" class="btn-secondary" id="config-reset-btn" style="padding: 0 14px; font-size: 12px; font-weight: 500; border-radius: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); color: var(--text-primary); transition: all 0.3s ease; cursor: pointer; height: 28px; line-height: 28px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; margin-top: 0;" data-i18n="config.btn.reset">放弃修改</button>
+                    <button type="button" class="btn-primary" id="config-save-btn" style="padding: 0 16px; font-size: 12px; font-weight: 600; border-radius: 6px; box-shadow: var(--accent-glow); cursor: pointer; height: 28px; line-height: 28px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; margin-top: 0;" data-i18n="config.btn.save">保存配置</button>
+                    <span style="font-size: 11px; color: var(--text-secondary); background: rgba(255,255,255,0.06); padding: 0 8px; border-radius: 4px; font-weight: 500; height: 28px; display: inline-flex; align-items: center; box-sizing: border-box;" data-i18n="config.badge.manual_edit">支持手动直接修改</span>
                   </div>
                 </div>
-                <p style="font-size: 12px; color: var(--text-secondary); margin: 0; line-height: 1.5;">左侧表单项的改动会实时自动反映在此处；您也可以直接在下方框内手写 JSON 配置，点击保存后一并生效。</p>
-                <textarea id="config-json-preview" class="config-json-textarea" spellcheck="false" placeholder="正在读取网关配置文件..."></textarea>
-                <div id="json-format-error" class="json-error-msg">⚠️ JSON 语法格式有误，请检查大括号、逗号或双引号闭合状态。</div>
+                <p style="font-size: 12px; color: var(--text-secondary); margin: 0; line-height: 1.5;" data-i18n="config.desc.json_preview">左侧表单项的改动会实时自动反映在此处；您也可以直接在下方框内手写 JSON 配置，点击保存后一并生效。</p>
+                <textarea id="config-json-preview" class="config-json-textarea" spellcheck="false" placeholder="正在读取网关配置文件..." data-i18n-placeholder="config.placeholder.json_reading"></textarea>
+                <div id="json-format-error" class="json-error-msg" data-i18n="config.error.json_syntax">⚠️ JSON 语法格式有误，请检查大括号、逗号或双引号闭合状态。</div>
               </div>
           </div>
         </section>
@@ -459,8 +457,8 @@
         <!-- Tab 3: 插件开关 -->
         <section class="tab-pane" id="plugins-view">
           <div class="view-header">
-            <h2>功能插件开关</h2>
-            <p>一键开启或停用外部适配渠道与功能插件（修改将自动重启网关）</p>
+            <h2 data-i18n="plugins.title">功能插件开关</h2>
+            <p data-i18n="plugins.desc">一键开启或停用外部适配渠道与功能插件（修改将自动重启网关）</p>
           </div>
           
           <div class="plugins-masonry" id="tour-plugins-grid">
@@ -473,33 +471,33 @@
           <!-- 头部与工具过滤条 -->
           <div class="view-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-shrink: 0;">
             <div class="view-header">
-              <h2>使用统计</h2>
-              <p>查看 AI 模型的使用情况和成本统计</p>
+              <h2 data-i18n="stats.title">使用统计</h2>
+              <p data-i18n="stats.desc">查看 AI 模型的使用情况和成本统计</p>
             </div>
             
             <!-- 顶栏过滤工具组 -->
             <div class="stats-toolbar" style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; flex-shrink: 0;">
               <select class="toolbar-select" id="stats-source-select" style="height: 30px; font-size: 12px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); padding: 0 8px; outline: none; cursor: pointer;">
-                <option value="all">全部来源</option>
-                <option value="gateway">网关入口</option>
-                <option value="plugins">插件管道</option>
+                <option value="all" data-i18n="stats.source.all">全部来源</option>
+                <option value="gateway" data-i18n="stats.source.gateway">网关入口</option>
+                <option value="plugins" data-i18n="stats.source.plugins">插件管道</option>
               </select>
               <select class="toolbar-select" id="stats-model-select" style="height: 30px; font-size: 12px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); padding: 0 8px; outline: none; cursor: pointer;">
-                <option value="all">全部模型</option>
-                <option value="primary">主用模型</option>
-                <option value="fallback">备用模型</option>
+                <option value="all" data-i18n="stats.model.all">全部模型</option>
+                <option value="primary" data-i18n="stats.model.primary">主用模型</option>
+                <option value="fallback" data-i18n="stats.model.fallback">备用模型</option>
               </select>
               <select class="toolbar-select" id="stats-refresh-select" style="height: 30px; font-size: 12px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); padding: 0 8px; outline: none; cursor: pointer;">
-                <option value="30s">🔄 30s 刷新</option>
-                <option value="manual">手动刷新</option>
+                <option value="30s" data-i18n="stats.refresh.30s">🔄 30s 刷新</option>
+                <option value="manual" data-i18n="stats.refresh.manual">手动刷新</option>
               </select>
               <select class="toolbar-select" id="stats-time-select" style="height: 30px; font-size: 12px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); padding: 0 8px; outline: none; cursor: pointer;">
-                <option value="all">📊 全部</option>
-                <option value="today">📅 当天</option>
-                <option value="7days">最近7天</option>
+                <option value="all" data-i18n="stats.time.all">📊 全部</option>
+                <option value="today" data-i18n="stats.time.today">📅 当天</option>
+                <option value="7days" data-i18n="stats.time.7days">最近7天</option>
               </select>
               <button class="btn-primary" id="btn-stats-query" style="height: 30px; font-size: 12px; margin-top: 0; width: 92px; justify-content: center; flex-shrink: 0; white-space: nowrap; border-radius: 6px; background: linear-gradient(135deg, #8c52ff 0%, #00d2ff 100%); border: none; color: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 8px rgba(140,82,255,0.2); transition: opacity 0.2s ease;">
-                🔍 查询
+                🔍 <span data-i18n="stats.btn.query">查询</span>
               </button>
             </div>
           </div>
@@ -509,7 +507,7 @@
             <div class="stats-summary-grid" style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; margin-bottom: 12px;">
               <!-- 真实消耗大卡片 -->
               <div class="stat-main-card" style="background: rgba(140, 82, 255, 0.05); border: 1px solid rgba(140, 82, 255, 0.15); border-radius: 12px; padding: 16px; position: relative; overflow: hidden; box-shadow: 0 8px 32px rgba(140, 82, 255, 0.05);">
-                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; font-weight: 500;">真实消耗 Tokens</div>
+                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; font-weight: 500;" data-i18n="stats.summary.tokens">真实消耗 Tokens</div>
                 <div style="font-size: 26px; font-weight: 800; color: white; display: flex; align-items: baseline; gap: 8px;">
                   <span id="summary-tokens">194,010,524</span>
                   <span id="summary-tokens-approx" style="font-size: 11px; color: var(--text-secondary); font-weight: normal;"></span>
@@ -518,13 +516,13 @@
               
               <!-- 总请求数卡片 -->
               <div class="stat-sub-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px;">
-                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">总请求数</div>
+                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;" data-i18n="stats.summary.requests">总请求数</div>
                 <div style="font-size: 26px; font-weight: 800; color: white;" id="summary-requests">1,371</div>
               </div>
  
               <!-- 总成本卡片 -->
               <div class="stat-sub-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px;">
-                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">总成本</div>
+                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;" data-i18n="stats.summary.cost">总成本</div>
                 <div style="font-size: 26px; font-weight: 800; color: #00e676;" id="summary-cost">$0.0000</div>
               </div>
             </div>
@@ -532,24 +530,24 @@
             <!-- 子细分指标排 -->
             <div class="stats-sub-row" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 12px;">
               <div class="stat-mini-pill" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px;">
-                <div style="font-size: 10px; color: var(--text-secondary);">📥 新增输入</div>
+                <div style="font-size: 10px; color: var(--text-secondary);" data-i18n="stats.detail.input">📥 新增输入</div>
                 <div style="font-size: 14px; font-weight: 700; margin-top: 4px; color: white;" id="sub-input">1.90 亿</div>
               </div>
               <div class="stat-mini-pill" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px;">
-                <div style="font-size: 10px; color: var(--text-secondary);">📤 Output</div>
+                <div style="font-size: 10px; color: var(--text-secondary);" data-i18n="stats.detail.output">📤 Output</div>
                 <div style="font-size: 14px; font-weight: 700; margin-top: 4px; color: white;" id="sub-output">34.9 万</div>
               </div>
               <div class="stat-mini-pill" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px;">
-                <div style="font-size: 10px; color: var(--text-secondary);">📄 创建</div>
+                <div style="font-size: 10px; color: var(--text-secondary);" data-i18n="stats.detail.create">📄 创建</div>
                 <div style="font-size: 14px; font-weight: 700; margin-top: 4px; color: var(--text-secondary);" id="sub-create">N/A</div>
               </div>
               <div class="stat-mini-pill" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px;">
-                <div style="font-size: 10px; color: var(--text-secondary);">🎯 命中</div>
+                <div style="font-size: 10px; color: var(--text-secondary);" data-i18n="stats.detail.hit">🎯 命中</div>
                 <div style="font-size: 14px; font-weight: 700; margin-top: 4px; color: white;" id="sub-hit">365.8 万</div>
               </div>
               <div class="stat-mini-pill" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px;">
                 <div style="font-size: 10px; color: var(--text-secondary); display: flex; justify-content: space-between;">
-                  <span>缓存命中率</span>
+                  <span data-i18n="stats.detail.hit_rate">缓存命中率</span>
                   <span style="color: #00e676; font-weight: bold;" id="hit-rate-val">1.9%</span>
                 </div>
                 <div style="margin-top: 6px; background: rgba(255,255,255,0.08); height: 4px; border-radius: 2px; overflow: hidden;">
@@ -561,8 +559,8 @@
             <!-- 2. 使用趋势波浪折线图 -->
             <div class="chart-panel-large" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; margin-bottom: 12px; display: flex; flex-direction: column;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">使用趋势</div>
-                <div style="font-size: 10px; color: var(--text-secondary);">当前展示: 当天 24小时走势</div>
+                <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);" data-i18n="stats.chart.title">使用趋势</div>
+                <div style="font-size: 10px; color: var(--text-secondary);" data-i18n="stats.chart.desc">当前展示: 当天 24小时走势</div>
               </div>
               
               <!-- 平滑 SVG 大曲线图容器 -->
@@ -572,11 +570,11 @@
  
               <!-- 图表图例 -->
               <div class="chart-legends" style="display: flex; justify-content: center; gap: 14px; margin-top: 12px; font-size: 10px; color: var(--text-secondary);">
-                <span style="display: flex; align-items: center; gap: 4px;"><i style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #ff5252;"></i>成本</span>
-                <span style="display: flex; align-items: center; gap: 4px;"><i style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #ff9100;"></i>缓存创建</span>
-                <span style="display: flex; align-items: center; gap: 4px;"><i style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #2979ff;"></i>缓存命中</span>
-                <span style="display: flex; align-items: center; gap: 4px;"><i style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #00e676;"></i>输入</span>
-                <span style="display: flex; align-items: center; gap: 4px;"><i style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-color);"></i>输出</span>
+                <span style="display: flex; align-items: center; gap: 4px;"><i style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #ff5252;"></i><span data-i18n="stats.chart.legend.cost">成本</span></span>
+                <span style="display: flex; align-items: center; gap: 4px;"><i style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #ff9100;"></i><span data-i18n="stats.chart.legend.cache_create">缓存创建</span></span>
+                <span style="display: flex; align-items: center; gap: 4px;"><i style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #2979ff;"></i><span data-i18n="stats.chart.legend.cache_hit">缓存命中</span></span>
+                <span style="display: flex; align-items: center; gap: 4px;"><i style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #00e676;"></i><span data-i18n="stats.chart.legend.input">输入</span></span>
+                <span style="display: flex; align-items: center; gap: 4px;"><i style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-color);"></i><span data-i18n="stats.chart.legend.output">输出</span></span>
               </div>
             </div>
  
@@ -584,9 +582,9 @@
             <div class="stats-tabs-section" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; margin-bottom: 8px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
                 <div class="stats-sub-tabs" style="display: flex; gap: 6px;">
-                  <button type="button" class="btn-cancel active" id="btn-stats-tab-logs" style="margin-top: 0; padding: 5px 14px; font-size: 11px; background: var(--accent-color); color: white; border-color: transparent;">📋 请求日志</button>
-                  <button type="button" class="btn-cancel" id="btn-stats-tab-providers" style="margin-top: 0; padding: 5px 14px; font-size: 11px;">🔌 Provider 统计</button>
-                  <button type="button" class="btn-cancel" id="btn-stats-tab-models" style="margin-top: 0; padding: 5px 14px; font-size: 11px;">🤖 模型统计</button>
+                  <button type="button" class="btn-cancel active" id="btn-stats-tab-logs" style="margin-top: 0; padding: 5px 14px; font-size: 11px; background: var(--accent-color); color: white; border-color: transparent;" data-i18n="stats.tab.logs">📋 请求日志</button>
+                  <button type="button" class="btn-cancel" id="btn-stats-tab-providers" style="margin-top: 0; padding: 5px 14px; font-size: 11px;" data-i18n="stats.tab.providers">🔌 Provider 统计</button>
+                  <button type="button" class="btn-cancel" id="btn-stats-tab-models" style="margin-top: 0; padding: 5px 14px; font-size: 11px;" data-i18n="stats.tab.models">🤖 模型统计</button>
                 </div>
               </div>
  
@@ -602,48 +600,48 @@
         <section class="tab-pane" id="system-logs-view" style="height: 100%; box-sizing: border-box; padding: 20px;">
           <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
             <div>
-              <h2 style="margin: 0;">系统运行日志</h2>
-              <p style="margin: 4px 0 0 0;">展示网关子进程拉起时的完整 stdout/stderr 原生输出（可用于问题排查与诊断）</p>
+              <h2 style="margin: 0;" data-i18n="logs.title">系统运行日志</h2>
+              <p style="margin: 4px 0 0 0;" data-i18n="logs.desc">展示网关子进程拉起时的完整 stdout/stderr 原生输出（可用于问题排查与诊断）</p>
             </div>
             <div style="display: flex; gap: 8px;">
-              <button type="button" class="btn-secondary" id="btn-copy-system-logs" style="padding: 0 14px; font-size: 12px; font-weight: 500; border-radius: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); color: var(--text-primary); cursor: pointer; height: 32px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">📋 复制日志</button>
-              <button type="button" class="btn-secondary" id="btn-clear-system-logs" style="padding: 0 14px; font-size: 12px; font-weight: 500; border-radius: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); color: #ff5252; cursor: pointer; height: 32px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">🗑️ 清空日志</button>
+              <button type="button" class="btn-secondary" id="btn-copy-system-logs" style="padding: 0 14px; font-size: 12px; font-weight: 500; border-radius: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); color: var(--text-primary); cursor: pointer; height: 32px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;" data-i18n="logs.btn.copy">📋 复制日志</button>
+              <button type="button" class="btn-secondary" id="btn-clear-system-logs" style="padding: 0 14px; font-size: 12px; font-weight: 500; border-radius: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); color: #ff5252; cursor: pointer; height: 32px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;" data-i18n="logs.btn.clear">🗑️ 清空日志</button>
             </div>
           </div>
           
           <div class="system-logs-container" style="background: #0d0e15; border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; flex: 1; min-height: 0; display: flex; flex-direction: column; box-sizing: border-box;">
-            <textarea id="system-raw-logs-area" readonly spellcheck="false" style="flex: 1; background: transparent; border: none; outline: none; color: #a5d6a7; font-family: var(--font-mono); font-size: 12px; line-height: 1.6; resize: none; overflow-y: auto; white-space: pre; margin: 0; padding: 0; box-sizing: border-box; font-weight: 500;" placeholder="等待网关子进程启动并喷吐系统日志..."></textarea>
+            <textarea id="system-raw-logs-area" readonly spellcheck="false" style="flex: 1; background: transparent; border: none; outline: none; color: #a5d6a7; font-family: var(--font-mono); font-size: 12px; line-height: 1.6; resize: none; overflow-y: auto; white-space: pre; margin: 0; padding: 0; box-sizing: border-box; font-weight: 500;" placeholder="等待网关子进程启动并喷吐系统日志..." data-i18n-placeholder="logs.placeholder"></textarea>
           </div>
         </section>
 
         <!-- Tab 5.5: 系统设置 -->
         <section class="tab-pane" id="settings-view" style="overflow-y: auto; height: 100%; box-sizing: border-box; padding: 20px;">
           <div class="view-header" style="margin-bottom: 20px;">
-            <h2>系统偏好设置</h2>
-            <p>管理客户端的开机自启、系统通知、网关自动运行与语言首选项</p>
+            <h2 data-i18n="settings.title">系统偏好设置</h2>
+            <p data-i18n="settings.desc">管理客户端的开机自启、系统通知、网关自动运行与语言首选项</p>
           </div>
 
           <div class="form-group-section" style="max-width: 600px; margin-bottom: 24px;">
-            <h3>⚙️ 客户端运行设置</h3>
+            <h3 data-i18n="settings.section.runtime">⚙️ 客户端运行设置</h3>
             
             <!-- 界面主题设置行 -->
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 12px;">
               <div>
-                <div style="font-size: 13px; font-weight: bold; color: white;">🎨 界面视觉主题</div>
-                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">自由切换客户端的整体主色调风格（暗黑流光、极光霓虹或白昼明亮）。</div>
+                <div style="font-size: 13px; font-weight: bold; color: white;" data-i18n="settings.theme.title">🎨 界面视觉主题</div>
+                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;" data-i18n="settings.theme.desc">自由切换客户端的整体主色调风格（暗黑流光、极光霓虹或白昼明亮）。</div>
               </div>
               <div class="theme-dots" style="display: flex; gap: 8px;">
-                <div class="theme-dot dark" id="theme-btn-dark" title="暗黑流光"></div>
-                <div class="theme-dot aurora" id="theme-btn-aurora" title="极光霓虹"></div>
-                <div class="theme-dot light" id="theme-btn-light" title="白昼明亮"></div>
+                <div class="theme-dot dark" id="theme-btn-dark" title="暗黑流光" data-i18n-title="settings.theme.dark"></div>
+                <div class="theme-dot aurora" id="theme-btn-aurora" title="极光霓虹" data-i18n-title="settings.theme.aurora"></div>
+                <div class="theme-dot light" id="theme-btn-light" title="白昼明亮" data-i18n-title="settings.theme.light"></div>
               </div>
             </div>
 
             <!-- 开机自启 -->
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 12px;">
               <div>
-                <div style="font-size: 13px; font-weight: bold; color: white;">🖥️ 开机自动启动</div>
-                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">开启后，AI助手客户端将在您的电脑开机时自动随系统启动并运行。</div>
+                <div style="font-size: 13px; font-weight: bold; color: white;" data-i18n="settings.autostart.title">🖥️ 开机自动启动</div>
+                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;" data-i18n="settings.autostart.desc">开启后，AI助手客户端将在您的电脑开机时自动随系统启动并运行。</div>
               </div>
               <label class="switch-slider-btn" for="setting-autostart-toggle">
                 <input type="checkbox" id="setting-autostart-toggle">
@@ -654,8 +652,8 @@
             <!-- 自动启用网关 -->
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 12px;">
               <div>
-                <div style="font-size: 13px; font-weight: bold; color: white;">⚡ 自动启用网关</div>
-                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">软件启动时，自动开启 OpenClaw 本地智能网关服务，无需每次手动点击。</div>
+                <div style="font-size: 13px; font-weight: bold; color: white;" data-i18n="settings.autogateway.title">⚡ 自动启用网关</div>
+                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;" data-i18n="settings.autogateway.desc">软件启动时，自动开启 OpenClaw 本地智能网关 service，无需每次手动点击。</div>
               </div>
               <label class="switch-slider-btn" for="setting-auto-gateway">
                 <input type="checkbox" id="setting-auto-gateway">
@@ -666,8 +664,8 @@
             <!-- 消息通知 -->
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 12px;">
               <div>
-                <div style="font-size: 13px; font-weight: bold; color: white;">🔔 系统通知提醒</div>
-                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">在网关状态变更、微信掉线自动重连成功时触发系统桌面横幅通知。</div>
+                <div style="font-size: 13px; font-weight: bold; color: white;" data-i18n="settings.notify.title">🔔 系统通知提醒</div>
+                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;" data-i18n="settings.notify.desc">在网关状态变更、微信掉线自动重连成功时触发系统桌面横幅通知。</div>
               </div>
               <label class="switch-slider-btn" for="setting-notify-toggle">
                 <input type="checkbox" id="setting-notify-toggle">
@@ -678,8 +676,8 @@
             <!-- 内置模型启用 -->
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 12px;">
               <div>
-                <div style="font-size: 13px; font-weight: bold; color: white;">🤖 内置模型启用</div>
-                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">开启后，测试连通性与模型对话将默认走内置的 Agnes 官方高速通道服务；关闭后走您的自定义配置。</div>
+                <div style="font-size: 13px; font-weight: bold; color: white;" data-i18n="settings.builtin.title">🤖 内置模型启用</div>
+                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;" data-i18n="settings.builtin.desc">开启后，测试连通性与模型对话将默认走内置的 Agnes 官方高速通道服务；关闭后走您的自定义配置。</div>
               </div>
               <label class="switch-slider-btn" for="setting-built-in-models-toggle">
                 <input type="checkbox" id="setting-built-in-models-toggle">
@@ -688,16 +686,16 @@
             </div>
 
             <!-- 语言首选项 -->
-            <div id="setting-language-row" style="display: none !important; justify-content: space-between; align-items: center; padding: 14px 16px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 12px;">
+            <div id="setting-language-row" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 12px;">
               <div>
-                <div style="font-size: 13px; font-weight: bold; color: white;">🌐 界面语言首选项 (Language)</div>
-                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">切换客户端和面板展示的系统语言语系。</div>
+                <div style="font-size: 13px; font-weight: bold; color: white;" data-i18n="settings.lang.title">🌐 界面语言首选项 (Language)</div>
+                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;" data-i18n="settings.lang.desc">切换客户端和面板展示的系统语言语系。</div>
               </div>
               <div>
                 <select id="setting-language-select" style="background: var(--bg-input) !important; color: white; border: 1px solid var(--border-color); border-radius: 6px; padding: 4px 8px; font-size: 12px; outline: none; height: 30px;">
-                  <option value="zh-CN">简体中文</option>
-                  <option value="zh-TW">繁體中文</option>
-                  <option value="en-US">English</option>
+                  <option value="zh-CN" data-i18n="settings.lang.zh_CN">简体中文</option>
+                  <option value="zh-TW" data-i18n="settings.lang.zh_TW">繁體中文</option>
+                  <option value="en-US" data-i18n="settings.lang.en_US">English</option>
                 </select>
               </div>
             </div>
@@ -705,13 +703,13 @@
 
           <!-- 软件版本与检测更新 -->
           <div class="form-group-section" style="max-width: 600px; margin-bottom: 24px;">
-            <h3>ℹ️ 关于</h3>
+            <h3 data-i18n="settings.about.title">ℹ️ 关于</h3>
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 20px; background: linear-gradient(135deg, rgba(147, 51, 234, 0.1) 0%, rgba(79, 70, 229, 0.1) 100%); border: 1px solid rgba(147, 51, 234, 0.2); border-radius: 12px;">
               <div>
-                <div style="font-size: 18px; font-weight: bold; color: white; display: flex; align-items: center; gap: 8px;">
+                <div style="font-size: 18px; font-weight: bold; color: white; display: flex; align-items: center; gap: 8px;" data-i18n="settings.about.app_name">
                   AI助手
                 </div>
-                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px;">本地智能大模型网关与微信微信通道管理桌面控制中心。</div>
+                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px;" data-i18n="settings.about.app_desc">本地智能大模型网关与微信微信通道管理桌面控制中心。</div>
               </div>
             </div>
           </div>
@@ -720,49 +718,49 @@
         <!-- Tab 6: 关于 -->
         <section class="tab-pane" id="about-view" style="overflow-y: auto; height: 100%; box-sizing: border-box; padding: 20px;">
           <div class="view-header" style="margin-bottom: 20px;">
-            <h2>关于 AI助手</h2>
-            <p>了解系统的技术架构、核心能力与极速使用指南</p>
+            <h2 data-i18n="about.title">关于 AI助手</h2>
+            <p data-i18n="about.desc">了解系统的技术架构、核心能力与极速使用指南</p>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
             <!-- 1. 技术架构面板 -->
             <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
-              <h3 style="margin-top: 0; color: var(--accent-color); font-size: 16px; display: flex; align-items: center; gap: 8px;">⚙️ 系统技术架构</h3>
-              <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 15px;">AI助手是一个经过高度沙箱化封装、开箱即用的本地智能网关服务。其核心技术由以下几部分驱动：</p>
+              <h3 style="margin-top: 0; color: var(--accent-color); font-size: 16px; display: flex; align-items: center; gap: 8px;" data-i18n="about.arch.title">⚙️ 系统技术架构</h3>
+              <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 15px;" data-i18n="about.arch.desc">AI助手是一个经过高度沙箱化封装、开箱即用的本地智能网关服务。其核心技术由以下几部分驱动：</p>
               
               <div style="display: flex; flex-direction: column; gap: 12px;">
                 <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; padding: 12px;">
-                  <div style="font-size: 13px; font-weight: bold; color: white;">💎 Electron 骨架层</div>
-                  <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;">采用无边框流光设计与高度硬件加速，完美结合了桌面端程序的极速响应与现代化 Web UI 的极致动效。</div>
+                   <div style="font-size: 13px; font-weight: bold; color: white;" data-i18n="about.arch.electron.title">💎 Electron 骨架层</div>
+                   <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;" data-i18n="about.arch.electron.desc">采用无边框流光设计与高度硬件加速，完美结合了桌面端程序的极速响应与现代化 Web UI 的极致动效。</div>
                 </div>
                 <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; padding: 12px;">
-                  <div style="font-size: 13px; font-weight: bold; color: white;">📦 内置 Node.js 沙箱</div>
-                  <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;">项目深度打包了 100% 独立的 Node.js 运行时及所有依赖库。用户无需安装配置任何环境，双击即可无缝启动。</div>
+                   <div style="font-size: 13px; font-weight: bold; color: white;" data-i18n="about.arch.node.title">📦 内置 Node.js 沙箱</div>
+                   <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;" data-i18n="about.arch.node.desc">项目深度打包了 100% 独立的 Node.js 运行时及所有依赖库。用户无需安装配置任何环境，双击即可无缝启动。</div>
                 </div>
                 <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; padding: 12px;">
-                  <div style="font-size: 13px; font-weight: bold; color: white;">🚀 OpenClaw Gateway 核心</div>
-                  <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;">集成 OpenClaw 本地 AI 智能体通信总线，提供极致的插件加载、多渠道协议收发与模型路由治理。</div>
+                   <div style="font-size: 13px; font-weight: bold; color: white;" data-i18n="about.arch.openclaw.title">🚀 OpenClaw Gateway 核心</div>
+                   <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;" data-i18n="about.arch.openclaw.desc">集成 OpenClaw 本地 AI 智能体通信总线，提供极致的插件加载、多渠道协议收发与模型路由治理。</div>
                 </div>
               </div>
             </div>
 
             <!-- 2. 核心服务能力 -->
             <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
-              <h3 style="margin-top: 0; color: var(--accent-color); font-size: 16px; display: flex; align-items: center; gap: 8px;">🔥 核心服务能力</h3>
-              <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 15px;">通过集成本地网关，您可以赋予您的个人或团队以下高附加值人工智能服务能力：</p>
+              <h3 style="margin-top: 0; color: var(--accent-color); font-size: 16px; display: flex; align-items: center; gap: 8px;" data-i18n="about.service.title">🔥 核心服务能力</h3>
+              <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 15px;" data-i18n="about.service.desc">通过集成本地网关，您可以赋予您的个人或团队以下高附加值人工智能服务能力：</p>
               
               <div style="display: flex; flex-direction: column; gap: 12px;">
                 <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; padding: 12px;">
-                  <div style="font-size: 13px; font-weight: bold; color: white;">💬 微信 AI 伴侣</div>
-                  <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;">扫码即可一键托管微信聊天！支持私聊回复、群聊艾特回复、图片深度看图理解以及手机语音通话直接交互。</div>
+                  <div style="font-size: 13px; font-weight: bold; color: white;" data-i18n="about.service.wechat.title">💬 微信 AI 伴侣</div>
+                  <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;" data-i18n="about.service.wechat.desc">扫码即可一键托管微信聊天！支持私聊回复、群聊艾特回复、图片深度看图理解以及手机语音通话直接交互。</div>
                 </div>
                 <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; padding: 12px;">
-                  <div style="font-size: 13px; font-weight: bold; color: white;">🛡️ 本地隐私沙箱</div>
-                  <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;">支持通过 Ollama 跑本地离线大模型。在断网或局域网无网络环境下，100% 确保数据不出本地盘符。</div>
+                  <div style="font-size: 13px; font-weight: bold; color: white;" data-i18n="about.service.local.title">🛡️ 本地隐私沙箱</div>
+                  <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;" data-i18n="about.service.local.desc">支持通过 Ollama 跑本地离线大模型。在断网或局域网无网络环境下，100% 确保数据不出本地盘符。</div>
                 </div>
                 <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; padding: 12px;">
-                  <div style="font-size: 13px; font-weight: bold; color: white;">🔌 40+ 生产力智能体插件</div>
-                  <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;">支持长期记忆存储、实时网页搜索、超长文档自动解析与摘要、自动化工作流等各种插件。</div>
+                  <div style="font-size: 13px; font-weight: bold; color: white;" data-i18n="about.service.plugins.title">🔌 40+ 生产力智能体插件</div>
+                  <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;" data-i18n="about.service.plugins.desc">支持长期记忆存储、实时网页搜索、超长文档自动解析与摘要、自动化工作流等各种插件。</div>
                 </div>
               </div>
             </div>
@@ -770,22 +768,22 @@
 
           <!-- 3. 极速上手使用指南 -->
           <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); margin-bottom: 12px;">
-            <h3 style="margin-top: 0; color: var(--accent-color); font-size: 16px; display: flex; align-items: center; gap: 8px;">📘 极速上手使用指南</h3>
+            <h3 style="margin-top: 0; color: var(--accent-color); font-size: 16px; display: flex; align-items: center; gap: 8px;" data-i18n="about.guide.title">📘 极速上手使用指南</h3>
             
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 15px;">
               <div style="border-right: 1px solid rgba(255,255,255,0.05); padding-right: 15px;">
-                <div style="font-size: 13px; font-weight: bold; color: white; display: flex; align-items: center; gap: 6px;"><span style="background: var(--accent-color); width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 10px;">1</span> 启动本地网关</div>
-                <p style="font-size: 11px; color: var(--text-secondary); margin-top: 8px; line-height: 1.5;">切到“控制台”标签页，点击右侧醒目的“启动网关”大按钮。等左侧终端打印出运行成功字样，网关将开始在 18789 端口监听请求。</p>
+                <div style="font-size: 13px; font-weight: bold; color: white; display: flex; align-items: center; gap: 6px;"><span style="background: var(--accent-color); width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 10px;">1</span> <span data-i18n="about.guide.step1.title">启动本地网关</span></div>
+                <p style="font-size: 11px; color: var(--text-secondary); margin-top: 8px; line-height: 1.5;" data-i18n="about.guide.step1.desc">切到“控制台”标签页，点击右侧醒目的“启动网关”大按钮。等左侧终端打印出运行成功字样，网关将开始在 18789 端口监听请求。</p>
               </div>
               
               <div style="border-right: 1px solid rgba(255,255,255,0.05); padding-right: 15px; padding-left: 5px;">
-                <div style="font-size: 13px; font-weight: bold; color: white; display: flex; align-items: center; gap: 6px;"><span style="background: #00e676; width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 10px;">2</span> 扫码绑定微信</div>
-                <p style="font-size: 11px; color: var(--text-secondary); margin-top: 8px; line-height: 1.5;">点击控制台底部的“绑定微信”按钮，系统会自动加载并弹出一个高清登录二维码。直接使用您想要作为助手的微信扫一扫确认登录。</p>
+                <div style="font-size: 13px; font-weight: bold; color: white; display: flex; align-items: center; gap: 6px;"><span style="background: #00e676; width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 10px;">2</span> <span data-i18n="about.guide.step2.title">扫码绑定微信</span></div>
+                <p style="font-size: 11px; color: var(--text-secondary); margin-top: 8px; line-height: 1.5;" data-i18n="about.guide.step2.desc">点击控制台底部的“绑定微信”按钮，系统会自动加载并弹出一个高清登录二维码。直接使用您想要作为助手的微信扫一扫确认登录。</p>
               </div>
               
               <div style="padding-left: 5px;">
-                <div style="font-size: 13px; font-weight: bold; color: white; display: flex; align-items: center; gap: 6px;"><span style="background: #ffd54f; width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 10px;">3</span> 体验用量监控</div>
-                <p style="font-size: 11px; color: var(--text-secondary); margin-top: 8px; line-height: 1.5;">切换到“用量监控”面板。此时有任何人通过微信向您的 AI 发起对话，该面板都会实时动态记录模型调用的 Tokens 指标与成本消耗。</p>
+                <div style="font-size: 13px; font-weight: bold; color: white; display: flex; align-items: center; gap: 6px;"><span style="background: #ffd54f; width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 10px;">3</span> <span data-i18n="about.guide.step3.title">体验用量监控</span></div>
+                <p style="font-size: 11px; color: var(--text-secondary); margin-top: 8px; line-height: 1.5;" data-i18n="about.guide.step3.desc">切换到“用量监控”面板。此时有任何人通过微信向您的 AI 发起对话，该面板都会实时动态记录模型调用的 Tokens 指标与成本消耗。</p>
               </div>
             </div>
           </div>
@@ -873,6 +871,7 @@
 
   </div>
 
+  <script src="locales.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

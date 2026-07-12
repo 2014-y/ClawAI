@@ -1,5 +1,26 @@
 // renderer.js - 渲染进程交互逻辑
 
+// 全局双模式翻译函数
+function t(keyOrZh, en, zhTw) {
+    const currentLang = localStorage.getItem('setting_language') || 'zh-CN';
+    
+    // 如果传入了多个参数，说明是 inline 快速翻译：t(zhCn, en, zhTw)
+    if (arguments.length > 1) {
+        if (currentLang === 'en-US') return en !== undefined ? en : keyOrZh;
+        if (currentLang === 'zh-TW') return zhTw !== undefined ? zhTw : keyOrZh;
+        return keyOrZh;
+    }
+    
+    // 如果只有一个参数，说明是字典查询
+    const locales = window.LOCALES || {};
+    const translation = locales[currentLang]?.[keyOrZh];
+    if (translation !== undefined) return translation;
+    
+    return keyOrZh;
+}
+window.t = t;
+
+
 // 人性化上下文窗口单位解析与格式化
 function parseContextWindow(val) {
     if (!val) return 128000;
@@ -369,8 +390,7 @@ async function init() {
     }
 
     if (settingLanguageSelect) {
-        localStorage.setItem('setting_language', 'zh-CN');
-        const initialLang = 'zh-CN';
+        const initialLang = localStorage.getItem('setting_language') || 'zh-CN';
         settingLanguageSelect.value = initialLang;
         applyLanguage(initialLang);
 
@@ -379,9 +399,11 @@ async function init() {
             localStorage.setItem('setting_language', selectedLang);
             applyLanguage(selectedLang);
             if (selectedLang === 'en-US') {
-                showToast('Switched to English interface.');
+                showToast(t('toast.switch_lang_en', 'Switched to English interface.'));
+            } else if (selectedLang === 'zh-TW') {
+                showToast(t('toast.switch_lang_tw', '已切換為繁體中文界面。'));
             } else {
-                showToast('已切换为中文界面。');
+                showToast(t('toast.switch_lang_zh', '已切换为中文界面。'));
             }
         });
     }
@@ -1901,12 +1923,12 @@ function renderPluginsGrid() {
         card.className = 'plugin-card-item';
         card.innerHTML = `
             <div class="plugin-card-top">
-                <h4>${plugin.name}</h4>
-                <p>${plugin.desc}</p>
+                <h4>${t('plugin.' + key + '.name')}</h4>
+                <p>${t('plugin.' + key + '.desc')}</p>
             </div>
             <div class="plugin-card-bot">
                 <span style="font-size: 12px; color: ${isEnabled ? 'var(--accent-color)' : 'var(--text-secondary)'}; font-weight: 600;">
-                    ${isEnabled ? '已启用' : '已禁用'}
+                    ${isEnabled ? t('plugin.status.enabled') : t('plugin.status.disabled')}
                 </span>
                 <label class="switch-slider-btn">
                     <input type="checkbox" class="plugin-toggle-checkbox" data-plugin="${key}" ${isEnabled ? 'checked' : ''}>
@@ -2043,7 +2065,7 @@ function updateGatewayStatusUI(status) {
 
     if (status === 'running') {
         statusLight.className = 'status-dot running';
-        statusLabel.innerText = '运行中';
+        statusLabel.innerText = t('sidebar.status.running');
         btnIconStart.style.display = 'none';
         btnIconStop.style.display = 'block';
         btnLabelText.innerText = '停止网关';
@@ -2092,14 +2114,14 @@ function updateGatewayStatusUI(status) {
         }
     } else if (status === 'stopped') {
         statusLight.className = 'status-dot';
-        statusLabel.innerText = '未启用';
+        statusLabel.innerText = t('sidebar.status.stopped');
         btnIconStart.style.display = 'block';
         btnIconStop.style.display = 'none';
         btnLabelText.innerText = '启动网关';
         gatewayToggleBtn.className = 'gateway-big-btn stopped';
 
         if (chatWelcomeText) {
-            chatWelcomeText.innerText = isEn ? 'Model direct connection is enabled. You can chat without starting the gateway.' : '当前已启用模型直连服务，无需启动本地网关即可直接对话测试。';
+            chatWelcomeText.innerText = t('status.stopped');
             chatWelcomeText.style.color = '#b388ff';
         }
 
@@ -2119,7 +2141,7 @@ function updateGatewayStatusUI(status) {
         }
     } else if (status === 'starting') {
         statusLight.className = 'status-dot starting';
-        statusLabel.innerText = '正在启动...';
+        statusLabel.innerText = t('sidebar.status.starting');
         btnIconStart.style.display = 'block';
         btnIconStop.style.display = 'none';
         btnLabelText.innerText = '启动中';
@@ -3093,87 +3115,76 @@ document.getElementById('wechat-bind-btn').addEventListener('click', async () =>
 
 // 多语言界面动态重载渲染
 function applyLanguage(lang) {
-    const isEn = lang === 'en-US';
-    
-    // 侧边栏按钮翻译
-    const navConsole = document.getElementById('tour-nav-console');
-    if (navConsole) {
-        const consoleSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="15" x2="23" y2="15"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="15" x2="4" y2="15"/></svg>';
-        navConsole.innerHTML = isEn 
-            ? consoleSvg + 'Console'
-            : consoleSvg + '控制台';
-    }
-    const navChat = document.getElementById('tour-nav-chat');
-    if (navChat) {
-        navChat.innerHTML = isEn
-            ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Chat Room'
-            : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>模型会话';
-    }
-    const navConfig = document.getElementById('tour-nav-config');
-    if (navConfig) {
-        const configSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8V5"/><circle cx="12" cy="4" r="1"/><circle cx="8.5" cy="13" r="1.5" fill="currentColor" stroke="none"/><circle cx="15.5" cy="13" r="1.5" fill="currentColor" stroke="none"/><path d="M9 17h6"/></svg>';
-        navConfig.innerHTML = isEn
-            ? configSvg + 'Model Config'
-            : configSvg + '模型配置';
-    }
-    const navPlugins = document.getElementById('tour-nav-plugins');
-    if (navPlugins) {
-        const puzzleSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/></svg>';
-        navPlugins.innerHTML = isEn
-            ? puzzleSvg + 'Plugins'
-            : puzzleSvg + '插件管理';
-    }
-    const navStats = document.getElementById('tour-nav-stats');
-    if (navStats) {
-        const statsSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>';
-        navStats.innerHTML = isEn
-            ? statsSvg + 'Usage Stats'
-            : statsSvg + '用量监控';
-    }
-    const navSettings = document.getElementById('tour-nav-settings');
-    if (navSettings) {
-        const settingsSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
-        navSettings.innerHTML = isEn
-            ? settingsSvg + 'Settings'
-            : settingsSvg + '系统设置';
-    }
-    const navAbout = document.getElementById('tour-nav-about');
-    if (navAbout) {
-        navAbout.innerHTML = isEn
-            ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>About AI Assistant'
-            : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>关于AI助手';
-    }
-    const navOpenclawWeb = document.getElementById('btn-nav-openclaw-web');
-    if (navOpenclawWeb) {
-        const lobsterSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><!-- 龙虾左螯 --><path d="M12 11c-2-1-4-3-4-6.5C8 3 10.5 3.5 11 5.5"/><path d="M9 4.5c-1.5.5-2 2-1.5 3"/><!-- 龙虾右螯 --><path d="M12 11c2-1 4-3 4-6.5C16 3 13.5 3.5 13 5.5"/><path d="M15 4.5c1.5.5 2 2 1.5 3"/><!-- 龙虾身体 --><path d="M12 8c-1.2 0-2 1.5-2 3.5v5c0 1.5.8 2.5 2 3.5 1.2-1 2-2 2-3.5v-5c0-2-.8-3.5-2-3.5z"/><!-- 触角 --><path d="M11 8c-1-2-2.5-3-4.5-3.5"/><path d="M13 8c1-2 2.5-3 4.5-3.5"/></svg>';
-        navOpenclawWeb.innerHTML = isEn
-            ? lobsterSvg + 'Dashboard'
-            : lobsterSvg + 'OpenClaw 面板';
-    }
-    const appTitle = document.querySelector('.logo-title') || document.querySelector('.sidebar-top h2');
-    if (appTitle) {
-        appTitle.innerText = isEn ? 'AI Assistant' : 'AI助手';
-    }
+    // 1. 给 body 挂载当前语言类名，以备未来 CSS 微调用
+    document.body.className = document.body.className.replace(/\blang-\S+/g, '');
+    document.body.classList.add(`lang-${lang}`);
 
-    // 设置页面文字
-    const settingsHeader = document.querySelector('#settings-view .view-header h2');
-    if (settingsHeader) settingsHeader.innerText = isEn ? 'System Preferences' : '系统偏好设置';
-    const settingsDesc = document.querySelector('#settings-view .view-header p');
-    if (settingsDesc) settingsDesc.innerText = isEn ? 'Manage auto-start, desktop notifications, gateway startup and languages.' : '管理客户端的开机自启、系统通知、网关自动运行与语言首选项';
+    // 2. 声明式遍历翻译所有带 data-i18n 属性的 DOM 文本
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        const translation = t(key);
+        if (translation !== key) {
+            // 如果有 html 渲染需求，使用 innerHTML，否则用 textContent 以免破坏内部子元素
+            if (el.getAttribute('data-i18n-type') === 'html') {
+                el.innerHTML = translation;
+            } else {
+                el.textContent = translation;
+            }
+        }
+    });
 
-    // 对话界面初始欢迎语网关状态的多语言翻译
+    // 3. 声明式遍历翻译占位符 placeholder
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        const translation = t(key);
+        if (translation !== key) {
+            el.setAttribute('placeholder', translation);
+        }
+    });
+
+    // 4. 声明式遍历翻译 title 悬浮悬停提示
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        const key = el.getAttribute('data-i18n-title');
+        const translation = t(key);
+        if (translation !== key) {
+            el.setAttribute('title', translation);
+        }
+    });
+
+    // 5. 对话欢迎语和特殊网关连接状态的翻译
     const statusTextEl = document.getElementById('gateway-connection-status-text');
     if (statusTextEl) {
-        if (gatewayStatus === 'running') {
-            statusTextEl.innerText = isEn ? 'I have successfully connected to your local OpenClaw gateway!' : '我已经与您本地的 OpenClaw 网关成功对接！';
+        const useBuiltIn = localStorage.getItem('setting_use_built_in_models') !== 'false';
+        if (gatewayStatus === 'running' || gatewayFullyReady) {
+            statusTextEl.innerText = t('status.running');
             statusTextEl.style.color = '#00e676';
-        } else if (gatewayStatus === 'stopped') {
-            statusTextEl.innerText = isEn ? 'Model direct connection is enabled. You can chat without starting the gateway.' : '当前已启用模型直连服务，无需启动本地网关即可直接对话测试。';
-            statusTextEl.style.color = '#b388ff';
         } else if (gatewayStatus === 'starting') {
-            statusTextEl.innerText = isEn ? 'Connecting to the local OpenClaw gateway, please wait...' : '正在连接本地的 OpenClaw 网关，请稍候...';
+            statusTextEl.innerText = t('status.starting');
             statusTextEl.style.color = '#ffd54f';
+        } else {
+            // stopped
+            if (useBuiltIn) {
+                statusTextEl.innerText = t('status.stopped');
+                statusTextEl.style.color = '#b388ff';
+            } else {
+                statusTextEl.innerText = t('status.offline_hint');
+                statusTextEl.style.color = '#ff9800';
+            }
         }
+    }
+
+    // 6. 重新执行动态生成的 UI 模块渲染
+    if (typeof renderProvidersList === 'function') {
+        try { renderProvidersList(); } catch(e) { console.error(e); }
+    }
+    if (typeof renderPluginsGrid === 'function') {
+        try { renderPluginsGrid(); } catch(e) { console.error(e); }
+    }
+    if (typeof renderUsageCharts === 'function') {
+        try { renderUsageCharts(); } catch(e) { console.error(e); }
+    }
+    if (typeof updateWeChatStatusUI === 'function') {
+        try { updateWeChatStatusUI(); } catch(e) { console.error(e); }
     }
 }
 
@@ -3227,7 +3238,7 @@ function showToast(message) {
     }
     toast.innerHTML = `
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8c52ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <span>${message}</span>
+        <span>${t(message)}</span>
     `;
     
     // 显示
@@ -3425,16 +3436,19 @@ function clearChatHistory() {
         <div style="display: flex; gap: 12px; max-width: 80%; align-self: flex-start;">
             <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #8c52ff, #00d2ff); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; color: white; flex-shrink: 0; box-shadow: 0 0 10px rgba(140,82,255,0.3);">AI</div>
             <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 16px; color: var(--text-primary); font-size: 13px; line-height: 1.5; border-top-left-radius: 2px;">
-                您好！我是您的智能助手。<span id="gateway-connection-status-text" style="color: #ff9800;">当前本地的 OpenClaw 网关未启动，请前往【控制台】启动网关。</span>
+                <span data-i18n="chat.welcome.greeting">您好！我是您的智能助手。</span><span id="gateway-connection-status-text" style="color: #ff9800;">当前本地的 OpenClaw 网关未启动，请前往【控制台】启动网关。</span>
                 <br><br>
-                在这里您可以：
-                <br>💬 与当前选中的大模型进行实时对话及可用性测试；
-                <br>🖼️ 点击左下角按钮上传图片，让支持多模态的模型进行**识图对话**；
-                <br>🎨 输入指令并点击下方生图/生视频快捷键，快速体验生成式创作。
+                <span data-i18n="chat.welcome.functions">在这里您可以：</span>
+                <br>💬 <span data-i18n="chat.welcome.chat_mode">与当前选中的大模型进行实时对话及可用性测试；</span>
+                <br>🖼️ <span data-i18n="chat.welcome.image_mode">点击左下角按钮上传图片，让支持多模态的模型进行**识图对话**；</span>
+                <br>🎨 <span data-i18n="chat.welcome.generator_mode">输入指令并点击下方生图/生视频快捷键，快速体验生成式创作。</span>
             </div>
         </div>
     `;
     container.innerHTML = welcomeHtml;
+    
+    // 写入后，应用一次多语言渲染以展示正确语言
+    applyLanguage(localStorage.getItem('setting_language') || 'zh-CN');
 
     // 清除附件
     chatAttachmentBase64 = '';
@@ -3455,18 +3469,18 @@ function clearChatHistory() {
 
         if (gatewayStatus === 'running' || gatewayFullyReady) {
             statusText.style.color = '#00e676';
-            statusText.textContent = isEn ? 'I have successfully connected to your local OpenClaw gateway!' : '我已经与您本地的 OpenClaw 网关成功对接！';
+            statusText.textContent = t('status.running');
         } else if (gatewayStatus === 'starting') {
             statusText.style.color = '#ffd54f';
-            statusText.textContent = isEn ? 'Connecting to the local OpenClaw gateway, please wait...' : '正在连接本地的 OpenClaw 网关，请稍候...';
+            statusText.textContent = t('status.starting');
         } else {
             // stopped
             if (useBuiltIn) {
                 statusText.style.color = '#b388ff';
-                statusText.textContent = isEn ? 'Model direct connection is enabled. You can chat without starting the gateway.' : '当前已启用模型直连服务，无需启动本地网关即可直接对话测试。';
+                statusText.textContent = t('status.stopped');
             } else {
                 statusText.style.color = '#ff9800';
-                statusText.textContent = isEn ? 'The local OpenClaw gateway is offline. Please start it in the Console.' : '当前本地的 OpenClaw 网关未启动，请前往【控制台】启动网关。';
+                statusText.textContent = t('status.offline_hint');
             }
         }
     }
@@ -4200,11 +4214,24 @@ function initConsoleClock() {
         const year = now.getFullYear();
         const month = (now.getMonth() + 1).toString().padStart(2, '0');
         const date = now.getDate().toString().padStart(2, '0');
-        const dayNames = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
-        const dayName = dayNames[now.getDay()];
+        
+        const dayNamesZh = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+        const dayNamesEn = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayNamesTw = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+        
+        const currentLang = localStorage.getItem('setting_language') || 'zh-CN';
+        let formattedDate = '';
+        if (currentLang === 'en-US') {
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            formattedDate = `${dayNamesEn[now.getDay()]}, ${months[now.getMonth()]} ${now.getDate()}, ${year}`;
+        } else if (currentLang === 'zh-TW') {
+            formattedDate = `${year}年${month}月${date}日 ${dayNamesTw[now.getDay()]}`;
+        } else {
+            formattedDate = `${year}年${month}月${date}日 ${dayNamesZh[now.getDay()]}`;
+        }
         
         if (dateEl) {
-            dateEl.innerText = `${year}年${month}月${date}日 ${dayName}`;
+            dateEl.innerText = formattedDate;
         }
         
         // 时分秒
@@ -4234,7 +4261,7 @@ async function updateWeChatStatusUI() {
         
         if (statusEl) {
             if (result.bound) {
-                statusEl.innerText = '已绑定';
+                statusEl.innerText = t('wechat.status.bound');
                 statusEl.style.color = '#00e676'; // 绿色高亮
                 if (bindBtn) bindBtn.style.display = 'none';
                 if (unbindBtn) unbindBtn.style.display = 'block';
@@ -4253,7 +4280,7 @@ async function updateWeChatStatusUI() {
                     }
                 }
             } else {
-                statusEl.innerText = '未绑定';
+                statusEl.innerText = t('wechat.status.unbound');
                 statusEl.style.color = '#ff5252'; // 红色高亮
                 if (bindBtn) bindBtn.style.display = 'block';
                 if (unbindBtn) unbindBtn.style.display = 'none';
