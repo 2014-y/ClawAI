@@ -9,39 +9,60 @@ const os = require('os');
 // 解决高并发时，Node.js 在 Windows 上递归创建目录可能导致的 EPERM 报错
 const originalMkdirSync = fs.mkdirSync;
 fs.mkdirSync = function(path, options) {
-    try {
-        return originalMkdirSync(path, options);
-    } catch (e) {
-        if (e.code === 'EPERM' || e.code === 'EEXIST') {
-            try {
-                const stat = fs.statSync(path);
-                if (stat.isDirectory()) return undefined;
-                // If it's a file blocking the directory, delete it and retry
-                fs.unlinkSync(path);
-                return originalMkdirSync(path, options);
-            } catch (statErr) {
-                // If ENOENT, maybe parent is a file or locked. Fall through.
+    let lastErr;
+    for (let i = 0; i < 5; i++) {
+        try {
+            return originalMkdirSync(path, options);
+        } catch (e) {
+            lastErr = e;
+            if (e.code === 'EPERM' || e.code === 'EEXIST') {
+                try {
+                    const stat = fs.statSync(path);
+                    if (stat.isDirectory()) return undefined;
+                    fs.unlinkSync(path);
+                    continue;
+                } catch (statErr) {
+                    if (options && options.recursive) {
+                        // 简单延时重试
+                        const start = Date.now();
+                        while (Date.now() - start < 20) {} 
+                        continue;
+                    }
+                }
+            } else {
+                throw e;
             }
         }
-        throw e;
     }
+    throw lastErr;
 };
 
 const originalPromisesMkdir = fs.promises.mkdir;
 fs.promises.mkdir = async function(path, options) {
-    try {
-        return await originalPromisesMkdir(path, options);
-    } catch (e) {
-        if (e.code === 'EPERM' || e.code === 'EEXIST') {
-            try {
-                const stat = await fs.promises.stat(path);
-                if (stat.isDirectory()) return undefined;
-                await fs.promises.unlink(path);
-                return await originalPromisesMkdir(path, options);
-            } catch (statErr) {}
+    let lastErr;
+    for (let i = 0; i < 5; i++) {
+        try {
+            return await originalPromisesMkdir(path, options);
+        } catch (e) {
+            lastErr = e;
+            if (e.code === 'EPERM' || e.code === 'EEXIST') {
+                try {
+                    const stat = await fs.promises.stat(path);
+                    if (stat.isDirectory()) return undefined;
+                    await fs.promises.unlink(path);
+                    continue;
+                } catch (statErr) {
+                    if (options && options.recursive) {
+                        await new Promise(r => setTimeout(r, 20));
+                        continue;
+                    }
+                }
+            } else {
+                throw e;
+            }
         }
-        throw e;
     }
+    throw lastErr;
 };
 
 const originalMkdir = fs.mkdir;
