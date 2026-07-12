@@ -1,4 +1,4 @@
-# ClawAI 开源版 (v1.0.14)
+# ClawAI 开源版
 
 <p align="center">
   <img src="config/icon.ico" width="80" height="80" alt="ClawAI Logo" />
@@ -10,29 +10,29 @@
 
 <p align="center">
   <a href="https://github.com/2014-y/AI-v24.13.0/releases"><img src="https://img.shields.io/github/v/release/2014-y/AI-v24.13.0?color=purple&label=Release" alt="Latest Release" /></a>
-  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js-v24.13.0-green?logo=node.js" alt="Node Version" /></a>
-  <a href="https://github.com/electron/electron"><img src="https://img.shields.io/badge/Electron-v31.7.7-blue?logo=electron" alt="Electron Version" /></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js-%3E%3D24.x-green?logo=node.js" alt="Node Version" /></a>
+  <a href="https://github.com/electron/electron"><img src="https://img.shields.io/badge/Electron-Latest-blue?logo=electron" alt="Electron Version" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-orange" alt="License" /></a>
 </p>
 
 ---
 
-## 🌟 最新 v1.0.14 深度优化与功能重构
+## 🌟 最新优化与核心特性
 
-在最新的版本迭代中，我们针对客户端的可维护性、网络容错性、安装透明度以及 UI 简洁度进行了多维度的核心优化：
+我们针对客户端的可维护性、网络容错性、安装透明度以及 UI 简洁度进行了多维度的核心优化：
 
 ### 🔄 1. 双通道自适应检查更新与自动升级
-* **智能自适应下载**：内置了最新高可用的国内加速镜像 `ghproxy.net`；同时为了防止某些地区宽带对代理镜像进行 TLS 阻断（导致 `socket disconnected` 报错），加入了**自适应回退直连重试机制**。若加速通道遭遇拦截，将自动重置并使用 GitHub 官方下载链接重新拉取，确保 100% 升级成功！
+* **智能自适应下载**：内置高可用的国内加速镜像；同时为了防止某些地区宽带对代理镜像进行 TLS 阻断（导致 `socket disconnected` 报错），加入了**自适应回退直连重试机制**。若加速通道遭遇拦截，将自动重置并使用 GitHub 官方下载链接重新拉取，确保升级成功！
 * **高容错版本校验**：优先使用官方 Release API 比对版本。若遇 API 匿名限流（403 错误），自动切换至网页 HEAD 重定向提取 tag 机制作为强力兜底。
 * **双通道入口**：在侧边栏左下角以及“系统设置”的“关于”模块中，均内置了实用的“检查更新”按钮。
 
 ### 📄 2. 默认展开详细的安装释放日志
-* **安装进度透明化**：通过在底层的 `config/installer.nsh` 中引入 NSIS 的宏重映射黑魔法（`!macro customHeader`），强行攻克了打包器模板中硬编码的静默逻辑。
-* **效果**：在运行最新的 `ClawAI Setup 1.0.14.exe` 安装时，底部的**文件解压和写入细节框默认直接自动展开**并滚动显示（如提取各种依赖 `.js`、`.json`），安装进度清晰可见，彻底消除“进度条卡死”的焦虑感！
+* **安装进度透明化**：通过在底层的安装脚本中引入 NSIS 宏重映射机制，强行攻克了打包器模板中硬编码的静默逻辑。
+* **效果**：在运行安装程序时，底部的**文件解压和写入细节框默认直接自动展开**并滚动显示（如提取各种依赖），安装进度清晰可见，彻底消除进度焦虑！
 
 ### 🎨 3. “关于”页签与“系统设置”深度整合
 * **侧边栏瘦身**：彻底移除了左侧导航栏原本独立的“关于 ClawAI”页签，使系统界面结构更加紧凑、核心功能更为突出。
-* **精美排版融合**：将原本关于页中的**系统技术架构**、**核心服务能力**以及**极速上手使用指南**重构为垂直流式单列布局，使其在偏好设置面板的 600px 宽度限制下，展示效果极其精致、严丝合缝。
+* **精美排版融合**：将原本关于页中的**系统技术架构**、**核心服务能力**以及**极速上手使用指南**重构为垂直流式单列布局，使其在偏好设置面板的宽度限制下，展示效果极其精致。
 
 ---
 
@@ -42,18 +42,18 @@
 
 ### 📥 1. 一键下载
 请直接前往本项目的 **[GitHub Releases 页面](https://github.com/2014-y/AI-v24.13.0/releases)** 下载最新编译好的安装程序：
-* **文件名**：`ClawAI Setup 1.0.14.exe` (或最新版本号)
+* **文件名格式**：`ClawAI Setup <版本号>.exe`
 
 ### 💿 2. 简易安装
-1. 双击运行下载好的 `ClawAI Setup 1.0.14.exe` 文件。
+1. 双击运行下载好的安装程序文件。
 2. 安装器会自动展开详细的解压和文件释放日志。您可以**自由选择安装到指定的盘符和文件夹**（例如 D 盘、E 盘等自定义路径）。
 3. 勾选创建桌面快捷方式。安装结束后，桌面上会生成一个 **「ClawAI」** 图标，直接双击打开！
 
 ### 💬 3. 接入微信与大模型
 1. 启动桌面的 **ClawAI**，进入 **「控制台」** 面板。
-2. 点击左上角的 **「启动网关」** 按钮，网关将自动健康自愈拉起并开启 18789 端口。
+2. 点击左上角的 **「启动网关」** 按钮，网关将自动拉起并开启 18789 端口。
 3. 点击右侧面板底部的 **「绑定微信」**，系统会自动弹出微信扫码遮罩层，使用手机微信扫码即可接入 AI 服务！
-4. 点击 **「用量监控」** 面板，您可以实时查看本次软件开启后模型的 Tokens 消耗、命中率和成本。每次软件关闭时所有会话监控数据都会默认清空重置，100% 绿色无残留。
+4. 点击 **「用量监控」** 面板，您可以实时查看本次软件开启后模型的 Tokens 消耗、命中率和成本。每次软件关闭时所有会话监控数据都会默认清空重置，完全绿色无残留。
 
 ---
 
@@ -63,7 +63,7 @@ ClawAI 是一个**本地 AI 助手网关控制面板**。
 
 想象一下：**你在微信里跟 AI 聊天，AI 能帮你写代码、回答问题、看图识物、生成文案，而且所有数据都跑在你自己的电脑上，不经过任何第三方云服务器。**
 
-它把你的电脑变成一个 24 小时在线的 AI 服务平台，然后通过微信、WhatsApp、Discord、飞书、Telegram 这些你每天都在用的聊天工具，直接跟 AI 对话。
+它把你的电脑变成一个 24 小时在线 of AI 服务平台，然后通过微信、WhatsApp、Discord、飞书、Telegram 这些你每天都在用的聊天工具，直接跟 AI 对话。
 
 ---
 
@@ -121,7 +121,7 @@ npm install -g openclaw@2026.6.11
 ```
 
 ### 4. 运行 init.bat 进行初始化
-在项目根目录双击运行 `init.bat`，它会自动检测环境、创建项目沙箱环境并生成用户配置文件。
+在项目根目录双击运行 `init.bat`，它会自动检测环境、创建项目沙箱环境并生成 user 配置文件。
 
 ### 5. 配置 API Key
 打开 `C:\Users\<你的用户名>\.openclaw\openclaw.json`，配置你的 API Key：
