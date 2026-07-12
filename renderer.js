@@ -726,7 +726,9 @@ function setupIpcListeners() {
             line.includes('discovered non-bundled plugins') || 
             line.includes('To trust them') ||
             line.includes('Run \'openclaw plugins') ||
-            line.includes('you trust to plugins')
+            line.includes('you trust to plugins') ||
+            (line.trim().startsWith('o ') && (line.includes('Warning') || line.includes('Warnings'))) || // 过滤警告边框头部 (例如 o Config Warnings ---+)
+            /^[+\s-]+$/.test(line.trim()) // 过滤警告边框底部或线 (由 + 和 - 组成)
         ));
         
         if (filteredLines.length === 0) {
