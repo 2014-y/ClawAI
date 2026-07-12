@@ -804,6 +804,9 @@ function setupIpcListeners() {
             }
         }
 
+        // 忽略非关键的计费拉取失败日志 (国内网络下通常会失败)
+        if (text.includes('[model-pricing]') && text.includes('fetch failed')) return;
+
         // 进行常见启动消息的汉化和修饰
         let cleanedText = text;
         if (text.includes('loading configuration.')) {
@@ -840,8 +843,8 @@ function setupIpcListeners() {
             .replace(/\[voice-call\]/g, '<span style="color: #e57373;">[语音通话]</span>')
             .replace(/\[health-monitor\]/g, '<span style="color: #a1887f;">[健康监视]</span>')
             .replace(/\[heartbeat\]/g, '<span style="color: #9575cd;">[心跳保持]</span>')
-            .replace(/ERROR/gi, '<span style="color: #ff5252; font-weight: bold;">[错误报错]</span>')
-            .replace(/WARNING/gi, '<span style="color: #ffd54f;">[警告提醒]</span>');
+            .replace(/\b(?:ERROR|Error)\b/g, '<span style="color: #ff5252; font-weight: bold;">[错误报错]</span>')
+            .replace(/\b(?:WARNING|Warning)\b/g, '<span style="color: #ffd54f;">[警告提醒]</span>');
 
         span.innerHTML = coloredText;
         logTerminal.appendChild(span);
