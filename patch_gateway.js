@@ -41,13 +41,19 @@ function parseAndSaveCompletionsLog(bodyText, hostOrUrl, elapsedMs) {
         
         let usage = null;
         
-        // 1. 正则匹配 prompt_tokens 和 completion_tokens (兼容流式和非流式)
-        const matchAlt = /"prompt_tokens"\s*:\s*(\d+)\s*,\s*"completion_tokens"\s*:\s*(\d+)/i;
-        const matchAltRes = bodyText.match(matchAlt);
-        if (matchAltRes) {
+        let inputTokens = 0;
+        let outputTokens = 0;
+        
+        const inMatch = [...bodyText.matchAll(/"(?:prompt_tokens|promptTokenCount|input_tokens)"\s*:\s*(\d+)/gi)];
+        if (inMatch.length > 0) inputTokens = parseInt(inMatch[inMatch.length - 1][1]);
+        
+        const outMatch = [...bodyText.matchAll(/"(?:completion_tokens|candidatesTokenCount|output_tokens)"\s*:\s*(\d+)/gi)];
+        if (outMatch.length > 0) outputTokens = parseInt(outMatch[outMatch.length - 1][1]);
+
+        if (inputTokens > 0 || outputTokens > 0) {
             usage = {
-                prompt_tokens: parseInt(matchAltRes[1]),
-                completion_tokens: parseInt(matchAltRes[2])
+                prompt_tokens: inputTokens,
+                completion_tokens: outputTokens
             };
         }
         
@@ -160,15 +166,12 @@ function wrapFetch(originalFetch) {
         if (isCompletions) {
             try {
                 const response = await originalFetch.apply(this, arguments);
-                const contentType = response.headers.get('content-type') || '';
-                if (!contentType.includes('text/event-stream')) {
-                    const cloneRes = response.clone();
-                    const elapsed = Date.now() - startMs;
-                    
-                    cloneRes.text().then(bodyText => {
-                        parseAndSaveCompletionsLog(bodyText, url, elapsed);
-                    }).catch(() => {});
-                }
+                const cloneRes = response.clone();
+                const elapsed = Date.now() - startMs;
+                
+                cloneRes.text().then(bodyText => {
+                    parseAndSaveCompletionsLog(bodyText, url, elapsed);
+                }).catch(() => {});
                 
                 return response;
             } catch (err) {
