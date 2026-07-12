@@ -910,6 +910,7 @@ function setupIpcListeners() {
 
 // 5. 动态大模型提供商与配置数据管理
 let localProviders = {};
+const expandedProviders = new Set();
 
 async function loadAndRenderConfig() {
     configData = await window.api.readConfig();
@@ -1142,63 +1143,95 @@ function renderProvidersList() {
         return zhCn;
     };
 
-    for (const key of Object.keys(localProviders)) {
+    // 强制将 agnes-ai 放置于列表最顶层渲染
+    const keys = Object.keys(localProviders);
+    const agnesIndex = keys.indexOf('agnes-ai');
+    if (agnesIndex > -1) {
+        keys.splice(agnesIndex, 1);
+        keys.unshift('agnes-ai');
+    }
+
+    for (const key of keys) {
         const provider = localProviders[key];
         const card = document.createElement('div');
-        card.className = 'provider-card';
+        
+        // 根据折叠状态设置 class 属性（默认折叠，只有 explicit expanded 才展开）
+        const isCollapsed = !expandedProviders.has(key);
+        card.className = isCollapsed ? 'provider-card collapsed' : 'provider-card';
+        
+        // agnes-ai 与 ollama 为内置/默认大模型服务，不支持删除
+        const deleteButtonHtml = (key === 'agnes-ai' || key === 'ollama')
+            ? '' 
+            : `<button type="button" class="btn-delete-provider" data-provider="${key}">❌ ${t('删除此厂家', 'Delete Provider', '刪除此廠商')}</button>`;
+
+        // 折叠按钮 HTML
+        const foldButtonText = isCollapsed ? t('展开 🔽', 'Expand 🔽', '展開 🔽') : t('收起 🔼', 'Collapse 🔼', '收起 🔼');
+        const foldButtonHtml = `<button type="button" class="btn-fold-provider" data-provider="${key}" style="background: rgba(255,255,255,0.05); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer; transition: all 0.2s ease;">${foldButtonText}</button>`;
+
         card.innerHTML = `
-            <div class="provider-card-header">
+            <div class="provider-card-header" style="cursor: pointer; user-select: none;">
                 <h3>🔌 ${key} <span id="agnes-built-in-tip" style="font-size: 11px; font-weight: normal; color: #b388ff; margin-left: 8px; display: none;">${t('(已启用内置免配置服务通道)', '(Built-in bypass configured)', '(已啟用內置免配置服務通道)')}</span></h3>
-                <button type="button" class="btn-delete-provider" data-provider="${key}">❌ ${t('删除此厂家', 'Delete Provider', '刪除此廠商')}</button>
-            </div>
-            <div class="form-row">
-                <div class="form-field">
-                    <label>${t('Base URL (API 端点)', 'Base URL (API Endpoint)', 'Base URL (API 端點)')}</label>
-                    <input type="text" class="provider-url-input" data-provider="${key}" value="${provider.baseUrl || ''}" placeholder="${t('例如: https://api.openai.com/v1', 'e.g., https://api.openai.com/v1', '例如: https://api.openai.com/v1')}">
+                <div style="display: flex; align-items: center; gap: 8px;" class="provider-card-actions">
+                    ${deleteButtonHtml}
+                    ${foldButtonHtml}
                 </div>
-                <div class="form-field">
-                    <label>${t('API Key (授权密钥)', 'API Key', 'API Key (授權金鑰)')}</label>
-                    <div class="password-input-wrapper" style="position: relative; display: flex; align-items: center;">
-                        <input type="password" class="provider-key-input" data-provider="${key}" value="${provider.apiKey || ''}" placeholder="${t('API 密钥', 'API Key', 'API 金鑰')}" style="padding-right: 36px; width: 100%;">
-                        <span class="btn-toggle-visibility" data-provider="${key}" style="position: absolute; right: 10px; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-size: 16px; user-select: none;">👁️</span>
+            </div>
+            <div class="provider-card-body" id="provider-card-body-${key}">
+                <div class="form-row">
+                    <div class="form-field">
+                        <label>${t('Base URL (API 端点)', 'Base URL (API Endpoint)', 'Base URL (API 端點)')}</label>
+                        <input type="text" class="provider-url-input" data-provider="${key}" value="${provider.baseUrl || ''}" placeholder="${t('例如: https://api.openai.com/v1', 'e.g., https://api.openai.com/v1', '例如: https://api.openai.com/v1')}">
+                    </div>
+                    <div class="form-field">
+                        <label>${t('API Key (授权密钥)', 'API Key', 'API Key (授權金鑰)')}</label>
+                        <div class="password-input-wrapper" style="position: relative; display: flex; align-items: center;">
+                            ${key === 'agnes-ai'
+                                ? `<input type="password" class="provider-key-input" data-provider="${key}" value="${provider.apiKey || ''}" placeholder="${t('API 密钥', 'API Key', 'API 金鑰')}" style="padding-right: 36px; width: 100%; user-select: none;" readonly oncopy="return false;" oncut="return false;" oncontextmenu="return false;">`
+                                : `<input type="password" class="provider-key-input" data-provider="${key}" value="${provider.apiKey || ''}" placeholder="${t('API 密钥', 'API Key', 'API 金鑰')}" style="padding-right: 36px; width: 100%;">`
+                            }
+                            ${key === 'agnes-ai'
+                                ? ''
+                                : `<span class="btn-toggle-visibility" data-provider="${key}" style="position: absolute; right: 10px; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-size: 16px; user-select: none;">👁️</span>`
+                            }
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="form-row">
-                <div class="form-field half">
-                    <label>${t('API 协议类型', 'API Protocol', 'API 協定類型')}</label>
-                    <select class="provider-api-select" data-provider="${key}">
-                        <option value="openai-completions" ${provider.api === 'openai-completions' ? 'selected' : ''}>OpenAI Completions</option>
-                        <option value="openai-chat" ${provider.api === 'openai-chat' ? 'selected' : ''}>OpenAI Chat</option>
-                        <option value="ollama" ${provider.api === 'ollama' ? 'selected' : ''}>Ollama</option>
-                    </select>
+                <div class="form-row">
+                    <div class="form-field half">
+                        <label>${t('API 协议类型', 'API Protocol', 'API 協定類型')}</label>
+                        <select class="provider-api-select" data-provider="${key}">
+                            <option value="openai-completions" ${provider.api === 'openai-completions' ? 'selected' : ''}>OpenAI Completions</option>
+                            <option value="openai-chat" ${provider.api === 'openai-chat' ? 'selected' : ''}>OpenAI Chat</option>
+                            <option value="ollama" ${provider.api === 'ollama' ? 'selected' : ''}>Ollama</option>
+                        </select>
+                    </div>
                 </div>
-            </div>
-            <div style="display: flex !important; flex-direction: row !important; align-items: center !important; gap: 12px; margin-top: 12px; margin-bottom: 16px;">
-                <button type="button" class="btn-primary btn-test-connection" data-provider="${key}" style="margin-top: 0; padding: 0 16px; font-size: 12px; height: 32px; border-radius: 6px; white-space: nowrap;">⚡ ${t('测试连通性', 'Test Connectivity', '測試連通性')}</button>
-                <button type="button" class="btn-secondary btn-test-key" data-provider="${key}" style="margin-top: 0; padding: 0 16px; font-size: 12px; height: 32px; border-radius: 6px; white-space: nowrap; background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%); border: none; color: white;">🔑 ${t('测试密钥', 'Test Key', '測試金鑰')}</button>
-                <span id="test-result-${key}" style="font-size: 12px; font-weight: bold; display: none; white-space: nowrap;"></span>
-            </div>
-            
-            <div class="provider-models-zone" style="margin-top: 16px;">
-                <h4 style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-                    <span>🤖 ${t('模型白名单管理', 'Model Whitelist', '模型白名單管理')}</span>
-                    <span style="font-size: 11px; color: var(--text-secondary); font-weight: normal;">${t('已配置该厂家的可用模型列表', 'Available models configured for this provider', '已配置該廠商的可用模型列表')}</span>
-                </h4>
+                <div style="display: flex !important; flex-direction: row !important; align-items: center !important; gap: 12px; margin-top: 12px; margin-bottom: 16px;">
+                    <button type="button" class="btn-primary btn-test-connection" data-provider="${key}" style="margin-top: 0; padding: 0 16px; font-size: 12px; height: 32px; border-radius: 6px; white-space: nowrap;">⚡ ${t('测试连通性', 'Test Connectivity', '測試連通性')}</button>
+                    <button type="button" class="btn-secondary btn-test-key" data-provider="${key}" style="margin-top: 0; padding: 0 16px; font-size: 12px; height: 32px; border-radius: 6px; white-space: nowrap; background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%); border: none; color: white;">🔑 ${t('测试密钥', 'Test Key', '測試金鑰')}</button>
+                    <span id="test-result-${key}" style="font-size: 12px; font-weight: bold; display: none; white-space: nowrap;"></span>
+                </div>
                 
-                <div class="model-list-header" style="display: grid; grid-template-columns: 1fr 120px 40px; gap: 12px; padding: 4px 8px; font-size: 11px; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 8px;">
-                    <div>${t('模型名称 (Model ID)', 'Model ID', '模型名稱 (Model ID)')}</div>
-                    <div>${t('上下文窗口', 'Context Window', '上下文窗口')}</div>
-                    <div style="text-align: center;">${t('操作', 'Actions', '操作')}</div>
-                </div>
+                <div class="provider-models-zone" style="margin-top: 16px;">
+                    <h4 style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <span>🤖 ${t('模型白名单管理', 'Model Whitelist', '模型白名單管理')}</span>
+                        <span style="font-size: 11px; color: var(--text-secondary); font-weight: normal;">${t('已配置该厂家的可用模型列表', 'Available models configured for this provider', '已配置該廠商的可用模型列表')}</span>
+                    </h4>
+                    
+                    <div class="model-list-header" style="display: grid; grid-template-columns: 1fr 120px 40px; gap: 12px; padding: 4px 8px; font-size: 11px; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 8px;">
+                        <div>${t('模型名称 (Model ID)', 'Model ID', '模型名稱 (Model ID)')}</div>
+                        <div>${t('上下文窗口', 'Context Window', '上下文窗口')}</div>
+                        <div style="text-align: center;">${t('操作', 'Actions', '操作')}</div>
+                    </div>
 
-                <div class="model-list-container" id="model-list-container-${key}" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 4px; margin-bottom: 12px;">
-                </div>
+                    <div class="model-list-container" id="model-list-container-${key}" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 4px; margin-bottom: 12px;">
+                    </div>
 
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <button type="button" class="btn-primary btn-add-new-model-row" data-provider="${key}" style="padding: 0 12px; font-size: 12px; height: 28px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: white;">${t('+ 添加模型', '+ Add Model', '+ 新增模型')}</button>
-                    <button type="button" class="btn-primary btn-fetch-upstream-models" data-provider="${key}" style="padding: 0 12px; font-size: 12px; height: 28px; border-radius: 6px; background: rgba(140, 82, 255, 0.15); border: 1px solid rgba(140, 82, 255, 0.3); color: #b388ff;">${t('📥 从上游获取', '📥 Fetch Upstream', '📥 從上游獲取')}</button>
-                    <span id="fetch-status-${key}" style="font-size: 11px; font-weight: bold; margin-left: 4px; display: none;"></span>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <button type="button" class="btn-primary btn-add-new-model-row" data-provider="${key}" style="padding: 0 12px; font-size: 12px; height: 28px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: white;">${t('+ 添加模型', '+ Add Model', '+ 新增模型')}</button>
+                        <button type="button" class="btn-primary btn-fetch-upstream-models" data-provider="${key}" style="padding: 0 12px; font-size: 12px; height: 28px; border-radius: 6px; background: rgba(140, 82, 255, 0.15); border: 1px solid rgba(140, 82, 255, 0.3); color: #b388ff;">${t('📥 从上游获取', '📥 Fetch Upstream', '📥 從上游獲取')}</button>
+                        <span id="fetch-status-${key}" style="font-size: 11px; font-weight: bold; margin-left: 4px; display: none;"></span>
+                    </div>
                 </div>
             </div>
         `;
@@ -1294,12 +1327,32 @@ function bindProviderEvents() {
     document.querySelectorAll('.btn-delete-provider').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const provider = e.target.getAttribute('data-provider');
+            if (provider === 'agnes-ai' || provider === 'ollama') return;
             if (await confirm(t(`确定要彻底删除厂家 "${provider}" 及其下的所有模型配置吗？`, `Are you sure you want to completely delete provider "${provider}" and all its model configurations?`, `確定要徹底刪除廠商 "${provider}" 及其下的所有模型配置嗎？`))) {
                 delete localProviders[provider];
                 renderProvidersList();
                 updateModelsDatalist();
                 markConfigDirty();
             }
+        });
+    });
+
+    // 监听提供商卡片折叠/展开事件
+    document.querySelectorAll('.provider-card-header').forEach(header => {
+        header.addEventListener('click', (e) => {
+            // 如果点击的是删除按钮，不干扰其自身事件
+            if (e.target.closest('.btn-delete-provider')) return;
+            
+            const btnFold = header.querySelector('.btn-fold-provider');
+            if (!btnFold) return;
+            const provider = btnFold.getAttribute('data-provider');
+            
+            if (expandedProviders.has(provider)) {
+                expandedProviders.delete(provider);
+            } else {
+                expandedProviders.add(provider);
+            }
+            renderProvidersList();
         });
     });
 

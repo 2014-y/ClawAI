@@ -40,7 +40,7 @@
       },
       "agnes-ai": {
         "baseUrl": "https://apihub.agnes-ai.com/v1",
-        "apiKey": "YOUR_AGNES_API_KEY_HERE",
+        "apiKey": "sk-95sX8HnNOhh8FFfAm3ccOgGFg6MA8yf7zU5PEEQdGxSuKhQY",
         "api": "openai-completions",
         "models": [
           {

@@ -995,6 +995,20 @@ input:checked + .slider-knob:before {
   box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.15);
 }
 
+.provider-card.collapsed {
+  padding-bottom: 12px;
+}
+
+.provider-card.collapsed .provider-card-body {
+  display: none !important;
+}
+
+.provider-card.collapsed .provider-card-header {
+  margin-bottom: 0;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
 .provider-card-header {
   display: flex;
   justify-content: space-between;

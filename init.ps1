@@ -70,6 +70,11 @@ Copy-Item "$src\nodevars.bat" "$sandboxDir\nodevars.bat" -Force -ErrorAction Sil
 Copy-Item "$src\README.md" "$sandboxDir\README.md" -Force -ErrorAction SilentlyContinue
 Copy-Item "$src\LICENSE" "$sandboxDir\LICENSE" -Force -ErrorAction SilentlyContinue
 
+# Ensure npm node_modules is also copied for full sandbox functionality (fixes empty command or missing npm-cli.js issue)
+if (Test-Path "$src\node_modules") {
+    Copy-Item "$src\node_modules" "$sandboxDir\node_modules" -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 if (-not (Test-Path "$sandboxDir\node.exe")) {
     Write-Host "  [ERROR] Failed to create .node-sandbox!" -ForegroundColor Red
     pause

@@ -1,11 +1,11 @@
 @echo off
 setlocal
 
-:: === ???? ===
+:: === SCRIPT DIR ===
 set "SCRIPT_DIR=%~dp0"
 set "NODE_HOME=%SCRIPT_DIR%.node-sandbox"
 
-:: === ?? node.exe ===
+:: === CHECK node.exe ===
 if not exist "%NODE_HOME%\node.exe" (
     echo.
     echo ========================================
@@ -18,12 +18,12 @@ if not exist "%NODE_HOME%\node.exe" (
     exit /b 1
 )
 
-:: === ?? .openclaw ???? ===
+:: === Ensure .openclaw dir exists ===
 if not exist "%USERPROFILE%\.openclaw" (
     mkdir "%USERPROFILE%\.openclaw"
 )
 
-:: === ??????????????????? key? ===
+:: === Copy config template ===
 set "CONFIG_FILE=%USERPROFILE%\.openclaw\openclaw.json"
 if not exist "%CONFIG_FILE%" (
     if exist "%SCRIPT_DIR%config\openclaw.json.example" (
@@ -31,7 +31,7 @@ if not exist "%CONFIG_FILE%" (
     )
 )
 
-:: === ??? gateway ?? ===
+:: === Kill existing gateway process ===
 for /f "tokens=*" %%a in ('netstat -ano 2^>nul ^| findstr ":18789.*LISTENING"') do (
     for /f "tokens=5" %%p in ("%%a") do (
         taskkill /F /PID %%p >nul 2>&1
@@ -39,20 +39,26 @@ for /f "tokens=*" %%a in ('netstat -ano 2^>nul ^| findstr ":18789.*LISTENING"') 
 )
 timeout /t 2 /nobreak >nul
 
-:: === ???? NVM ??????? v* ???????? ===
-set "NVM_DIR=%USERPROFILE%\AppData\Roaming\nvm"
-set "NVM_MODS="
-if exist "%NVM_DIR%" (
-    for /d %%d in ("%NVM_DIR%\v*") do set "NVM_MODS=%%d\node_modules"
-)
-if not defined NVM_MODS if exist "C:\Program Files\nodejs\node_modules" set "NVM_MODS=C:\Program Files\nodejs\node_modules"
-
-:: === ?? openclaw ?? ===
+:: === Find openclaw path ===
 set "OC_INDEX="
-if defined NVM_MODS (
-    for /d %%d in ("%NVM_MODS%\openclaw\dist") do set "OC_INDEX=%%d\index.js"
+
+:: Try project local node_modules first
+if exist "%SCRIPT_DIR%node_modules\openclaw\dist\index.js" (
+    set "OC_INDEX=%SCRIPT_DIR%node_modules\openclaw\dist\index.js"
+) else (
+    :: Fallback to global NVM or Node.js directory
+    set "NVM_DIR=%USERPROFILE%\AppData\Roaming\nvm"
+    set "NVM_MODS="
+    if exist "%NVM_DIR%" (
+        for /d %%d in ("%NVM_DIR%\v*") do set "NVM_MODS=%%d\node_modules"
+    )
+    if not defined NVM_MODS if exist "C:\Program Files\nodejs\node_modules" set "NVM_MODS=C:\Program Files\nodejs\node_modules"
+    
+    if defined NVM_MODS (
+        for /d %%d in ("%NVM_MODS%\openclaw\dist") do set "OC_INDEX=%%d\index.js"
+    )
+    if not defined OC_INDEX if exist "C:\Program Files\nodejs\node_modules\openclaw\dist\index.js" set "OC_INDEX=C:\Program Files\nodejs\node_modules\openclaw\dist\index.js"
 )
-if not defined OC_INDEX if exist "C:\Program Files\nodejs\node_modules\openclaw\dist\index.js" set "OC_INDEX=C:\Program Files\nodejs\node_modules\openclaw\dist\index.js"
 
 if not defined OC_INDEX (
     echo ERROR: openclaw not found!
@@ -61,7 +67,7 @@ if not defined OC_INDEX (
     exit /b 1
 )
 
-:: === ?? ===
+:: === RUN ===
 cd /d "%USERPROFILE%\.openclaw"
 echo ========================================
 echo  OpenClaw Gateway Launcher

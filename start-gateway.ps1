@@ -32,19 +32,23 @@ Write-Host ''
 Write-Host 'Starting...' -ForegroundColor Gray
 Write-Host ''
 
-# 动态查找 NVM 目录
-$nvmRoot = "$env:USERPROFILE\AppData\Roaming\nvm"
-if (-not (Test-Path $nvmRoot)) { $nvmRoot = "$env:APPDATA\nvm" }
-$nvmDir = (Get-ChildItem $nvmRoot -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Path "$($_.FullName)\node.exe" } | Sort-Object Name -Descending | Select-Object -First 1).FullName
-if (-not $nvmDir) { $nvmDir = $nvmRoot }
+$indexJs = Join-Path $scriptDir "node_modules\openclaw\dist\index.js"
+if (-not (Test-Path $indexJs)) {
+    # 动态查找 NVM 目录
+    $nvmRoot = "$env:USERPROFILE\AppData\Roaming\nvm"
+    if (-not (Test-Path $nvmRoot)) { $nvmRoot = "$env:APPDATA\nvm" }
+    $nvmDir = (Get-ChildItem $nvmRoot -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Path "$($_.FullName)\node.exe" } | Sort-Object Name -Descending | Select-Object -First 1).FullName
+    if (-not $nvmDir) { $nvmDir = $nvmRoot }
 
-# Use nvm's node_modules
-$nvmModules = "$nvmDir\node_modules"
-if (-not (Test-Path $nvmModules)) {
+    # Use nvm's node_modules
     $nvmModules = "$nvmDir\node_modules"
+    if (-not (Test-Path $nvmModules)) {
+        $nvmModules = "$nvmDir\node_modules"
+    }
+
+    $indexJs = Join-Path $nvmModules "openclaw\dist\index.js"
 }
 
-$indexJs = Join-Path $nvmModules "openclaw\dist\index.js"
 if (-not (Test-Path $indexJs)) {
     Write-Host "ERROR: openclaw not found at $indexJs" -ForegroundColor Red
     Write-Host "Please install openclaw: npm install -g openclaw" -ForegroundColor Yellow
