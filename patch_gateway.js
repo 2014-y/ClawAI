@@ -5,6 +5,58 @@ const path = require('path');
 
 const os = require('os');
 
+// ─── fs.mkdir / fs.mkdirSync Windows EPERM Race Condition 补丁 ───
+// 解决高并发时，Node.js 在 Windows 上递归创建目录可能导致的 EPERM 报错
+const originalMkdirSync = fs.mkdirSync;
+fs.mkdirSync = function(path, options) {
+    try {
+        return originalMkdirSync(path, options);
+    } catch (e) {
+        if ((e.code === 'EPERM' || e.code === 'EEXIST') && options && options.recursive) {
+            try {
+                if (fs.statSync(path).isDirectory()) return undefined;
+            } catch (statErr) {}
+        }
+        throw e;
+    }
+};
+
+const originalPromisesMkdir = fs.promises.mkdir;
+fs.promises.mkdir = async function(path, options) {
+    try {
+        return await originalPromisesMkdir(path, options);
+    } catch (e) {
+        if ((e.code === 'EPERM' || e.code === 'EEXIST') && options && options.recursive) {
+            try {
+                const stat = await fs.promises.stat(path);
+                if (stat.isDirectory()) return undefined;
+            } catch (statErr) {}
+        }
+        throw e;
+    }
+};
+
+const originalMkdir = fs.mkdir;
+fs.mkdir = function(path, options, callback) {
+    if (typeof options === 'function') {
+        callback = options;
+        options = undefined;
+    }
+    originalMkdir(path, options, function(err, result) {
+        if (err && (err.code === 'EPERM' || err.code === 'EEXIST') && options && options.recursive) {
+            fs.stat(path, function(statErr, stat) {
+                if (!statErr && stat.isDirectory()) {
+                    if (callback) callback(null, undefined);
+                } else {
+                    if (callback) callback(err);
+                }
+            });
+            return;
+        }
+        if (callback) callback(err, result);
+    });
+};
+
 // 统一日志写入数据库路径 (自适应获取用户主目录，解决硬编码用户名 Yuan 导致别人的白机用量失效的重大 Bug)
 const homeDir = os.homedir();
 const logDir = path.join(homeDir, '.openclaw', 'persistent_logs');
