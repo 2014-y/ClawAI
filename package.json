@@ -68,7 +68,7 @@
       "include": "config/installer.nsh",
       "installerIcon": "config/icon.ico",
       "uninstallerIcon": "config/icon.ico",
-      "showDetailsPage": "show"
+      "showDetailsPage": "always"
     },
     "files": [
       "main.js",
