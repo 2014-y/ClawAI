@@ -720,6 +720,8 @@ function setupIpcListeners() {
         const filteredLines = text.split('\n').filter(line => !(
             line.includes('|') || 
             line.includes('plugin not installed') || 
+            line.includes('failed probing with reason') || // 过滤云电脑/虚拟网卡回环导致的 Bonjour 冲突报错
+            line.includes('Can\'t probe for a service which is announced already') ||
             line.includes('plugins.allow is empty') || 
             line.includes('discovered non-bundled plugins') || 
             line.includes('To trust them') ||
