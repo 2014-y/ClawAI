@@ -853,10 +853,15 @@ fs.mkdir = function(target, options, callback) {
         .catch(err => { if (callback) callback(err); });
 };
 
-// 统一日志写入数据库路径 (自适应获取用户主目录，解决硬编码用户名 Yuan 导致别人的白机用量失效的重大 Bug)
-const homeDir = os.homedir();
-const logDir = path.join(homeDir, '.openclaw', 'persistent_logs');
-const tokenDbPath = path.join(logDir, 'real_tokens.json');
+// 用量库路径：与 Electron 主进程 CONFIG_DIR 对齐（优先 OPENCLAW_STATE_DIR）
+function resolveTokenLogPaths() {
+    const stateDir =
+        process.env.OPENCLAW_STATE_DIR ||
+        (process.env.OPENCLAW_HOME ? path.join(process.env.OPENCLAW_HOME, '.openclaw') : null) ||
+        path.join(os.homedir(), '.openclaw');
+    const logDir = path.join(stateDir, 'persistent_logs');
+    return { stateDir, logDir, tokenDbPath: path.join(logDir, 'real_tokens.json') };
+}
 
 // 强制清理可能损坏的技能缓存文件或目录 (解决 EPERM 文件夹被文件占用的骨灰级顽疾)
 // 仅在根网关进程执行一次: 通过环境变量标记, 避免 openclaw 派生的每个子进程都重复删除,
@@ -865,7 +870,8 @@ const tokenDbPath = path.join(logDir, 'real_tokens.json');
 if (!process.env.__TOKENGUARD_CLEANED) {
     process.env.__TOKENGUARD_CLEANED = '1';
     try {
-        const promptsCachePath = path.join(homeDir, '.openclaw', 'agents', 'main', 'sessions', 'skills-prompts');
+        const { stateDir } = resolveTokenLogPaths();
+        const promptsCachePath = path.join(stateDir, 'agents', 'main', 'sessions', 'skills-prompts');
         if (fs.existsSync(promptsCachePath) && !fs.statSync(promptsCachePath).isDirectory()) {
             fs.rmSync(promptsCachePath, { recursive: true, force: true });
             console.log('[TokenGuard] Removed corrupted (non-directory) skills-prompts placeholder.');
@@ -875,9 +881,76 @@ if (!process.env.__TOKENGUARD_CLEANED) {
     }
 }
 
+/** 从 LLM 回包文本提取 usage（兼容 OpenAI / Ollama 原生 / Gemini / SSE） */
+function parseUsageFromLlmBody(bodyText) {
+    if (!bodyText || typeof bodyText !== 'string') return null;
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let hitTokens = 0;
+
+    // OpenAI / Claude / 常见兼容：prompt_tokens / completion_tokens / input_tokens / output_tokens
+    const inMatch = [...bodyText.matchAll(/"(?:prompt_tokens|promptTokenCount|input_tokens|prompt_eval_count)"\s*:\s*(\d+)/gi)];
+    if (inMatch.length > 0) inputTokens = parseInt(inMatch[inMatch.length - 1][1], 10) || 0;
+
+    const outMatch = [...bodyText.matchAll(/"(?:completion_tokens|candidatesTokenCount|output_tokens|eval_count)"\s*:\s*(\d+)/gi)];
+    if (outMatch.length > 0) outputTokens = parseInt(outMatch[outMatch.length - 1][1], 10) || 0;
+
+    const hitMatch = [...bodyText.matchAll(/"(?:cached_tokens|cache_read_input_tokens|prompt_eval_count_cached)"\s*:\s*(\d+)/gi)];
+    if (hitMatch.length > 0) hitTokens = parseInt(hitMatch[hitMatch.length - 1][1], 10) || 0;
+
+    // Ollama 原生流式 NDJSON：最后一行 done:true 才有计数；上面已用 matchAll 取末次
+    // 若仍为 0，尝试从最后一个完整 JSON 对象再读一次
+    if (inputTokens === 0 && outputTokens === 0) {
+        try {
+            const lines = bodyText.split(/\r?\n/).map((l) => l.replace(/^data:\s*/, '').trim()).filter(Boolean);
+            for (let i = lines.length - 1; i >= 0; i--) {
+                const line = lines[i];
+                if (line === '[DONE]') continue;
+                try {
+                    const obj = JSON.parse(line);
+                    const u = obj.usage || obj;
+                    const inn = u.prompt_tokens ?? u.promptTokenCount ?? u.input_tokens ?? u.prompt_eval_count;
+                    const out = u.completion_tokens ?? u.candidatesTokenCount ?? u.output_tokens ?? u.eval_count;
+                    if (Number(inn) > 0 || Number(out) > 0) {
+                        inputTokens = Number(inn) || 0;
+                        outputTokens = Number(out) || 0;
+                        hitTokens = Number(u.cached_tokens || u.cache_read_input_tokens || 0) || 0;
+                        break;
+                    }
+                } catch (e) { /* keep scanning */ }
+            }
+        } catch (e) {}
+    }
+
+    if (inputTokens <= 0 && outputTokens <= 0) return null;
+    return { prompt_tokens: inputTokens, completion_tokens: outputTokens, hit_tokens: hitTokens };
+}
+
+function inferProviderName(hostOrUrl, modelName) {
+    const cleanUrl = String(hostOrUrl || '').toLowerCase();
+    const model = String(modelName || '').toLowerCase();
+    if (cleanUrl.includes('11434') || cleanUrl.includes('/api/chat') || model.startsWith('ollama/') || model.includes('jarvis') || model.includes('gemma')) {
+        return 'ollama';
+    }
+    if (cleanUrl.includes('agnes')) return 'agnes-ai';
+    if (cleanUrl.includes('siliconflow')) return 'siliconflow';
+    if (cleanUrl.includes('deepseek')) return 'deepseek';
+    if (cleanUrl.includes('openai') || cleanUrl.includes('api.openai')) return 'openai';
+    if (cleanUrl.includes('yitong') || cleanUrl.includes('bigmodel') || cleanUrl.includes('zhipu')) return 'yitong';
+    try {
+        const hostMatch = cleanUrl.match(/https?:\/\/([^/:]+)/);
+        const host = hostMatch ? hostMatch[1] : cleanUrl;
+        if (host.includes('127.0.0.1') || host.includes('localhost')) return 'ollama';
+        return host.split('.')[0] || 'gateway';
+    } catch (e) {
+        return 'gateway';
+    }
+}
+
 // 辅助写入本地 real_tokens.json 数据库
 function saveRealToken(logEntry) {
     try {
+        const { logDir, tokenDbPath } = resolveTokenLogPaths();
         // 确保目录存在
         if (!fs.existsSync(logDir)) {
             fs.mkdirSync(logDir, { recursive: true });
@@ -902,7 +975,7 @@ function saveRealToken(logEntry) {
         const tmpPath = tokenDbPath + '.tmp';
         fs.writeFileSync(tmpPath, JSON.stringify(logs, null, 2), 'utf8');
         fs.renameSync(tmpPath, tokenDbPath);
-        console.log(`[TokenGuard] Successfully saved real token log: ${logEntry.model} (${logEntry.input}+${logEntry.output} tokens)`);
+        console.log(`[TokenGuard] Saved usage ${logEntry.provider}/${logEntry.model}: ${logEntry.input}+${logEntry.output} -> ${tokenDbPath}`);
     } catch (err) {
         console.error('[TokenGuard] Failed to save real token (non‑fatal):', err);
         // 仅记录错误，不抛出，防止网关进程因写入错误崩溃
@@ -913,68 +986,31 @@ function saveRealToken(logEntry) {
 function parseAndSaveCompletionsLog(bodyText, hostOrUrl, elapsedMs) {
     try {
         if (!bodyText) return;
-        
-        let usage = null;
-        
-        let inputTokens = 0;
-        let outputTokens = 0;
-        
-        const inMatch = [...bodyText.matchAll(/"(?:prompt_tokens|promptTokenCount|input_tokens)"\s*:\s*(\d+)/gi)];
-        if (inMatch.length > 0) inputTokens = parseInt(inMatch[inMatch.length - 1][1]);
-        
-        const outMatch = [...bodyText.matchAll(/"(?:completion_tokens|candidatesTokenCount|output_tokens)"\s*:\s*(\d+)/gi)];
-        if (outMatch.length > 0) outputTokens = parseInt(outMatch[outMatch.length - 1][1]);
+        const usage = parseUsageFromLlmBody(bodyText);
+        if (!usage) return;
 
-        if (inputTokens > 0 || outputTokens > 0) {
-            usage = {
-                prompt_tokens: inputTokens,
-                completion_tokens: outputTokens
-            };
+        let modelName = 'unknown-model';
+        const modelMatch = [...bodyText.matchAll(/"model"\s*:\s*"([^"]+)"/g)];
+        if (modelMatch.length > 0) {
+            modelName = modelMatch[modelMatch.length - 1][1];
         }
-        
-        if (usage) {
-            let modelName = 'unknown-model';
-            const modelMatch = bodyText.match(/"model"\s*:\s*"([^"]+)"/);
-            if (modelMatch) {
-                modelName = modelMatch[1];
-            }
-            
-            const now = new Date();
-            const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-            
-            // 友好商户分类显示
-            let provName = 'gateway';
-            const cleanUrl = (hostOrUrl || '').toLowerCase();
-            if (cleanUrl.includes('siliconflow')) {
-                provName = 'siliconflow';
-            } else if (cleanUrl.includes('deepseek')) {
-                provName = 'deepseek';
-            } else if (cleanUrl.includes('openai')) {
-                provName = 'openai';
-            } else {
-                // 从域名中提炼服务商前缀
-                try {
-                    const hostMatch = cleanUrl.match(/https?:\/\/([^/:]+)/);
-                    const host = hostMatch ? hostMatch[1] : cleanUrl;
-                    provName = host.split('.')[0] || 'gateway';
-                } catch(e) {
-                    provName = 'gateway';
-                }
-            }
 
-            const logEntry = {
-                time: timeStr,
-                provider: provName,
-                model: modelName,
-                input: usage.prompt_tokens,
-                output: usage.completion_tokens,
-                hit: 0,
-                duration: `${(elapsedMs / 1000.0).toFixed(1)}s`,
-                status: '成功',
-                timestamp: Date.now()
-            };
-            saveRealToken(logEntry);
-        }
+        const now = new Date();
+        const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+        const provName = inferProviderName(hostOrUrl, modelName);
+
+        const logEntry = {
+            time: timeStr,
+            provider: provName,
+            model: modelName,
+            input: usage.prompt_tokens,
+            output: usage.completion_tokens,
+            hit: usage.hit_tokens || 0,
+            duration: `${(elapsedMs / 1000.0).toFixed(1)}s`,
+            status: '成功',
+            timestamp: Date.now()
+        };
+        saveRealToken(logEntry);
     } catch (err) {
         console.error('[TokenGuard] Error parsing completions response:', err);
     }
@@ -1202,7 +1238,28 @@ Module._load = function(request, parent, isMain) {
                                 }
                             } catch(e) {}
                         }
-                        return origReq.apply(this, arguments);
+
+                        const startMs = Date.now();
+                        const res = await origReq.apply(this, arguments);
+                        // undici.request 过去只 scrub 请求、不记账；补上响应旁路
+                        if (isLlmProxyPath(urlStr) && res && res.body && typeof res.body[Symbol.asyncIterator] === 'function') {
+                            try {
+                                const chunks = [];
+                                for await (const chunk of res.body) {
+                                    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+                                }
+                                const buf = Buffer.concat(chunks);
+                                const elapsed = Date.now() - startMs;
+                                try {
+                                    parseAndSaveCompletionsLog(buf.toString('utf8'), urlStr, elapsed);
+                                } catch (e) {}
+                                const { Readable } = require('stream');
+                                return Object.assign({}, res, { body: Readable.from([buf]) });
+                            } catch (e) {
+                                return res;
+                            }
+                        }
+                        return res;
                     };
                 }
                 console.log('[TokenGuard] Transparent undici module hook successfully loaded.');

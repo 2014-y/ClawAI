@@ -2599,11 +2599,16 @@ function setupTabSwitching() {
             }
             currentTab = tab.getAttribute('data-tab');
 
-            // 切换到内置网关面板时，拉取最新免密 URL 并载入 webview
+            // 切换到用量页重画图表防自适应显示错误
+            if (currentTab === 'dashboard-view') {
+                renderUsageCharts();
+            }
+
+            // 切换到内置网关面板时，拉取最新免密 URL 并载入 webview（提示与用量监控无关）
             if (currentTab === 'openclaw-panel-view') {
                 const webview = document.getElementById('openclaw-iframe');
                 if (webview) {
-                    showToast('正在安全连接本地网关面板...');
+                    showToast('正在连接网关控制台面板…');
                     try {
                         const url = await window.api.getDashboardUrl();
                         webview.src = url;
@@ -2611,11 +2616,6 @@ function setupTabSwitching() {
                         webview.src = 'http://127.0.0.1:18789/acp/';
                     }
                 }
-            }
-
-            // 切换到用量页重画图表防自适应显示错误
-            if (currentTab === 'dashboard-view') {
-                renderUsageCharts();
             }
 
             // 切换到系统日志页拉取最新并展示完整本地历史日志文件
@@ -2709,6 +2709,11 @@ async function renderUsageCharts() {
         }
     } catch (err) {
         console.error('Failed to load real stats data from gateway:', err);
+    }
+
+    if ((!sessionStats.logs || sessionStats.logs.length === 0) && Number(sessionStats.total_requests || 0) === 0) {
+        // 引导：无数据通常是补丁未记账或尚未产生对话，不是筛选器问题
+        console.warn('[UsageStats] real_tokens.json 为空或不存在 — 需在网关下完成至少一轮对话后才会出现用量');
     }
 
     const stats = sessionStats;

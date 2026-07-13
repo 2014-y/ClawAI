@@ -728,6 +728,12 @@ ipcMain.on('gateway-action', (event, action) => {
                     fs.copyFileSync(localPatch, PUBLIC_PATCH_PATH);
                     console.log(`[TokenGuard] Copied public patch to ${PUBLIC_PATCH_PATH} successfully after cleanup.`);
                 }
+                const localTokenParse = path.join(__dirname, 'token-usage-parse.js');
+                if (fs.existsSync(localTokenParse)) {
+                    try {
+                        fs.copyFileSync(localTokenParse, 'C:\\Users\\Public\\token-usage-parse.js');
+                    } catch (e) {}
+                }
                 const localCapture = path.join(__dirname, 'capture-desktop.ps1');
                 const publicCapture = 'C:\\Users\\Public\\capture-desktop.ps1';
                 if (fs.existsSync(localCapture)) {
@@ -1257,10 +1263,25 @@ ipcMain.handle('stats-get', async () => {
             models: {}
         };
 
-        const persistentDir = path.join(CONFIG_DIR, 'persistent_logs');
-        const realTokensPath = path.join(persistentDir, 'real_tokens.json');
+        const persistentCandidates = [
+            path.join(CONFIG_DIR, 'persistent_logs', 'real_tokens.json'),
+            process.env.OPENCLAW_STATE_DIR ? path.join(process.env.OPENCLAW_STATE_DIR, 'persistent_logs', 'real_tokens.json') : null,
+            process.env.OPENCLAW_HOME ? path.join(process.env.OPENCLAW_HOME, '.openclaw', 'persistent_logs', 'real_tokens.json') : null,
+            path.join(process.env.USERPROFILE || process.env.HOME || '', '.openclaw', 'persistent_logs', 'real_tokens.json'),
+            process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'ClawAI', '.openclaw', 'persistent_logs', 'real_tokens.json') : null
+        ].filter((p, i, arr) => Boolean(p) && String(p).includes('real_tokens.json') && arr.indexOf(p) === i);
 
-        if (fs.existsSync(realTokensPath)) {
+        let realTokensPath = null;
+        for (const candidate of persistentCandidates) {
+            try {
+                if (fs.existsSync(candidate)) {
+                    realTokensPath = candidate;
+                    break;
+                }
+            } catch (e) {}
+        }
+
+        if (realTokensPath) {
             try {
                 const content = fs.readFileSync(realTokensPath, 'utf8');
                 const realLogs = JSON.parse(content);

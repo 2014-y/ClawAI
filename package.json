@@ -76,6 +76,7 @@
       "main.js",
       "home-resolve.js",
       "latency-tune.js",
+      "token-usage-parse.js",
       "preload.js",
       "patch_gateway.js",
       "capture-desktop.ps1",
