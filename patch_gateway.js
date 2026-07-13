@@ -182,6 +182,48 @@ try {
     Object.setPrototypeOf(worker_threads.Worker, OriginalWorker);
 } catch (e) {}
 
+// ─── Windows 命令行防御性纠正过滤 ───
+function fixWindowsHeredoc(cmdStr) {
+    if (typeof cmdStr !== 'string') return cmdStr;
+    const heredocRegex = /powershell.*-File\s+-\s+<<'?PS1'([\s\S]*?)PS1/i;
+    const match = cmdStr.match(heredocRegex);
+    if (match) {
+        const realScript = match[1].trim();
+        const wrappedScript = `try {\n${realScript}\n} catch {}`;
+        const base64 = Buffer.from(wrappedScript, 'utf16le').toString('base64');
+        const corrected = `powershell -ExecutionPolicy Bypass -NoProfile -EncodedCommand ${base64}`;
+        return cmdStr.replace(match[0], corrected);
+    }
+    return cmdStr;
+}
+
+function fixWindowsScreenshotCommand(cmdStr) {
+    if (typeof cmdStr !== 'string') return cmdStr;
+    if (cmdStr.includes('System.Windows.Forms') && cmdStr.includes('System.Drawing') && cmdStr.includes('Save(')) {
+        const saveRegex = /Save\(['"]([^'"]+)['"]\)/i;
+        const match = cmdStr.match(saveRegex);
+        if (match && match[1]) {
+            let destPath = match[1].trim();
+            if (destPath.startsWith('~')) {
+                const homedir = process.env.REAL_USER_HOME || require('os').homedir();
+                destPath = destPath.replace('~', homedir);
+            }
+            destPath = require('path').resolve(destPath);
+            const scriptPath = 'c:/Users/Yuan/Desktop/AI-v24.13.0-开源版/capture-desktop.ps1';
+            const corrected = `powershell -ExecutionPolicy Bypass -NoProfile -Command "try { $p = powershell -ExecutionPolicy Bypass -NoProfile -File '${scriptPath}'; if (Test-Path $p) { Copy-Item -Path $p -Destination '${destPath}' -Force; Write-Output $p } } catch {}"`;
+            return corrected;
+        }
+    }
+    return cmdStr;
+}
+
+function defensiveCommandFilter(cmdStr) {
+    let result = cmdStr;
+    result = fixWindowsHeredoc(result);
+    result = fixWindowsScreenshotCommand(result);
+    return result;
+}
+
 // ─── child_process.spawn, spawnSync 和 fork 孙子进程补丁传播 ───
 const originalSpawn = child_process.spawn;
 const originalSpawnSync = child_process.spawnSync;
@@ -191,6 +233,16 @@ const patchPath = 'C:/Users/Public/patch_gateway.js';
 child_process.spawn = function(command, args, options) {
     let newArgs = args;
     let newOptions = options || {};
+    
+    // Windows 平台下防御性纠正
+    if (process.platform === 'win32' && Array.isArray(newArgs)) {
+        newArgs = newArgs.map(arg => {
+            if (typeof arg === 'string') {
+                return defensiveCommandFilter(arg);
+            }
+            return arg;
+        });
+    }
     
     // 1. 无差别强制注入 env.NODE_OPTIONS，广播到所有后代进程 (非 Node 进程忽略，Node 进程强制加载)
     const env = { ...(newOptions.env || process.env) };
@@ -220,6 +272,16 @@ child_process.spawn = function(command, args, options) {
 child_process.spawnSync = function(command, args, options) {
     let newArgs = args;
     let newOptions = options || {};
+    
+    // Windows 平台下防御性纠正
+    if (process.platform === 'win32' && Array.isArray(newArgs)) {
+        newArgs = newArgs.map(arg => {
+            if (typeof arg === 'string') {
+                return defensiveCommandFilter(arg);
+            }
+            return arg;
+        });
+    }
     
     // 1. 无差别强制注入 env.NODE_OPTIONS
     const env = { ...(newOptions.env || process.env) };
