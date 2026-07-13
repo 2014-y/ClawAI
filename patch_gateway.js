@@ -1013,6 +1013,95 @@ if (typeof globalThis === 'object' && globalThis.fetch) {
     globalThis.fetch = wrapFetch(globalThis.fetch);
     console.log('[TokenGuard] Transparent globalThis.fetch hook successfully loaded.');
 }
+
+// ─── 代理 3：天罗地网 (拦截基于 Require 的第三方底层网络库) ───
+const Module = require('module');
+const originalLoad = Module._load;
+Module._load = function(request, parent, isMain) {
+    const exports = originalLoad.apply(this, arguments);
+    
+    // 1. 拦截 Undici (被 langchain 等高级 AI 框架内置使用，会绕过所有常规拦截)
+    if (request === 'undici' || request.endsWith('/undici/index.js')) {
+        if (exports && !exports.__TOKENGUARD_PATCHED__) {
+            try {
+                Object.defineProperty(exports, '__TOKENGUARD_PATCHED__', { value: true, writable: true });
+                if (typeof exports.fetch === 'function') {
+                    exports.fetch = wrapFetch(exports.fetch);
+                }
+                if (typeof exports.request === 'function') {
+                    const origReq = exports.request;
+                    exports.request = async function(url, options) {
+                        let urlStr = '';
+                        if (typeof url === 'string') urlStr = url;
+                        else if (url && url.url) urlStr = url.url;
+                        else if (url && url.href) urlStr = url.href;
+                        
+                        if ((urlStr.includes('/completions') || urlStr.includes('/embeddings')) && options && options.body && typeof options.body === 'string') {
+                            try {
+                                let parsedBody = JSON.parse(options.body);
+                                let hasModified = false;
+                                
+                                if (Array.isArray(parsedBody.messages)) {
+                                    let cleanedMessages = [];
+                                    for (let msg of parsedBody.messages) {
+                                        if (!msg || typeof msg !== 'object') continue;
+                                        if (typeof msg.content === 'string') {
+                                            if (msg.content.includes('None of the functions provided')) continue;
+                                            if (msg.content.includes('"name"') && msg.content.includes('"tts"') && msg.content.includes('"arguments"')) {
+                                                hasModified = true;
+                                                const textMatch = msg.content.match(/"text"\s*:\s*"([^"]+)"/);
+                                                msg.content = (textMatch && textMatch[1]) ? textMatch[1] : '你好';
+                                            }
+                                        }
+                                        cleanedMessages.push(msg);
+                                    }
+                                    if (parsedBody.messages.length !== cleanedMessages.length) hasModified = true;
+                                    parsedBody.messages = cleanedMessages;
+                                }
+                                
+                                const isLocalModel = parsedBody.model && (
+                                    String(parsedBody.model).includes('ollama') || String(parsedBody.model).includes('gemma') || 
+                                    String(parsedBody.model).includes('qwen') || String(parsedBody.model).includes('deepseek') || 
+                                    String(parsedBody.model).includes('llama') || urlStr.includes('11434') || urlStr.includes('localhost') || urlStr.includes('127.0.0.1')
+                                );
+                                
+                                if (isLocalModel && (parsedBody.tools || parsedBody.tool_choice)) {
+                                    delete parsedBody.tools;
+                                    delete parsedBody.tool_choice;
+                                    hasModified = true;
+                                }
+                                
+                                if (hasModified) {
+                                    options.body = JSON.stringify(parsedBody);
+                                    console.log(`[TokenGuard] Cleaned messages and stripped tools in undici.request for model: ${parsedBody.model}`);
+                                }
+                            } catch(e) {}
+                        }
+                        return origReq.apply(this, arguments);
+                    };
+                }
+                console.log('[TokenGuard] Transparent undici module hook successfully loaded.');
+            } catch (e) {}
+        }
+    }
+    
+    // 2. 拦截 node-fetch
+    if (request === 'node-fetch' || request.endsWith('node-fetch/lib/index.js')) {
+        if (exports && !exports.__TOKENGUARD_PATCHED__) {
+            try {
+                Object.defineProperty(exports, '__TOKENGUARD_PATCHED__', { value: true, writable: true });
+                if (typeof exports === 'function') {
+                    const newExport = wrapFetch(exports);
+                    Object.assign(newExport, exports);
+                    console.log('[TokenGuard] node-fetch module hook successfully loaded.');
+                    return newExport;
+                }
+            } catch(e) {}
+        }
+    }
+    
+    return exports;
+};
 if (typeof global === 'object' && global.fetch && global.fetch !== (globalThis && globalThis.fetch)) {
     global.fetch = wrapFetch(global.fetch);
     console.log('[TokenGuard] Transparent global.fetch hook successfully loaded.');
