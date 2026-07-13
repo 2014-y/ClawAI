@@ -30,15 +30,7 @@ let CONFIG_PATH = path.join(CONFIG_DIR, 'openclaw.json');
 
 // 统一公共补丁位置 (绝对无空格路径，杜绝 Windows 空格解析 Bug)
 const PUBLIC_PATCH_PATH = 'C:\\Users\\Public\\patch_gateway.js';
-try {
-    const localPatch = path.join(__dirname, 'patch_gateway.js');
-    if (fs.existsSync(localPatch)) {
-        fs.copyFileSync(localPatch, PUBLIC_PATCH_PATH);
-        console.log(`[TokenGuard] Copied public patch to ${PUBLIC_PATCH_PATH}`);
-    }
-} catch (e) {
-    console.error('[TokenGuard] Failed to copy public patch:', e.message);
-}
+// (Copy logic moved to startGateway to ensure no file locking from zombie processes)
 
 // 随应用打包、必须在别人电脑上默认可运行的自定义插件清单
 const BUNDLED_CUSTOM_PLUGINS = [
@@ -600,6 +592,17 @@ ipcMain.on('gateway-action', (event, action) => {
 
             // 部署内置自定义插件到用户状态目录, 确保打包后在别人电脑上插件也能被 openclaw 发现并加载
             seedBundledPlugins();
+
+            // 在杀掉所有可能锁定补丁的僵尸进程后，安全地拷贝最新的 patch_gateway.js 补丁
+            try {
+                const localPatch = path.join(__dirname, 'patch_gateway.js');
+                if (fs.existsSync(localPatch)) {
+                    fs.copyFileSync(localPatch, PUBLIC_PATCH_PATH);
+                    console.log(`[TokenGuard] Copied public patch to ${PUBLIC_PATCH_PATH} successfully after cleanup.`);
+                }
+            } catch (e) {
+                console.error('[TokenGuard] Failed to copy public patch after cleanup:', e.message);
+            }
 
             // 优先通过物理路径直接定位（完美避开打包后 Node.js 模块 exports 对子路径文件的加载限制）
             let openclawEntry = path.join(__dirname, 'node_modules', 'openclaw', 'dist', 'index.js');
