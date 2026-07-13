@@ -11,6 +11,7 @@ window.LOCALES = {
     'nav.settings': '系统设置',
     'nav.about': '关于 ClawAI',
     'nav.update': '检查更新',
+    'nav.acceleration_channel': '加速通道',
     'nav.openclaw_panel': 'OpenClaw',
 
     // 控制台 (Console)
@@ -325,6 +326,7 @@ window.LOCALES = {
     'nav.settings': 'Settings',
     'nav.about': 'About',
     'nav.update': 'Check Update',
+    'nav.acceleration_channel': 'Acceleration Channel',
     'nav.openclaw_panel': 'OpenClaw',
 
     // Console
@@ -639,6 +641,7 @@ window.LOCALES = {
     'nav.settings': '系統設定',
     'nav.about': '關於 ClawAI',
     'nav.update': '檢查更新',
+    'nav.acceleration_channel': '加速通道',
     'nav.openclaw_panel': 'OpenClaw',
 
     // 控制台 (Console)

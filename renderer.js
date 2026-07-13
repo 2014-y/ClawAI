@@ -652,6 +652,7 @@ async function init() {
 
     // 微信二维码弹窗关闭
     qrcodeCloseBtn.addEventListener('click', () => {
+        qrcodeOverlay.style.opacity = '0';
         qrcodeOverlay.style.display = 'none';
         window.api.cancelWeChatLogin();
     });
@@ -909,6 +910,7 @@ function setupIpcListeners() {
     // 微信扫码二维码捕获并画图
     window.api.onQrCodeReceived((url) => {
         qrcodeOverlay.style.display = 'flex';
+        qrcodeOverlay.style.opacity = '0';
         document.getElementById('qrcode-raw-url').value = url;
         drawQrCode(url);
     });
@@ -1381,7 +1383,7 @@ function toggleProviderInputsEditable() {
     if (useBuiltIn) {
         // 图片只读与默认内置设定
         if (imageBaseInput) {
-            imageBaseInput.value = 'https://apihub.agnes-ai.com/v1/image';
+            imageBaseInput.value = 'https://apihub.agnes-ai.com/v1/images';
             imageBaseInput.disabled = true;
             imageBaseInput.style.opacity = '0.5';
         }
@@ -2168,7 +2170,7 @@ const handleSaveConfigAction = async () => {
         localStorage.setItem('client_pref_image_model', 'agnes-ai/agnes-image-2.0-flash');
         localStorage.setItem('client_pref_video_model', 'agnes-ai/agnes-video-v2.0');
 
-        configData.imageGenerator.apiBase = 'https://apihub.agnes-ai.com/v1/image';
+        configData.imageGenerator.apiBase = 'https://apihub.agnes-ai.com/v1/images';
         configData.imageGenerator.apiKey = AGNES_BUILT_IN_KEY;
 
         configData.videoGenerator.apiBase = 'https://apihub.agnes-ai.com/v1/videos';
@@ -2551,6 +2553,12 @@ function setupTabSwitching() {
                 e.preventDefault();
                 e.stopPropagation();
                 triggerUpdateCheck(true);
+                return;
+            }
+            if (tab.id === 'nav-acceleration-channel') {
+                e.preventDefault();
+                e.stopPropagation();
+                window.api.openExternal('https://pin.dianping.men/auth/register?code=2k788U5v');
                 return;
             }
 
@@ -3332,6 +3340,7 @@ function drawQrCode(url) {
     
     img.onload = () => {
         ctx.drawImage(img, 0, 0, 160, 160);
+        qrcodeOverlay.style.opacity = '1';
     };
 
     img.onerror = () => {
@@ -3340,6 +3349,7 @@ function drawQrCode(url) {
         ctx.fillStyle = '#ff5252';
         ctx.font = '11px sans-serif';
         ctx.fillText('加载出错,请点击下方复制', 10, 80);
+        qrcodeOverlay.style.opacity = '1';
     };
 }
 
@@ -3756,8 +3766,10 @@ async function loadChatModels() {
     if (useBuiltIn) {
         const builtInOpts = [
             { id: 'agnes-2.0-flash', label: 'agnes-ai / agnes-2.0-flash (内置默认)' },
-            { id: 'agnes-1.5-flash', label: 'agnes-ai / agnes-1.5-flash' },
-            { id: 'agnes-video-v2.0', label: 'agnes-ai / agnes-video-v2.0' }
+            { id: 'agnes-1.5-flash', label: 'agnes-ai / agnes-1.5-flash (内置备用)' },
+            { id: 'agnes-video-v2.0', label: 'agnes-ai / agnes-video-v2.0 (内置视频)' },
+            { id: 'agnes-image-2.1-flash', label: 'agnes-ai / agnes-image-2.1-flash (内置图像)' },
+            { id: 'agnes-image-2.0-flash', label: 'agnes-ai / agnes-image-2.0-flash (内置图像默认)' }
         ];
         builtInOpts.forEach(optData => {
             const opt = document.createElement('option');
@@ -3792,8 +3804,10 @@ async function loadChatModels() {
     if (!hasModels) {
         select.innerHTML = `
             <option value="agnes-2.0-flash" data-provider="agnes-ai">agnes-ai / agnes-2.0-flash (内置默认)</option>
-            <option value="agnes-1.5-flash" data-provider="agnes-ai">agnes-ai / agnes-1.5-flash</option>
-            <option value="agnes-video-v2.0" data-provider="agnes-ai">agnes-ai / agnes-video-v2.0</option>
+            <option value="agnes-1.5-flash" data-provider="agnes-ai">agnes-ai / agnes-1.5-flash (内置备用)</option>
+            <option value="agnes-video-v2.0" data-provider="agnes-ai">agnes-ai / agnes-video-v2.0 (内置视频)</option>
+            <option value="agnes-image-2.1-flash" data-provider="agnes-ai">agnes-ai / agnes-image-2.1-flash (内置图像)</option>
+            <option value="agnes-image-2.0-flash" data-provider="agnes-ai">agnes-ai / agnes-image-2.0-flash (内置图像默认)</option>
         `;
     }
 
@@ -4179,7 +4193,23 @@ async function handleActionGenerate(type) {
 
         // 获取当前选中的模型
         const modelSelect = document.getElementById('chat-model-select');
-        modelId = modelSelect ? modelSelect.value : (type === 'image' ? 'agnes-image-2.0-flash' : 'agnes-video-v2.0');
+        if (type === 'image') {
+            const selectVal = modelSelect ? modelSelect.value : '';
+            if (selectVal && selectVal.includes('image')) {
+                modelId = selectVal;
+            } else {
+                const stored = localStorage.getItem('client_pref_image_model');
+                modelId = stored ? stored.split('/').pop() : 'agnes-image-2.0-flash';
+            }
+        } else {
+            const selectVal = modelSelect ? modelSelect.value : '';
+            if (selectVal && selectVal.includes('video')) {
+                modelId = selectVal;
+            } else {
+                const stored = localStorage.getItem('client_pref_video_model');
+                modelId = stored ? stored.split('/').pop() : 'agnes-video-v2.0';
+            }
+        }
 
         const genUrl = type === 'image' 
             ? `${apiBase.replace(/\/$/, '')}/generations`
@@ -4455,7 +4485,11 @@ function addSessionLog(provider, model, input, output, hit, durationMs) {
     }
 
     // 存入当前会话快照中
+    // 同步最新统计并实时刷新面板
     window.lastFetchedStats = JSON.parse(JSON.stringify(sessionStats));
+    if (typeof renderUsageCharts === 'function') {
+        renderUsageCharts();
+    }
 
     // 动态同步刷新下拉框选项
     updateFilterOptions();

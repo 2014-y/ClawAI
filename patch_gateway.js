@@ -572,24 +572,34 @@ if (!process.env.__TOKENGUARD_CLEANED) {
 // 辅助写入本地 real_tokens.json 数据库
 function saveRealToken(logEntry) {
     try {
+        // 确保目录存在
         if (!fs.existsSync(logDir)) {
             fs.mkdirSync(logDir, { recursive: true });
         }
+        // 读取已有日志，容错处理 JSON 解析错误
         let logs = [];
         if (fs.existsSync(tokenDbPath)) {
             try {
-                logs = JSON.parse(fs.readFileSync(tokenDbPath, 'utf8'));
-            } catch(e) {
+                const raw = fs.readFileSync(tokenDbPath, 'utf8');
+                logs = JSON.parse(raw);
+                if (!Array.isArray(logs)) logs = [];
+            } catch (e) {
+                console.warn('[TokenGuard] real_tokens.json 损坏，已重置。');
                 logs = [];
             }
         }
+        // 新日志写入头部
         logs.unshift(logEntry);
-        // 保留最近 1000 条
+        // 保留最近 1000 条记录
         if (logs.length > 1000) logs = logs.slice(0, 1000);
-        fs.writeFileSync(tokenDbPath, JSON.stringify(logs, null, 2), 'utf8');
-        console.log(`[TokenGuard] Successfully saved real token log: ${logEntry.model} (${logEntry.input} + ${logEntry.output} tokens)`);
-    } catch(err) {
-        console.error('[TokenGuard] Failed to save real token:', err);
+        // 使用临时文件写入，防止写入过程中出现中断导致文件损坏
+        const tmpPath = tokenDbPath + '.tmp';
+        fs.writeFileSync(tmpPath, JSON.stringify(logs, null, 2), 'utf8');
+        fs.renameSync(tmpPath, tokenDbPath);
+        console.log(`[TokenGuard] Successfully saved real token log: ${logEntry.model} (${logEntry.input}+${logEntry.output} tokens)`);
+    } catch (err) {
+        console.error('[TokenGuard] Failed to save real token (non‑fatal):', err);
+        // 仅记录错误，不抛出，防止网关进程因写入错误崩溃
     }
 }
 
