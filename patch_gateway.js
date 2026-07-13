@@ -279,13 +279,98 @@ const child_process = require('child_process');
 const os = require('os');
 
 // ─── 终极 homedir 矫正劫持 ───
+// 兼容家用电脑 + 无影云电脑/RDS：禁止落到 Temp\1；优先 LocalAppData\ClawAI / D:\ClawAI-data。
 const originalHomedir = os.homedir;
-const realHome = process.env.REAL_USER_HOME || originalHomedir();
+function isTempLikeHomePath(p) {
+    const n = String(p || '').toLowerCase().replace(/\//g, '\\');
+    return n.includes('\\temp\\') || n.includes('\\tmp\\') || n.includes('\\appdata\\local\\temp') || /\\temp\\\d+(\\|$)/.test(n);
+}
+function canWriteOpenClawHome(base) {
+    try {
+        const sessionsDir = path.join(base, '.openclaw', 'agents', 'main', 'sessions');
+        fs.mkdirSync(sessionsDir, { recursive: true });
+        const tmp = path.join(sessionsDir, `.home-probe-${process.pid}.tmp`);
+        const dst = path.join(sessionsDir, `.home-probe-${process.pid}.json`);
+        fs.writeFileSync(tmp, '{"ok":1}');
+        try { if (fs.existsSync(dst)) fs.unlinkSync(dst); } catch (e) {}
+        fs.renameSync(tmp, dst);
+        fs.unlinkSync(dst);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+function pickStableHome() {
+    const env = process.env;
+    const candidates = [];
+    const push = (p) => {
+        if (!p) return;
+        const r = path.resolve(String(p));
+        if (!candidates.includes(r)) candidates.push(r);
+    };
+
+    // 云桌面优先稳路径
+    const cloudish =
+        isTempLikeHomePath(env.REAL_USER_HOME) ||
+        isTempLikeHomePath(env.USERPROFILE) ||
+        isTempLikeHomePath(env.TEMP) ||
+        /^rdp-/i.test(String(env.SESSIONNAME || '')) ||
+        Boolean(env.CLIENTNAME);
+
+    if (cloudish) {
+        if (env.LOCALAPPDATA) push(path.join(env.LOCALAPPDATA, 'ClawAI'));
+        if (env.APPDATA) push(path.join(env.APPDATA, 'ClawAI'));
+        try { if (fs.existsSync('D:\\')) push('D:\\ClawAI-data'); } catch (e) {}
+        try { if (fs.existsSync('E:\\')) push('E:\\ClawAI-data'); } catch (e) {}
+        // 极端兜底：安装目录 data / ProgramData / Public
+        try {
+            const exeDir = path.dirname(process.execPath || '');
+            if (exeDir && !exeDir.toLowerCase().includes('system32')) push(path.join(exeDir, 'data'));
+        } catch (e) {}
+        if (env.ProgramData && env.USERNAME) push(path.join(env.ProgramData, 'ClawAI', String(env.USERNAME)));
+        push(path.join('C:\\Users\\Public', 'ClawAI', String(env.USERNAME || 'user')));
+        push(env.REAL_USER_HOME);
+        push(env.USERPROFILE);
+        push(env.HOME);
+        try { push(originalHomedir()); } catch (e) {}
+    } else {
+        push(env.REAL_USER_HOME);
+        push(env.USERPROFILE);
+        push(env.HOME);
+        try { push(originalHomedir()); } catch (e) {}
+        if (env.LOCALAPPDATA) push(path.join(env.LOCALAPPDATA, 'ClawAI'));
+        if (env.APPDATA) push(path.join(env.APPDATA, 'ClawAI'));
+        try { if (fs.existsSync('D:\\')) push('D:\\ClawAI-data'); } catch (e) {}
+        try {
+            const exeDir = path.dirname(process.execPath || '');
+            if (exeDir && !exeDir.toLowerCase().includes('system32')) push(path.join(exeDir, 'data'));
+        } catch (e) {}
+        if (env.ProgramData && env.USERNAME) push(path.join(env.ProgramData, 'ClawAI', String(env.USERNAME)));
+        push(path.join('C:\\Users\\Public', 'ClawAI', String(env.USERNAME || 'user')));
+    }
+    push(path.join(os.tmpdir(), 'ClawAI-home'));
+
+    for (const c of candidates) {
+        if (isTempLikeHomePath(c) && !String(c).toLowerCase().includes('clawai-home')) continue;
+        if (canWriteOpenClawHome(c)) return c;
+    }
+    for (const c of candidates) {
+        if (canWriteOpenClawHome(c)) return c;
+    }
+    return env.REAL_USER_HOME || originalHomedir();
+}
+const realHome = pickStableHome();
+if (isTempLikeHomePath(process.env.REAL_USER_HOME || '') && !isTempLikeHomePath(realHome)) {
+    console.warn(`[System] Corrected Temp OpenClaw home -> ${realHome}`);
+}
 os.homedir = function() {
     return realHome;
 };
 process.env.USERPROFILE = realHome;
 process.env.HOME = realHome;
+process.env.REAL_USER_HOME = realHome;
+process.env.OPENCLAW_HOME = realHome;
+process.env.OPENCLAW_STATE_DIR = path.join(realHome, '.openclaw');
 
 // ─── worker_threads.Worker 孙子线程补丁传播 ───
 try {

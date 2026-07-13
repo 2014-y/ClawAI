@@ -1,8 +1,16 @@
 // main.js - Electron 主进程入口
-const { app, BrowserWindow, ipcMain, Tray, Menu, Notification, session } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, Notification, session, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { fork } = require('child_process');
+const {
+    isTempLikePath,
+    probeOpenClawHomeWritable,
+    resolveStableOpenClawHome: resolveStableOpenClawHomeCore,
+    applyOpenClawHomeEnv,
+    detectRestrictedDesktop,
+    writeHomeHealthMarker
+} = require('./home-resolve');
 process.on('uncaughtException', (err) => {
     try {
         const logPath = path.join(process.env.USERPROFILE || process.env.HOME || process.env.APPDATA || 'C:\\', '.openclaw', 'main_error.log');
@@ -52,6 +60,85 @@ global.latestAcpDashboardUrl = '';
 
 let CONFIG_DIR = path.join(process.env.USERPROFILE || process.env.HOME || 'C:\\Users\\Public', '.openclaw');
 let CONFIG_PATH = path.join(CONFIG_DIR, 'openclaw.json');
+
+function resolveStableOpenClawHome(preferredHome) {
+    const installDir = (() => {
+        try {
+            // 打包后优先用可执行文件旁；开发态用项目目录
+            if (app.isPackaged) return path.dirname(process.execPath);
+            return __dirname;
+        } catch (e) {
+            return __dirname;
+        }
+    })();
+    return resolveStableOpenClawHomeCore(preferredHome, {
+        installDir,
+        appPaths: {
+            home: (() => { try { return app.getPath('home'); } catch (e) { return null; } })(),
+            appData: (() => { try { return app.getPath('appData'); } catch (e) { return null; } })(),
+            userData: (() => { try { return app.getPath('userData'); } catch (e) { return null; } })()
+        }
+    });
+}
+
+function warnStorageHealthIfNeeded(health, homePath) {
+    if (!health || health.level === 'ok') return;
+    const detail = `${health.message}\n\n建议：\n- ${(health.actions || []).join('\n- ')}`;
+    try {
+        showNotification(health.title || '存储目录提醒', health.message.split('\n')[0]);
+    } catch (e) {}
+    // 窗口起来后再弹一次，避免启动过早 dialog 被挡
+    const show = () => {
+        try {
+            dialog.showMessageBox(mainWindow || undefined, {
+                type: health.level === 'critical' ? 'error' : 'warning',
+                title: health.title || 'ClawAI 存储提醒',
+                message: health.title || '存储目录异常',
+                detail,
+                buttons: ['知道了']
+            });
+        } catch (e) {
+            console.error('[System] Failed to show storage health dialog:', e.message);
+        }
+    };
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        setTimeout(show, 800);
+    } else {
+        setTimeout(show, 2500);
+    }
+    console.warn(`[System] Storage health=${health.level} code=${health.code} home=${homePath}`);
+}
+
+/** 若从旧 Temp 家目录迁出，尽量带上配置/微信缓存，避免对方重配 */
+function migrateOpenClawDataIfNeeded(fromHome, toHome) {
+    if (!fromHome || !toHome || path.resolve(fromHome) === path.resolve(toHome)) return;
+    if (!isTempLikePath(fromHome)) return;
+    const srcRoot = path.join(fromHome, '.openclaw');
+    const dstRoot = path.join(toHome, '.openclaw');
+    if (!fs.existsSync(srcRoot)) return;
+    try {
+        fs.mkdirSync(dstRoot, { recursive: true });
+        const copyIfMissing = (rel) => {
+            const s = path.join(srcRoot, rel);
+            const d = path.join(dstRoot, rel);
+            if (!fs.existsSync(s) || fs.existsSync(d)) return;
+            fs.mkdirSync(path.dirname(d), { recursive: true });
+            fs.cpSync(s, d, { recursive: true, force: false, errorOnExist: false });
+        };
+        copyIfMissing('openclaw.json');
+        copyIfMissing('openclaw-weixin');
+        copyIfMissing('agents');
+        console.warn(`[System] Migrated OpenClaw data from temp home ${srcRoot} -> ${dstRoot}`);
+    } catch (e) {
+        console.warn(`[System] Temp home migration skipped: ${e.message}`);
+    }
+}
+
+function applyResolvedOpenClawHome(homePath) {
+    const applied = applyOpenClawHomeEnv(homePath, process.env);
+    CONFIG_DIR = applied.stateDir;
+    CONFIG_PATH = path.join(CONFIG_DIR, 'openclaw.json');
+}
 
 // 统一公共补丁位置 (绝对无空格路径，杜绝 Windows 空格解析 Bug)
 const PUBLIC_PATCH_PATH = 'C:\\Users\\Public\\patch_gateway.js';
@@ -1716,40 +1803,66 @@ ipcMain.handle('install-update', async (event, savePath) => {
 
 // 初始化应用
 app.whenReady().then(() => {
-    // 🌟 终极家目录矫正与受控安全降级自愈
+    // 家目录矫正：优先真实用户目录；不可写时改走 AppData\ClawAI，禁止落到裸 Temp
     try {
-        let homePath = app.getPath('home');
-        if (homePath) {
-            // 物理探测最深处报错的缓存目录是否具备正常的可写权限，以精准捕获云桌面安全锁定
-            const testDir = path.join(homePath, '.openclaw', 'agents', 'main', 'sessions', 'skills-prompts');
-            const testFile = path.join(testDir, '.write-test-' + Date.now());
-            let isWritable = true;
-            try {
-                if (!fs.existsSync(testDir)) {
-                    fs.mkdirSync(testDir, { recursive: true });
-                }
-                fs.writeFileSync(testFile, 'test-write', 'utf8');
-                fs.unlinkSync(testFile);
-            } catch (writeErr) {
-                isWritable = false;
-                console.error(`[System] Deep prompts cache directory is NOT writable: ${writeErr.message}`);
-            }
+        let preferredHome = app.getPath('home');
+        const desktopInfo = detectRestrictedDesktop(process.env);
+        const preferredWritable = preferredHome ? probeOpenClawHomeWritable(preferredHome) : false;
 
-            // 若被云桌面拦截或不可写，强行平滑重定向至操作系统原生临时目录 os.tmpdir()
-            if (!isWritable) {
-                const tmpDir = require('os').tmpdir();
-                console.warn(`[System] Controlled Folder Protection active. Redirecting homedir to tmpdir: ${tmpDir}`);
-                homePath = tmpDir;
-            }
+        // 旧版本可能已经把 USERPROFILE 指到 Temp\1；本次启动强制纠正
+        const envHome = process.env.REAL_USER_HOME || process.env.USERPROFILE || preferredHome;
+        const mustLeaveTemp = isTempLikePath(envHome) || isTempLikePath(CONFIG_DIR);
 
-            console.log(`[System] Final resolved user home: ${homePath}`);
-            process.env.USERPROFILE = homePath;
-            process.env.HOME = homePath;
-            process.env.REAL_USER_HOME = homePath;
-            
-            // 重新计算相关的全局配置路径
-            CONFIG_DIR = path.join(homePath, '.openclaw');
-            CONFIG_PATH = path.join(CONFIG_DIR, 'openclaw.json');
+        let homePath = preferredHome;
+        let health = null;
+        if (!preferredWritable || mustLeaveTemp || desktopInfo.restricted) {
+            const resolved = resolveStableOpenClawHome(preferredWritable && !mustLeaveTemp ? preferredHome : null);
+            homePath = resolved.homePath;
+            health = resolved.health;
+            console.warn(
+                `[System] OpenClaw home redirected for stability. preferredWritable=${preferredWritable} mustLeaveTemp=${mustLeaveTemp} cloudHints=${(resolved.desktopHints || []).join(',') || 'none'} health=${health && health.level} -> ${homePath}`
+            );
+            if (mustLeaveTemp && envHome) {
+                migrateOpenClawDataIfNeeded(envHome, homePath);
+            } else if (!preferredWritable && preferredHome) {
+                try {
+                    const srcCfg = path.join(preferredHome, '.openclaw', 'openclaw.json');
+                    const dstCfg = path.join(homePath, '.openclaw', 'openclaw.json');
+                    if (fs.existsSync(srcCfg) && !fs.existsSync(dstCfg)) {
+                        fs.mkdirSync(path.dirname(dstCfg), { recursive: true });
+                        fs.copyFileSync(srcCfg, dstCfg);
+                    }
+                } catch (e) {}
+            }
+        } else {
+            const resolvedOk = resolveStableOpenClawHome(preferredHome);
+            health = resolvedOk.health;
+            homePath = preferredHome;
+        }
+
+        applyResolvedOpenClawHome(homePath);
+        try {
+            writeHomeHealthMarker(CONFIG_DIR, health || { level: 'ok', code: 'OK' }, {
+                homePath,
+                desktopHints: desktopInfo.hints
+            });
+        } catch (e) {}
+        console.log(`[System] Final resolved user home: ${homePath}`);
+        console.log(`[System] OPENCLAW_HOME=${process.env.OPENCLAW_HOME}`);
+        console.log(`[System] OPENCLAW_STATE_DIR=${process.env.OPENCLAW_STATE_DIR}`);
+        console.log(`[System] OpenClaw config dir: ${CONFIG_DIR}`);
+        if (desktopInfo.hints.length) {
+            console.log(`[System] Desktop environment hints: ${desktopInfo.hints.join(', ')}`);
+        }
+        if (isTempLikePath(homePath) || (health && health.level !== 'ok')) {
+            // createWindow 之后再弹，这里先挂到 next tick 链
+            setImmediate(() => warnStorageHealthIfNeeded(health || {
+                level: 'critical',
+                code: 'TEMP_HOME',
+                title: '数据目录落在临时文件夹',
+                message: `检测到数据目录位于临时路径：\n${homePath}`,
+                actions: ['将 ClawAI 加入受控文件夹访问排除项', '重启 ClawAI']
+            }, homePath));
         }
     } catch (err) {
         console.error('[System] Failed to resolve true user home:', err.message);

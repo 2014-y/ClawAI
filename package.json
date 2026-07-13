@@ -74,6 +74,7 @@
     },
     "files": [
       "main.js",
+      "home-resolve.js",
       "preload.js",
       "patch_gateway.js",
       "renderer.js",
