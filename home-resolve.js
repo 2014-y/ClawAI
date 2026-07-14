@@ -47,21 +47,28 @@ function detectRestrictedDesktop(env = process.env) {
         }
     }
 
+    let hasExplicitCloudEnv = false;
     for (const [k, v] of Object.entries(env)) {
         const kv = `${k}=${v}`;
         if (/wuying|eds_?desktop|aliyun.*desktop|clouddesktop|citrix|vmware.?horizon|huawei.?workspace|tencent.?desk|aws.?workspaces|aspace|yunding/i.test(kv)) {
             hints.push('cloud-desktop-env');
+            hasExplicitCloudEnv = true;
             break;
         }
     }
-    // D 盘存在仅作为辅助信号：只有在已有其他云电脑特征时才计入，
-    // 避免普通家用电脑（用户名 admin + 有 D 盘）被误判为受限环境，
-    // 进而导致 HOME 重定向到 AppData\Local\ClawAI 引发 token 不同步和 EPERM。
+
+    // 真正的受限云桌面通常带有强烈的多会话/专有变量特征。
+    // 如果只是普通用户用 Windows 自带的 Remote Desktop (RDP) 连接家用电脑，
+    // 不应直接判定为受限环境，否则会导致正常 RDP 用户的目录被强行重定向到 AppData 从而引发 EPERM。
+    const isSessionTemp = /\\temp\\\d+(\\|$)/.test(tempVal);
+    const restricted = hasExplicitCloudEnv || isSessionTemp;
+
+    // D 盘存在仅作为辅助信号
     try {
         if (hints.length > 0 && fs.existsSync('D:\\') && fs.statSync('D:\\').isDirectory()) hints.push('data-disk-d');
     } catch (e) {}
 
-    return { restricted: hints.length > 0, hints };
+    return { restricted, hints };
 }
 
 /** 路径是否指向「另一台电脑/另一个用户」的配置（无影拷贝本机配置时最常见） */
