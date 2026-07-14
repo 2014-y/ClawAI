@@ -637,37 +637,7 @@ body.maximized .app-container {
   overflow-x: hidden;
 }
 
-.gateway-big-btn {
-  height: 120px;
-  border-radius: 16px;
-  border: none;
-  font-size: 18px;
-  font-weight: 700;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.3s ease;
-  color: #fff;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-}
 
-.gateway-big-btn.stopped {
-  background: linear-gradient(135deg, var(--accent-color) 0%, rgba(var(--accent-rgb), 0.7) 100%);
-  box-shadow: 0 10px 25px rgba(var(--accent-rgb), 0.35);
-}
-
-.gateway-big-btn.running {
-  background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
-  box-shadow: 0 10px 25px rgba(211, 47, 47, 0.35);
-}
-
-.gateway-big-btn.starting {
-  background: #ffbd2e;
-  cursor: wait;
-}
 
 .console-stats-grid {
   display: flex;
