@@ -330,6 +330,19 @@ function bindDetailsClick(container) {
     }
 }
 
+// 构建飞书账号配置对象：必填 appId/appSecret；可选 encryptKey/verificationToken 为空时省略，
+// 避免写入空字符串触发 OpenClaw 的 secret 校验（minLength:1）或让 websocket 模式误判为已配置加密。
+function buildFeishuAccount(values, base = {}) {
+    const acc = { ...base };
+    acc.appId = (values.appId || '').trim();
+    acc.appSecret = (values.appSecret || '').trim();
+    const enc = values.encryptKey ? values.encryptKey.trim() : '';
+    const vt = values.verificationToken ? values.verificationToken.trim() : '';
+    if (enc) acc.encryptKey = enc; else delete acc.encryptKey;
+    if (vt) acc.verificationToken = vt; else delete acc.verificationToken;
+    return acc;
+}
+
 // 渲染飞书多用户绑定管理卡片
 function renderFeishuAccounts() {
     const container = document.getElementById('feishu-accounts-container');
@@ -441,12 +454,7 @@ function renderFeishuAccounts() {
                 showToast('App ID 和 App Secret 不能为空！');
                 return;
             }
-            configData.channels.feishu.accounts[id] = {
-                appId: values.appId.trim(),
-                appSecret: values.appSecret.trim(),
-                encryptKey: values.encryptKey ? values.encryptKey.trim() : '',
-                verificationToken: values.verificationToken ? values.verificationToken.trim() : ''
-            };
+            configData.channels.feishu.accounts[id] = buildFeishuAccount(values, acc);
             try {
                 await window.api.saveConfig(configData);
                 renderFeishuAccounts();
@@ -621,7 +629,7 @@ let gatewayFullyReady = false;
 const UI_PLUGIN_ORDER = [
     'dual-model-trainer',
     'openclaw-weixin',
-    'openclaw-qqbot',
+    'qqbot',
     'voice-call',
     'telegram',
     'slack',
@@ -638,7 +646,7 @@ const UI_PLUGIN_ORDER = [
 const pluginMetadata = {
     'dual-model-trainer': { name: '🧠 双模型教学', desc: '利用主备模型对比，自动本地收集并训练属于你的专属模型', tier: 'zero' },
     'openclaw-weixin': { name: '💬 微信渠道', desc: '一键将网关接入微信聊天，支持私聊、群聊和图片理解', tier: 'zero' },
-    'openclaw-qqbot': { name: '🐧 QQ机器人', desc: '将网关接入 QQ 开放平台机器人（QQ Bot）消息通道，实现 QQ 群聊及私聊交互。', tier: 'credentials' },
+    'qqbot': { name: '🐧 QQ机器人', desc: '将网关接入 QQ 开放平台机器人（QQ Bot）消息通道，实现 QQ 群聊及私聊交互。', tier: 'credentials' },
     'voice-call': { name: '📞 语音通话', desc: '开启实时语音对话服务，支持通过微信向 AI 拨打电话', tier: 'credentials' },
     'telegram': { name: '✈️ Telegram', desc: '通过 Telegram 机器人消息通道直接与您的 AI 网关对话', tier: 'credentials' },
     'slack': { name: '🎨 Slack 渠道', desc: '将 AI 本地网关作为应用机器人接入到您的团队 Slack 频道中', tier: 'credentials' },
@@ -933,12 +941,21 @@ async function init() {
                 return;
             }
             
-            configData.channels.feishu.accounts[accountId] = {
-                appId: values.appId.trim(),
-                appSecret: values.appSecret.trim(),
-                encryptKey: values.encryptKey ? values.encryptKey.trim() : '',
-                verificationToken: values.verificationToken ? values.verificationToken.trim() : ''
-            };
+            configData.channels.feishu.accounts[accountId] = buildFeishuAccount(values);
+            
+            // 渠道级默认：显式启用 + 开放私聊/群聊，避免默认 pairing 策略导致机器人“收到不回”
+            configData.channels.feishu.enabled = true;
+            if (!configData.channels.feishu.dmPolicy) configData.channels.feishu.dmPolicy = 'open';
+            if (!Array.isArray(configData.channels.feishu.allowFrom)) configData.channels.feishu.allowFrom = ['*'];
+            if (!configData.channels.feishu.groupPolicy) configData.channels.feishu.groupPolicy = 'open';
+            if (!Array.isArray(configData.channels.feishu.groupAllowFrom)) configData.channels.feishu.groupAllowFrom = ['*'];
+            
+            // 确保飞书插件被启用并进入 allow（插件真实 ID 就是 `feishu`）
+            if (!configData.plugins) configData.plugins = {};
+            if (!configData.plugins.entries) configData.plugins.entries = {};
+            configData.plugins.entries['feishu'] = { ...(configData.plugins.entries['feishu'] || {}), enabled: true };
+            if (!Array.isArray(configData.plugins.allow)) configData.plugins.allow = [];
+            if (!configData.plugins.allow.includes('feishu')) configData.plugins.allow.push('feishu');
             
             // 如果是第一个账号，自动设为 defaultAccount
             if (!configData.channels.feishu.defaultAccount) {
@@ -1013,14 +1030,18 @@ async function init() {
                 configData.channels.qqbot.allowFrom = ['*'];
             }
             
-            // 确保开通了对应的 QQ 插件
+            // 确保开通了对应的 QQ 插件（OpenClaw QQ 机器人插件的真实 ID 是 `qqbot`，
+            // 早期误用 `openclaw-qqbot` 会导致插件不被加载、绑定后完全无效）
             if (!configData.plugins) configData.plugins = {};
             if (!configData.plugins.entries) configData.plugins.entries = {};
-            configData.plugins.entries['openclaw-qqbot'] = { enabled: true };
+            configData.plugins.entries['qqbot'] = { enabled: true };
             if (!configData.plugins.allow) configData.plugins.allow = [];
-            if (!configData.plugins.allow.includes('openclaw-qqbot')) {
-                configData.plugins.allow.push('openclaw-qqbot');
+            if (!configData.plugins.allow.includes('qqbot')) {
+                configData.plugins.allow.push('qqbot');
             }
+            // 清理历史错误 ID 残留，避免混淆
+            if (configData.plugins.entries['openclaw-qqbot']) delete configData.plugins.entries['openclaw-qqbot'];
+            configData.plugins.allow = configData.plugins.allow.filter((x) => x !== 'openclaw-qqbot');
             
             // 如果是第一个账号，自动设为 defaultAccount
             if (!configData.channels.qqbot.defaultAccount) {
@@ -1298,6 +1319,8 @@ async function init() {
         qrcodeOverlay.style.opacity = '0';
         qrcodeOverlay.style.display = 'none';
         window.api.cancelWeChatLogin();
+        // 停止扫码期间的高频轮询兜底
+        if (typeof stopWeChatBindingFastPoll === 'function') stopWeChatBindingFastPoll();
         // 解除通讯管理页面操作锁
         if (typeof hideCommBindingOverlay === 'function') hideCommBindingOverlay();
     });
@@ -1581,6 +1604,15 @@ function setupIpcListeners() {
         drawQrCode(url);
         // 更新通讯管理操作锁提示文字
         if (typeof showCommBindingOverlay === 'function') showCommBindingOverlay('⏳ 微信扫码绑定进行中...');
+        // 二维码展示期间启用高频轮询兜底，确保扫码完成后秒级刷新“已绑定”状态
+        startWeChatBindingFastPoll();
+    });
+
+    // 主进程探测到扫码绑定成功后的即时刷新（无需等待常规 10s 轮询）
+    window.api.onWeChatLoginSuccess(() => {
+        stopWeChatBindingFastPoll();
+        if (typeof showToast === 'function') showToast('✅ 微信绑定成功！');
+        updateWeChatStatusUI();
     });
 
     // 绑定一键复制授权链接
@@ -5887,6 +5919,27 @@ async function updateConsoleChannelStatusUI() {
     }
 }
 
+// 扫码绑定期间的高频轮询兜底：即使主进程成功事件因时序丢失，也能在 ~2s 内刷新状态并关闭二维码弹窗。
+let wechatBindingFastPollTimer = null;
+function startWeChatBindingFastPoll() {
+    if (wechatBindingFastPollTimer) return;
+    wechatBindingFastPollTimer = setInterval(async () => {
+        try {
+            const result = await window.api.checkWeChatStatus();
+            if (result && result.bound && result.details) {
+                stopWeChatBindingFastPoll();
+                await updateWeChatStatusUI();
+            }
+        } catch (e) {}
+    }, 2000);
+}
+function stopWeChatBindingFastPoll() {
+    if (wechatBindingFastPollTimer) {
+        clearInterval(wechatBindingFastPollTimer);
+        wechatBindingFastPollTimer = null;
+    }
+}
+
 async function updateWeChatStatusUI() {
     try {
         const result = await window.api.checkWeChatStatus();
@@ -5894,9 +5947,10 @@ async function updateWeChatStatusUI() {
         const bindBtn = document.getElementById('wechat-bind-btn');
         
         if (accountsContainer) {
-            if (result.bound) {
+            if (result.bound && result.details) {
                 if (bindBtn) bindBtn.style.display = 'none';
-                // 绑定成功：自动关闭二维码弹窗 + 解除通讯管理操作锁
+                // 绑定成功：停止扫码高频轮询 + 自动关闭二维码弹窗 + 解除通讯管理操作锁
+                if (typeof stopWeChatBindingFastPoll === 'function') stopWeChatBindingFastPoll();
                 if (qrcodeOverlay && qrcodeOverlay.style.display !== 'none') {
                     qrcodeOverlay.style.opacity = '0';
                     qrcodeOverlay.style.display = 'none';

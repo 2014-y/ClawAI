@@ -276,7 +276,7 @@
       "feishu": {
         "enabled": true
       },
-      "openclaw-qqbot": {
+      "qqbot": {
         "enabled": true
       },
       "duckduckgo": {
@@ -347,7 +347,7 @@
       "zalouser",
       "imessage",
       "feishu",
-      "openclaw-qqbot",
+      "qqbot",
       "discord"
     ]
   },

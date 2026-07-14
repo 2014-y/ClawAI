@@ -24,7 +24,7 @@ const ZERO_CONFIG_PLUGINS = [
 const ZERO_CONFIG_DEFAULT_ON = ['dual-model-trainer', 'duckduckgo', 'auto-summary', 'openclaw-weixin'];
 
 /** B：需外部平台凭证 / 渠道配置 */
-const CREDENTIAL_PLUGINS = ['slack', 'matrix', 'telegram', 'whatsapp', 'voice-call', 'openclaw-qqbot'];
+const CREDENTIAL_PLUGINS = ['slack', 'matrix', 'telegram', 'whatsapp', 'voice-call', 'qqbot'];
 
 /** C：需本机安装软件 */
 const LOCAL_SOFTWARE_PLUGINS = ['auto-start-codex'];
@@ -33,7 +33,7 @@ const LOCAL_SOFTWARE_PLUGINS = ['auto-start-codex'];
 const UI_PLUGIN_IDS = [
   'dual-model-trainer',
   'openclaw-weixin',
-  'openclaw-qqbot',
+  'qqbot',
   'voice-call',
   'telegram',
   'slack',
@@ -85,6 +85,26 @@ function ensureUiPluginCatalog(config, opts = {}) {
   if (!config || typeof config !== 'object') return { changed: false, changes: [] };
   const changes = [];
   const forceDefaultOn = Boolean(opts.forceDefaultOn);
+
+  // 迁移历史错误插件 ID：早期版本误用 `openclaw-qqbot`，但 OpenClaw QQ 机器人插件的真实 ID 是 `qqbot`。
+  // 错误 ID 会导致插件既不进 allow 也不被加载，QQ 绑定“完全没效果”。此处把旧条目安全迁移到正确 ID。
+  try {
+    if (config.plugins && config.plugins.entries && config.plugins.entries['openclaw-qqbot']) {
+      const legacy = config.plugins.entries['openclaw-qqbot'];
+      if (!config.plugins.entries['qqbot']) {
+        config.plugins.entries['qqbot'] = legacy;
+      } else if (legacy && legacy.enabled === true) {
+        config.plugins.entries['qqbot'].enabled = true;
+      }
+      delete config.plugins.entries['openclaw-qqbot'];
+      changes.push('qqbot: migrated legacy id openclaw-qqbot -> qqbot');
+    }
+    if (config.plugins && Array.isArray(config.plugins.allow)) {
+      const before = config.plugins.allow.length;
+      config.plugins.allow = config.plugins.allow.filter((x) => x !== 'openclaw-qqbot');
+      if (config.plugins.allow.length !== before) changes.push('qqbot: removed legacy openclaw-qqbot from allow');
+    }
+  } catch (e) {}
 
   for (const id of ZERO_CONFIG_PLUGINS) {
     if (ensureEntry(config, id, true)) {
@@ -286,6 +306,18 @@ function whatsappNeedsConfig(config) {
   };
 }
 
+function qqbotNeedsConfig(config) {
+  const qqbot = (config.channels && config.channels.qqbot) || {};
+  const accounts = qqbot.accounts || {};
+  // 顶层默认账号 或 任意命名账号带 appId 即视为已配置
+  const hasTopLevel = Boolean(qqbot.appId && (qqbot.clientSecret || qqbot.clientSecretFile));
+  const hasNamed = Object.keys(accounts).some((id) => accounts[id] && accounts[id].appId && (accounts[id].clientSecret || accounts[id].clientSecretFile));
+  if (hasTopLevel || hasNamed) {
+    return { needsConfig: false, missingFields: [], hint: '已配置 QQ 机器人凭证' };
+  }
+  return { needsConfig: true, missingFields: ['appId', 'clientSecret'], hint: '需要 QQ 开放平台机器人的 AppID 与 AppSecret' };
+}
+
 function voiceCallNeedsConfig() {
   // 语音通话默认关闭；开启即可加载插件，细项可在控制台配置
   return {
@@ -352,10 +384,16 @@ function probePlugin(pluginId, opts = {}) {
       const n = voiceCallNeedsConfig();
       Object.assign(base, n);
       base.badge = 'ready';
+    } else if (pluginId === 'qqbot') {
+      const n = qqbotNeedsConfig(config);
+      Object.assign(base, n);
+      // 允许先开启插件再填凭证，不强制拦截开关
+      base.badge = n.needsConfig ? 'needs-config' : 'ready';
+      base.blockEnable = false;
     }
     if (!presence.present) {
       // 核心渠道插件多数随 gateway 分发
-      const softChannels = new Set(['telegram', 'whatsapp', 'voice-call', 'slack', 'matrix']);
+      const softChannels = new Set(['telegram', 'whatsapp', 'voice-call', 'slack', 'matrix', 'qqbot']);
       if (softChannels.has(pluginId)) {
         base.available = true;
         base.soft = true;

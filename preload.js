@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('api', {
     onLogReceived: (callback) => ipcRenderer.on('gateway-log', (event, data) => callback(data)),
     onStatusChanged: (callback) => ipcRenderer.on('gateway-status', (event, status) => callback(status)),
     onQrCodeReceived: (callback) => ipcRenderer.on('gateway-qrcode', (event, url) => callback(url)),
+    onWeChatLoginSuccess: (callback) => ipcRenderer.on('wechat-login-success', (event, status) => callback(status)),
     onControlTriggered: (callback) => ipcRenderer.on('gateway-control-trigger', (event, action) => callback(action)),
     onMaximizedStatus: (callback) => ipcRenderer.on('window-maximized-status', (event, isMaximized) => callback(isMaximized)),
     getAppStartTime: () => ipcRenderer.invoke('get-app-start-time'),

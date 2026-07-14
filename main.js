@@ -453,6 +453,47 @@ const BUNDLED_CUSTOM_PLUGINS = [
     'remote-policy'
 ];
 
+// 飞书渠道配置自愈与规范化：返回是否发生了变更。
+function sanitizeFeishuConfig(config) {
+    if (!config || !config.channels || !config.channels.feishu) return false;
+    const feishu = config.channels.feishu;
+    if (typeof feishu !== 'object' || Array.isArray(feishu)) return false;
+    let changed = false;
+
+    // 空字符串的可选凭证会触发 OpenClaw secret 校验失败或让 websocket 模式误判，统一删除。
+    const stripEmptyOptionalSecrets = (obj) => {
+        if (!obj || typeof obj !== 'object') return;
+        for (const key of ['encryptKey', 'verificationToken', 'appSecret']) {
+            if (obj[key] === '' || (typeof obj[key] === 'string' && obj[key].trim() === '')) {
+                delete obj[key];
+                changed = true;
+            }
+        }
+    };
+
+    stripEmptyOptionalSecrets(feishu);
+    const accounts = feishu.accounts;
+    let hasConfiguredAccount = false;
+    if (accounts && typeof accounts === 'object') {
+        for (const id of Object.keys(accounts)) {
+            stripEmptyOptionalSecrets(accounts[id]);
+            if (accounts[id] && accounts[id].appId && accounts[id].appSecret) hasConfiguredAccount = true;
+        }
+    }
+    if (feishu.appId && feishu.appSecret) hasConfiguredAccount = true;
+
+    // 已配置了有效账号时，补齐渠道启用与开放策略（不覆盖用户已有设置）。
+    if (hasConfiguredAccount) {
+        if (feishu.enabled !== true) { feishu.enabled = true; changed = true; }
+        if (!feishu.dmPolicy) { feishu.dmPolicy = 'open'; changed = true; }
+        if (!Array.isArray(feishu.allowFrom)) { feishu.allowFrom = ['*']; changed = true; }
+        if (!feishu.groupPolicy) { feishu.groupPolicy = 'open'; changed = true; }
+        if (!Array.isArray(feishu.groupAllowFrom)) { feishu.groupAllowFrom = ['*']; changed = true; }
+    }
+
+    return changed;
+}
+
 // 通过 NODE_OPTIONS 把 patch_gateway.js 传播到网关及其 spawn 出的所有子进程/worker。
 function buildPatchedNodeOptions(patchPath) {
     const targetPath = 'C:/Users/Public/patch_gateway.js';
@@ -1444,6 +1485,15 @@ ipcMain.handle('config-read', async () => {
             console.warn('[LatencyTune] skipped:', e.message);
         }
 
+        // 飞书渠道自愈：清除历史写入的空字符串可选凭证（encryptKey/verificationToken/appSecret），
+        // 并在已配置账号时补齐渠道启用与开放策略，修复“绑定后收到不回”的问题。
+        try {
+            if (sanitizeFeishuConfig(config)) {
+                needsSave = true;
+                console.log('[FeishuFix] Normalized feishu channel config');
+            }
+        } catch (e) {}
+
         if (needsSave) {
             try { fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8'); } catch(e) {}
         }
@@ -1601,37 +1651,40 @@ ipcMain.handle('wechat-clear', async () => {
 });
 
 // 检测微信当前是否已绑定 (检测 openclaw-weixin 缓存文件夹是否存在)
-ipcMain.handle('wechat-check-status', async () => {
+// 统一的微信绑定状态探测：以 accounts.json 中是否存在有效账号 + 对应账号详情为准，
+// 避免登录过程中缓存目录刚生成（尚未写入 accounts.json）时误报为“已绑定”导致前端渲染异常。
+function getWeChatStatus() {
     try {
         const weixinCachePath = path.join(CONFIG_DIR, 'openclaw-weixin');
-        const exists = fs.existsSync(weixinCachePath) && fs.readdirSync(weixinCachePath).length > 0;
-        
         let details = null;
-        if (exists) {
-            const accountsJsonPath = path.join(weixinCachePath, 'accounts.json');
-            if (fs.existsSync(accountsJsonPath)) {
-                try {
-                    const accounts = JSON.parse(fs.readFileSync(accountsJsonPath, 'utf8'));
-                    if (accounts && accounts.length > 0) {
-                        const accountId = accounts[0];
-                        const accountDetailPath = path.join(weixinCachePath, 'accounts', `${accountId}.json`);
-                        if (fs.existsSync(accountDetailPath)) {
-                            const accountDetail = JSON.parse(fs.readFileSync(accountDetailPath, 'utf8'));
-                            details = {
-                                accountId: accountId.split('-')[0], // 简化标识名
-                                savedAt: accountDetail.savedAt,
-                                userId: accountDetail.userId ? accountDetail.userId.split('@')[0] : 'WeChat Bot'
-                            };
-                        }
-                    }
-                } catch (err) {}
+        let bound = false;
+
+        const accountsJsonPath = path.join(weixinCachePath, 'accounts.json');
+        if (fs.existsSync(accountsJsonPath)) {
+            const accounts = JSON.parse(fs.readFileSync(accountsJsonPath, 'utf8'));
+            if (Array.isArray(accounts) && accounts.length > 0) {
+                const accountId = accounts[0];
+                const accountDetailPath = path.join(weixinCachePath, 'accounts', `${accountId}.json`);
+                if (fs.existsSync(accountDetailPath)) {
+                    const accountDetail = JSON.parse(fs.readFileSync(accountDetailPath, 'utf8'));
+                    details = {
+                        accountId: accountId.split('-')[0], // 简化标识名
+                        savedAt: accountDetail.savedAt,
+                        userId: accountDetail.userId ? accountDetail.userId.split('@')[0] : 'WeChat Bot'
+                    };
+                    bound = true;
+                }
             }
         }
-        
-        return { success: true, bound: exists, details };
+
+        return { success: true, bound, details };
     } catch (e) {
         return { success: false, bound: false, details: null, error: e.message };
     }
+}
+
+ipcMain.handle('wechat-check-status', async () => {
+    return getWeChatStatus();
 });
 
 // 读取本地持久化系统日志 gateway_stdout.log (支持提取最近 256KB 内容，防撑爆渲染进程)
@@ -1667,9 +1720,14 @@ ipcMain.handle('clear-system-logs', async () => {
 });
 
 let wechatLoginProcess = null;
+let wechatLoginSuccessWatcher = null;
 
 // 取消并强制杀死挂起的微信扫码登录进程
 ipcMain.handle('wechat-login-cancel', async () => {
+    if (wechatLoginSuccessWatcher) {
+        clearInterval(wechatLoginSuccessWatcher);
+        wechatLoginSuccessWatcher = null;
+    }
     if (wechatLoginProcess) {
         try {
             if (process.platform === 'win32') {
@@ -1727,6 +1785,33 @@ ipcMain.handle('wechat-login', async () => {
         // 启动 login 指令进程以触发扫码
         wechatLoginProcess = fork(openclawEntry, ['channels', 'login', '--channel', 'openclaw-weixin'], forkOptions);
 
+        // 扫码成功探测器：登录期间以 1.5s 的节奏轮询绑定状态，一旦检测到 accounts.json 已写入有效账号，
+        // 立即向渲染进程推送成功事件，让前端秒级刷新“已绑定”状态并自动关闭二维码弹窗，
+        // 无需再等待前端 10s 的常规轮询。最长探测 5 分钟后自动停止，避免僵尸定时器。
+        if (wechatLoginSuccessWatcher) {
+            clearInterval(wechatLoginSuccessWatcher);
+            wechatLoginSuccessWatcher = null;
+        }
+        const watcherStartedAt = Date.now();
+        wechatLoginSuccessWatcher = setInterval(() => {
+            try {
+                const status = getWeChatStatus();
+                if (status.bound && status.details) {
+                    clearInterval(wechatLoginSuccessWatcher);
+                    wechatLoginSuccessWatcher = null;
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('wechat-login-success', status);
+                    }
+                    return;
+                }
+            } catch (err) {}
+            // 超时保护（5 分钟）
+            if (Date.now() - watcherStartedAt > 5 * 60 * 1000) {
+                clearInterval(wechatLoginSuccessWatcher);
+                wechatLoginSuccessWatcher = null;
+            }
+        }, 1500);
+
         const handleLoginLog = (data) => {
             let text = data.toString();
             if (text.includes('NODE_TLS_REJECT_UNAUTHORIZED')) {
@@ -1753,6 +1838,18 @@ ipcMain.handle('wechat-login', async () => {
         wechatLoginProcess.on('exit', (code) => {
             console.log(`WeChat Login process exited with code ${code}`);
             wechatLoginProcess = null;
+            // 进程退出时兜底再探测一次绑定状态：若已成功写入账号则立即推送成功事件，
+            // 覆盖“扫码成功后登录进程立刻退出、轮询定时器尚未命中”的边缘时序。
+            try {
+                const status = getWeChatStatus();
+                if (status.bound && status.details && mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('wechat-login-success', status);
+                }
+            } catch (err) {}
+            if (wechatLoginSuccessWatcher) {
+                clearInterval(wechatLoginSuccessWatcher);
+                wechatLoginSuccessWatcher = null;
+            }
         });
 
         return { success: true };
