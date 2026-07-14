@@ -469,7 +469,6 @@ function warnStorageHealthIfNeeded(health, homePath) {
 /** 若从旧 Temp 家目录迁出，尽量带上配置/微信缓存，避免对方重配 */
 function migrateOpenClawDataIfNeeded(fromHome, toHome) {
     if (!fromHome || !toHome || path.resolve(fromHome) === path.resolve(toHome)) return;
-    if (!isTempLikePath(fromHome)) return;
     const srcRoot = path.join(fromHome, '.openclaw');
     const dstRoot = path.join(toHome, '.openclaw');
     if (!fs.existsSync(srcRoot)) return;
@@ -4269,17 +4268,10 @@ app.whenReady().then(() => {
             console.warn(
                 `[System] OpenClaw home redirected for stability. preferredWritable=${preferredWritable} mustLeaveTemp=${mustLeaveTemp} cloudHints=${(resolved.desktopHints || []).join(',') || 'none'} health=${health && health.level} -> ${homePath}`
             );
-            if (mustLeaveTemp && envHome) {
+            if (envHome && homePath && envHome !== homePath) {
                 migrateOpenClawDataIfNeeded(envHome, homePath);
-            } else if (!preferredWritable && preferredHome) {
-                try {
-                    const srcCfg = path.join(preferredHome, '.openclaw', 'openclaw.json');
-                    const dstCfg = path.join(homePath, '.openclaw', 'openclaw.json');
-                    if (fs.existsSync(srcCfg) && !fs.existsSync(dstCfg)) {
-                        fs.mkdirSync(path.dirname(dstCfg), { recursive: true });
-                        fs.copyFileSync(srcCfg, dstCfg);
-                    }
-                } catch (e) {}
+            } else if (preferredHome && homePath && preferredHome !== homePath) {
+                migrateOpenClawDataIfNeeded(preferredHome, homePath);
             }
         } else {
             const resolvedOk = resolveStableOpenClawHome(preferredHome);
