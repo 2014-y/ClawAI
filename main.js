@@ -1998,6 +1998,19 @@ function ensureOpenClawConfigInitialized() {
             config.gateway.controlUi.basePath = '/acp';
             needsSave = true;
         }
+        
+        // 确保网关有固定的 auth token，否则 Gateway 启动时会生成一个随机的 runtime token，
+        // 导致前台面板（Dashboard）由于不知道该随机 token 而无法连接 (WebSocket 401 Unauthorized)
+        if (!config.gateway.auth) { config.gateway.auth = {}; needsSave = true; }
+        if (config.gateway.auth.mode !== 'token') {
+            config.gateway.auth.mode = 'token';
+            needsSave = true;
+        }
+        if (!config.gateway.auth.token) {
+            config.gateway.auth.token = require('crypto').randomBytes(16).toString('hex');
+            needsSave = true;
+            console.log('[System] Generated initial gateway.auth.token to prevent dashboard lockout');
+        }
         // 确保微信插件始终处于启用状态
         if (!config.plugins) { config.plugins = {}; needsSave = true; }
         if (!config.plugins.entries) { config.plugins.entries = {}; needsSave = true; }
