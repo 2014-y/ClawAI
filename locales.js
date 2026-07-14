@@ -2,7 +2,7 @@
 window.LOCALES = {
   'zh-CN': {
     // 导航
-    'nav.console': '控制台',
+    'nav.console': '网关状态',
     'nav.chat': '模型会话',
     'nav.config': '模型配置',
     'nav.plugins': '内置插件',
@@ -17,7 +17,7 @@ window.LOCALES = {
     'nav.terminal': '内置终端',
 
     // 控制台 (Console)
-    'console.title': '网关信息',
+    'console.title': '网关状态',
     'console.desc': '实时监控本地 ClawAI 的消息处理流与日志输出',
     
     // 通讯管理 (Communication)
@@ -375,7 +375,7 @@ window.LOCALES = {
   
   'en-US': {
     // Navigation
-    'nav.console': 'Gateway Info',
+    'nav.console': 'Gateway Status',
     'nav.chat': 'Chat Room',
     'nav.config': 'Model Config',
     'nav.plugins': 'Plugins',
@@ -390,7 +390,7 @@ window.LOCALES = {
     'nav.terminal': 'Terminal',
 
     // Console
-    'console.title': 'Gateway Info',
+    'console.title': 'Gateway Status',
     'console.desc': 'Monitor the message processing stream and log outputs of your local ClawAI in real-time',
     
     // Communication
@@ -748,7 +748,7 @@ window.LOCALES = {
 
   'zh-TW': {
     // 導航
-    'nav.console': '網關信息',
+    'nav.console': '網關狀態',
     'nav.chat': '模型對話',
     'nav.config': '模型配置',
     'nav.plugins': '內置插件',
@@ -763,7 +763,7 @@ window.LOCALES = {
     'nav.terminal': '內置終端',
 
     // 控制台 (Console)
-    'console.title': '網關信息',
+    'console.title': '網關狀態',
     'console.desc': '實時監控本地 ClawAI 的消息处理流與日誌輸出',
     
     // 通訊管理 (Communication)
