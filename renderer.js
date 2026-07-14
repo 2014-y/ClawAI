@@ -1211,10 +1211,35 @@ async function init() {
 
     // 网关开关按钮监听
     gatewayToggleBtn.addEventListener('click', () => {
+        if (window.isTogglingGateway) return;
+        if (gatewayStatus === 'starting' || gatewayStatus === 'upgrading' || gatewayStatus === 'stopping') return;
+
         if (gatewayStatus === 'stopped') {
+            window.isTogglingGateway = true;
+            gatewayToggleBtn.style.pointerEvents = 'none';
+            gatewayToggleBtn.style.opacity = '0.6';
+            gatewayToggleBtn.style.cursor = 'not-allowed';
             window.api.gatewayAction('start');
+            
+            window.toggleLockTimeout = setTimeout(() => {
+                window.isTogglingGateway = false;
+                gatewayToggleBtn.style.pointerEvents = '';
+                gatewayToggleBtn.style.opacity = '';
+                gatewayToggleBtn.style.cursor = '';
+            }, 3000); // 3秒保底解锁时间
         } else if (gatewayStatus === 'running') {
+            window.isTogglingGateway = true;
+            gatewayToggleBtn.style.pointerEvents = 'none';
+            gatewayToggleBtn.style.opacity = '0.6';
+            gatewayToggleBtn.style.cursor = 'not-allowed';
             window.api.gatewayAction('stop');
+            
+            window.toggleLockTimeout = setTimeout(() => {
+                window.isTogglingGateway = false;
+                gatewayToggleBtn.style.pointerEvents = '';
+                gatewayToggleBtn.style.opacity = '';
+                gatewayToggleBtn.style.cursor = '';
+            }, 3000); // 3秒保底解锁时间
         }
     });
 
@@ -1524,6 +1549,17 @@ function setupIpcListeners() {
     window.api.onStatusChanged((status) => {
         const oldStatus = gatewayStatus;
         gatewayStatus = status;
+        
+        // 当状态变更时，主动释放启停锁定状态并恢复按钮可用样式
+        window.isTogglingGateway = false;
+        if (window.toggleLockTimeout) {
+            clearTimeout(window.toggleLockTimeout);
+            window.toggleLockTimeout = null;
+        }
+        gatewayToggleBtn.style.pointerEvents = '';
+        gatewayToggleBtn.style.opacity = '';
+        gatewayToggleBtn.style.cursor = '';
+
         updateGatewayStatusUI(status);
         if (status === 'running') {
             gatewayRunningTime = Date.now();
