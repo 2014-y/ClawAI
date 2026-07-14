@@ -3,7 +3,12 @@ import path from 'node:path';
 import os from 'node:os';
 
 const PLUGIN_NAME = 'compaction-memory-guard';
-const MEMORY_FILE = path.join(os.homedir(), '.openclaw', 'workspace', 'MEMORY.md');
+const MEMORY_FILE = path.join(
+  process.env.OPENCLAW_STATE_DIR
+    || path.join(process.env.OPENCLAW_HOME || process.env.USERPROFILE || process.env.HOME || os.homedir(), '.openclaw'),
+  'workspace',
+  'MEMORY.md'
+);
 
 export default function createPlugin(runtime) {
   console.log(`[${PLUGIN_NAME}] 记忆保护插件已加载`);

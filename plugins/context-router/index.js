@@ -22,9 +22,10 @@ import path from 'node:path';
 import os from 'node:os';
 
 // ─── 常量 ───
-const PROFILE = process.env.USERPROFILE || os.homedir();
-const CACHE_DIR = path.join(PROFILE, '.openclaw', 'workspace', '.desktop-cache');
-const CONTEXT_LOG_PATH = path.join(PROFILE, '.openclaw', 'logs', 'context-router.jsonl');
+const STATE_DIR = process.env.OPENCLAW_STATE_DIR
+  || path.join(process.env.OPENCLAW_HOME || process.env.USERPROFILE || process.env.HOME || os.homedir(), '.openclaw');
+const CACHE_DIR = path.join(STATE_DIR, 'workspace', '.desktop-cache');
+const CONTEXT_LOG_PATH = path.join(STATE_DIR, 'logs', 'context-router.jsonl');
 
 // ─── 技能分类索引 ───
 // 将技能按领域分组，按需加载

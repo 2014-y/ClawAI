@@ -10,10 +10,11 @@ import path from 'node:path';
 import os from 'node:os';
 
 const PLUGIN_NAME = 'auto-summary';
-const HOME = os.homedir();
-const MEMORY_FILE = path.join(HOME, '.openclaw', 'workspace', 'MEMORY.md');
-const LEARNING_DATA = path.join(HOME, 'glm4_finetune', 'learning_data', 'learning_log.jsonl');
-const MEMORY_DIR = path.join(HOME, '.openclaw', 'workspace', 'memory');
+const STATE_DIR = process.env.OPENCLAW_STATE_DIR
+  || path.join(process.env.OPENCLAW_HOME || process.env.USERPROFILE || process.env.HOME || os.homedir(), '.openclaw');
+const MEMORY_FILE = path.join(STATE_DIR, 'workspace', 'MEMORY.md');
+const LEARNING_DATA = path.join(STATE_DIR, 'workspace', 'learning_data', 'learning_log.jsonl');
+const MEMORY_DIR = path.join(STATE_DIR, 'workspace', 'memory');
 const SUMMARIZE_EVERY = 10;
 let conversationCount = 0;
 

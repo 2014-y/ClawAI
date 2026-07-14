@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('api', {
     setAutoStart: (enabled) => ipcRenderer.invoke('autostart-set', enabled),
     openExternal: (url) => ipcRenderer.invoke('open-external', url),
     getDashboardUrl: () => ipcRenderer.invoke('get-dashboard-url'),
+    clearOpenclawPanelSession: () => ipcRenderer.invoke('clear-openclaw-panel-session'),
+    onDashboardUrlUpdated: (callback) => ipcRenderer.on('dashboard-url-updated', (event, url) => callback(url)),
     
     // 软件更新相关接口
     checkUpdate: (isManual) => ipcRenderer.invoke('check-update', isManual),

@@ -35,10 +35,11 @@ import https from 'node:https';
 import http from 'node:http';
 
 // ─── 常量 ───
-const PROFILE = process.env.USERPROFILE || os.homedir();
-const CACHE_DIR = path.join(PROFILE, '.openclaw', 'workspace', '.desktop-cache');
+const STATE_DIR = process.env.OPENCLAW_STATE_DIR
+  || path.join(process.env.OPENCLAW_HOME || process.env.USERPROFILE || process.env.HOME || os.homedir(), '.openclaw');
+const CACHE_DIR = path.join(STATE_DIR, 'workspace', '.desktop-cache');
 const POLICY_PATH = path.join(CACHE_DIR, 'remote-policy.json');
-const HEALTH_CHECK_SCRIPT = path.join(PROFILE, '.openclaw', 'extensions', 'health-check', 'index.js');
+const HEALTH_CHECK_SCRIPT = path.join(STATE_DIR, 'extensions', 'health-check', 'index.js');
 
 // ─── 工具函数 ───
 

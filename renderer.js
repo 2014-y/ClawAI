@@ -1564,7 +1564,15 @@ function setupIpcListeners() {
         text = filteredLines.join('\n');
 
         if (text.includes('[gateway] ready') || text.includes('[heartbeat] started') || text.includes('advertised gateway')) {
+            const wasReady = gatewayFullyReady;
             gatewayFullyReady = true;
+            // 网关刚就绪：若已在 OpenClaw 面板，强制用当前令牌免密重载一次
+            if (!wasReady) {
+                const pane = document.getElementById('openclaw-panel-view');
+                if (pane && pane.classList.contains('active')) {
+                    setTimeout(() => loadOpenclawControlUi(true), 800);
+                }
+            }
         }
         // 仅在ClawAI真正运行中，且越过ClawAI刚启动时的 5 秒历史控制台日志喷吐垃圾冷区，才对全新实时流量记账
         if (gatewayStatus === 'running' && (Date.now() - gatewayRunningTime > 5000)) {
@@ -1710,13 +1718,28 @@ function setupIpcListeners() {
             gatewayRunningTime = Date.now();
             if (oldStatus !== 'running') {
                 sendDesktopNotification('ClawAI状态变更', 'OpenClaw 本地智能ClawAI已成功启动运行！');
+                // 重启后清掉缓存的面板 URL，下次进入强制免密重载
+                __openclawPanelLastUrl = '';
             }
         } else if (status === 'stopped') {
             if (oldStatus === 'running') {
                 sendDesktopNotification('ClawAI状态变更', 'OpenClaw 本地智能ClawAI已停止运行。');
             }
+            __openclawPanelLastUrl = '';
         }
     });
+
+    // 主进程解析到最新免密 URL 时，活跃面板自动同步
+    if (window.api.onDashboardUrlUpdated) {
+        window.api.onDashboardUrlUpdated((url) => {
+            if (!url) return;
+            __openclawPanelLastUrl = '';
+            const pane = document.getElementById('openclaw-panel-view');
+            if (pane && pane.classList.contains('active')) {
+                loadOpenclawControlUi(true);
+            }
+        });
+    }
 
     // 微信 / 飞书扫码二维码捕获并画图（payload 支持 string URL 或 {url, channel, title, tip}）
     window.api.onQrCodeReceived((payload) => {
@@ -1744,15 +1767,20 @@ function setupIpcListeners() {
         if (channel === 'wechat' || channel === 'openclaw-weixin') startWeChatBindingFastPoll();
     });
 
-    // 主进程探测到微信扫码绑定成功后的即时刷新
+    // 主进程探测到微信扫码绑定成功后的即时刷新（进行中的飞书等会话绝不能被关掉）
     window.api.onWeChatLoginSuccess(() => {
         if (typeof showToast === 'function') showToast('✅ 微信绑定成功！');
         updateWeChatStatusUI();
-        completeCommBinding();
+        const ch = (__commBindingSession && __commBindingSession.active) ? __commBindingSession.channel : null;
+        if (!ch || ch === 'wechat' || ch === 'openclaw-weixin') {
+            completeCommBinding();
+        }
     });
 
     if (window.api.onWeChatLoginFailed) {
         window.api.onWeChatLoginFailed((status) => {
+            const ch = (__commBindingSession && __commBindingSession.active) ? __commBindingSession.channel : null;
+            if (ch && ch !== 'wechat' && ch !== 'openclaw-weixin') return;
             failCommBinding('微信绑定失败：' + ((status && status.error) || '未知错误'));
         });
     }
@@ -3779,11 +3807,11 @@ function setupTabSwitching() {
             const prevTab = currentTab;
             currentTab = tab.getAttribute('data-tab');
 
-            // 全局遮罩激活时离开当前页 → 取消（插件页/通讯管理共用）
-            if (prevTab !== currentTab
+            // 仅离开「通讯管理」时取消绑定；同页内切换勿误关飞书码
+            if (prevTab === 'communication-view' && currentTab !== 'communication-view'
                 && typeof __commBindingSession !== 'undefined' && __commBindingSession.active
                 && typeof endCommBinding === 'function') {
-                endCommBinding({ cancelBackend: true, toast: '已离开当前页，绑定已取消' });
+                endCommBinding({ cancelBackend: true, toast: '已离开通讯管理，绑定已取消' });
             }
 
             // 切换到用量页重画图表防自适应显示错误
@@ -3803,20 +3831,9 @@ function setupTabSwitching() {
                 try { await renderPluginsGrid(); } catch (err) { console.error(err); }
             }
 
-            // 切换到内置ClawAI面板时，拉取最新免密 URL 并载入 webview（提示与用量监控无关）
+            // 切换到内置ClawAI面板：免密 URL 载入（同 URL 不重复刷新，避免认证限流）
             if (currentTab === 'openclaw-panel-view') {
-                const webview = document.getElementById('openclaw-iframe');
-                if (webview) {
-                    showToast('正在连接ClawAI控制台面板…');
-                    try {
-                        const url = await window.api.getDashboardUrl();
-                        webview.src = url;
-                    } catch (err) {
-                        webview.src = 'http://127.0.0.1:18789/acp/';
-                    }
-                    // 注入脚本：拦截ClawAI WebUI 的更新横幅，由 Electron 主进程代理更新
-                    injectWebviewUpdateInterceptor(webview);
-                }
+                await loadOpenclawControlUi(false);
             }
 
             // 切换到系统设置页拉取最新并展示完整本地历史日志文件
@@ -4613,12 +4630,12 @@ const guideSteps = [
 let currentGuideStepIndex = 0;
 
 function checkAndStartGuide() {
-    const isCompleted = localStorage.getItem('guide_completed');
-    if (!isCompleted) {
-        document.getElementById('guide-overlay').style.display = 'flex';
-        document.getElementById('guide-step-card').style.display = 'flex';
-        showGuideStep(0);
-    }
+    // 产品决策：永久关闭新手遮罩引导（避免挡操作 / 无影环境反复弹出）
+    try { localStorage.setItem('guide_completed', 'true'); } catch (e) {}
+    const overlay = document.getElementById('guide-overlay');
+    const card = document.getElementById('guide-step-card');
+    if (overlay) overlay.style.display = 'none';
+    if (card) card.style.display = 'none';
 }
 
 function showGuideStep(index) {
@@ -4804,7 +4821,11 @@ function cancelBackendChannelBinding(channel) {
 
 /** 开始一次内置插件/渠道异步绑定（遮罩 + 唤醒超时）。以后新增内置扫码插件也应调用此函数。 */
 function beginCommBinding(channel, wakeMsg, tip) {
+    // 换渠道时只取消当前会话；不要误伤「即将启动」的同渠道重试以外逻辑
+    const prev = __commBindingSession.channel;
     endCommBinding({ silent: true, cancelBackend: true });
+    // 若上一段是微信，短延迟后状态轮询仍可能报成功——已用 channel 门控保护飞书弹窗
+    void prev;
     __commBindingSession = {
         active: true,
         channel: channel || 'channel',
@@ -6416,16 +6437,14 @@ async function updateWeChatStatusUI() {
         if (accountsContainer) {
             if (result.bound && result.details) {
                 if (bindBtn) bindBtn.style.display = 'none';
-                // 绑定成功：停止扫码高频轮询 + 自动关闭二维码弹窗 + 解除通讯管理操作锁
-                if (typeof completeCommBinding === 'function') {
-                    completeCommBinding();
-                } else {
-                    if (typeof stopWeChatBindingFastPoll === 'function') stopWeChatBindingFastPoll();
-                    if (qrcodeOverlay && qrcodeOverlay.style.display !== 'none') {
-                        qrcodeOverlay.style.opacity = '0';
-                        qrcodeOverlay.style.display = 'none';
-                    }
-                    if (typeof hideCommBindingOverlay === 'function') hideCommBindingOverlay();
+                // 仅在「正在微信扫码」会话中才关弹窗。已绑定后再绑飞书时，10s 轮询绝不能把飞书二维码关掉。
+                const bindingCh = (typeof __commBindingSession !== 'undefined' && __commBindingSession.active)
+                    ? __commBindingSession.channel
+                    : null;
+                if (bindingCh === 'wechat' || bindingCh === 'openclaw-weixin') {
+                    if (typeof completeCommBinding === 'function') completeCommBinding();
+                } else if (typeof stopWeChatBindingFastPoll === 'function') {
+                    stopWeChatBindingFastPoll();
                 }
                 
                 const accountId = result.details.accountId || '--';
@@ -6678,6 +6697,38 @@ function finishGatewayUpdateProgress(success, message) {
             setTimeout(() => { try { document.body.removeChild(ov); } catch (e) {} }, 200);
             _gwUpdateOverlay = null;
         };
+    }
+}
+
+/** 内置 OpenClaw Control UI：免密载入；同 URL 不重复刷新，避免「失败尝试过多」限流 */
+let __openclawPanelLastUrl = '';
+let __openclawPanelLoading = false;
+
+async function loadOpenclawControlUi(forceReload = false) {
+    const webview = document.getElementById('openclaw-iframe');
+    if (!webview || __openclawPanelLoading) return;
+    __openclawPanelLoading = true;
+    try {
+        const url = await window.api.getDashboardUrl();
+        const currentSrc = (webview.getAttribute('src') || '').trim();
+        if (!forceReload && currentSrc && (currentSrc === url || __openclawPanelLastUrl === url)) {
+            return;
+        }
+        showToast(forceReload ? '正在重新免密登录控制台…' : '正在连接ClawAI控制台面板…');
+        // 首次进入或强制重载：清掉 guest 里过期 token，避免「失败尝试过多」
+        if ((forceReload || !currentSrc) && window.api.clearOpenclawPanelSession) {
+            try { await window.api.clearOpenclawPanelSession(); } catch (e) {}
+        }
+        __openclawPanelLastUrl = url;
+        webview.src = url;
+        injectWebviewUpdateInterceptor(webview);
+    } catch (err) {
+        const fallback = 'http://127.0.0.1:18789/acp/#token=' + encodeURIComponent('openclaw-dev-token-998877');
+        __openclawPanelLastUrl = fallback;
+        webview.src = fallback;
+        injectWebviewUpdateInterceptor(webview);
+    } finally {
+        __openclawPanelLoading = false;
     }
 }
 

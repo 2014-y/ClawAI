@@ -62,7 +62,7 @@ export default function createPlugin(runtime) {
       ? pluginConfig.mode : 'collect-only',
     enableTeachLearn: Boolean(pluginConfig.enableTeachLearn === true),
     enableFallback: Boolean(pluginConfig.enableFallback !== false),
-    trainingDataPath: String(pluginConfig.trainingDataPath || path.join(os.homedir(), 'glm4_finetune', 'learning_data', 'learning_log.jsonl')),
+    trainingDataPath: String(pluginConfig.trainingDataPath || path.join(process.env.OPENCLAW_STATE_DIR || path.join(process.env.OPENCLAW_HOME || process.env.USERPROFILE || process.env.HOME || os.homedir(), '.openclaw'), 'workspace', 'learning_data', 'learning_log.jsonl')),
     minAnswerLength: Number(pluginConfig.minAnswerLength) || 10,
     maxRetries: Number(pluginConfig.maxRetries) || 1,
     retryDelay: Number(pluginConfig.retryDelay) || 1000,
@@ -85,7 +85,7 @@ export default function createPlugin(runtime) {
   } catch (e) {
     console.error(`[${pluginName}] ❌ 无法创建数据目录: ${e.message}`);
     // 降级到默认目录
-    config.trainingDataPath = path.join(os.homedir(), 'glm4_finetune', 'learning_data', 'learning_log.jsonl');
+    config.trainingDataPath = path.join(process.env.OPENCLAW_STATE_DIR || path.join(process.env.OPENCLAW_HOME || process.env.USERPROFILE || process.env.HOME || os.homedir(), '.openclaw'), 'workspace', 'learning_data', 'learning_log.jsonl');
     dataDir = path.dirname(config.trainingDataPath);
   }
 

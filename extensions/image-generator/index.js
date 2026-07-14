@@ -3,8 +3,12 @@
  * 通过 agnes-ai 图像 API 生成图片，支持完整参数控制和 key 轮询
  */
 
+const path = require('path');
+const os = require('os');
 const API_BASE = "https://apihub.agnes-ai.com/v1/images/generations";
-const SAVE_DIR = process.env.USERPROFILE + '/.openclaw/image-output';
+const STATE_DIR = process.env.OPENCLAW_STATE_DIR
+  || path.join(process.env.OPENCLAW_HOME || process.env.USERPROFILE || process.env.HOME || os.homedir(), '.openclaw');
+const SAVE_DIR = path.join(STATE_DIR, 'image-output');
 
 // 7 API keys 轮询
 const API_KEYS = [

@@ -325,9 +325,10 @@ function pluginLooksPresent(pluginId, opts = {}) {
   }
 
   // 用户本机历史 npm 缓存：仅作 soft 提示，不能当作“已随安装包内置”
-  const home = process.env.USERPROFILE || process.env.HOME || '';
-  if (home) {
-    const npmProjects = path.join(home, '.openclaw', 'npm', 'projects');
+  const resolvedStateDir = stateDir || process.env.OPENCLAW_STATE_DIR
+    || path.join(process.env.OPENCLAW_HOME || process.env.USERPROFILE || process.env.HOME || '', '.openclaw');
+  if (resolvedStateDir) {
+    const npmProjects = path.join(resolvedStateDir, 'npm', 'projects');
     try {
       if (fs.existsSync(npmProjects)) {
         for (const name of fs.readdirSync(npmProjects)) {

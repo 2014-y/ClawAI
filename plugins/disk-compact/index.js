@@ -16,8 +16,9 @@ import path from 'node:path';
 import os from 'node:os';
 
 const PLUGIN_NAME = 'disk-compact';
-// 自适应用户主目录, 避免硬编码路径导致在其他电脑上失效
-const COMPACT_DIR = path.join(os.homedir(), '.openclaw', 'workspace', 'compact-history');
+const STATE_DIR = process.env.OPENCLAW_STATE_DIR
+  || path.join(process.env.OPENCLAW_HOME || process.env.USERPROFILE || process.env.HOME || os.homedir(), '.openclaw');
+const COMPACT_DIR = path.join(STATE_DIR, 'workspace', 'compact-history');
 const TOKEN_THRESHOLD = 20000;       // 达到此 token 数就开始压缩
 const SAFE_THRESHOLD = 15000;        // 目标 token 数
 const IDENTITY_SNAPSHOT = path.join(COMPACT_DIR, 'identity.json');

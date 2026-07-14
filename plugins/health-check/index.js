@@ -20,11 +20,12 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 
 // ─── 常量 ───
-const PROFILE = process.env.USERPROFILE || os.homedir();
-const SCRIPT_PATH = path.join(PROFILE, '.openclaw', 'desktop-control.ps1');
-const CACHE_DIR = path.join(PROFILE, '.openclaw', 'workspace', '.desktop-cache');
+const STATE_DIR = process.env.OPENCLAW_STATE_DIR
+  || path.join(process.env.OPENCLAW_HOME || process.env.USERPROFILE || process.env.HOME || os.homedir(), '.openclaw');
+const SCRIPT_PATH = path.join(STATE_DIR, 'desktop-control.ps1');
+const CACHE_DIR = path.join(STATE_DIR, 'workspace', '.desktop-cache');
 const CAPABILITIES_PATH = path.join(CACHE_DIR, 'capabilities.json');
-const HEALTH_LOG_PATH = path.join(PROFILE, '.openclaw', 'logs', 'health-check.jsonl');
+const HEALTH_LOG_PATH = path.join(STATE_DIR, 'logs', 'health-check.jsonl');
 
 // ─── 能力探测定义 ───
 const CAPABILITY_TESTS = [
@@ -192,7 +193,7 @@ async function runHealthCheck() {
     if (test.special) {
       // cache-save 特殊处理：需要传 JSON 到 stdin
       try {
-        const tmpFile = path.join(PROFILE, 'AppData', 'Local', 'Temp', '_health_cache_test.json');
+        const tmpFile = path.join(require('os').tmpdir(), `_health_cache_test_${process.pid}.json`);
         fs.writeFileSync(tmpFile, JSON.stringify({ appName: '_health_test', version: 1, controls: {} }), 'utf-8');
         psResult = await runPsCommand(['cache-save', '_health_test', '--json-file', tmpFile]);
         try { fs.unlinkSync(tmpFile); } catch {}

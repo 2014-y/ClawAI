@@ -2,8 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
-// 自适应用户主目录, 避免硬编码路径导致在其他电脑上失效
-var LEARNING_DIR = path.join(os.homedir(), 'glm4_finetune', 'learning_data');
+var STATE_DIR = process.env.OPENCLAW_STATE_DIR
+  || path.join(process.env.OPENCLAW_HOME || process.env.USERPROFILE || process.env.HOME || os.homedir(), '.openclaw');
+var LEARNING_DIR = path.join(STATE_DIR, 'workspace', 'learning_data');
 var LEARNING_DATA_PATH = path.join(LEARNING_DIR, 'learning_log.jsonl');
 var LEARNING_SUMMARY_PATH = path.join(LEARNING_DIR, 'learning_summary.jsonl');
 var SUMMARY_CACHE_PATH = path.join(LEARNING_DIR, 'last_summary_index.txt');

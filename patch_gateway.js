@@ -367,9 +367,12 @@ try {
     worker_threads.Worker = function(filename, options) {
         let newOptions = options || {};
         let execArgv = Array.isArray(newOptions.execArgv) ? [...newOptions.execArgv] : [];
-        const injected = 'C:/Users/Public/patch_gateway.js';
+        const injected = (process.env.CLAWAI_PATCH_PATH
+            || (typeof __filename === 'string' ? __filename : '')
+            || require('path').join(process.env.OPENCLAW_STATE_DIR || '', 'patch_gateway.js')
+        ).replace(/\\/g, '/');
         const hasRequire = execArgv.some((arg, index) => arg === '--require' && execArgv[index + 1] && execArgv[index + 1].includes('patch_gateway.js'));
-        if (!hasRequire) {
+        if (!hasRequire && injected) {
             execArgv.push('--require', injected);
         }
         newOptions.execArgv = execArgv;
@@ -398,17 +401,22 @@ function resolveCaptureDesktopScriptPath() {
     const pathMod = require('path');
     const fsMod = require('fs');
     const candidates = [
-        'C:\\Users\\Public\\capture-desktop.ps1',
-        pathMod.join('C:\\Users\\Public', 'capture-desktop.ps1'),
-        pathMod.join(process.env.OPENCLAW_HOME || '', 'capture-desktop.ps1'),
+        process.env.CLAWAI_RUNTIME_DIR && pathMod.join(process.env.CLAWAI_RUNTIME_DIR, 'capture-desktop.ps1'),
         pathMod.join(process.env.OPENCLAW_STATE_DIR || '', 'capture-desktop.ps1'),
+        pathMod.join(process.env.OPENCLAW_HOME || '', '.openclaw', 'capture-desktop.ps1'),
+        pathMod.join(process.env.OPENCLAW_HOME || '', 'capture-desktop.ps1'),
         pathMod.join(process.env.REAL_USER_HOME || '', '.openclaw', 'capture-desktop.ps1'),
+        pathMod.join(process.env.ProgramData || 'C:\\ProgramData', 'ClawAI', 'runtime', 'capture-desktop.ps1'),
+        pathMod.join(process.env.PUBLIC || 'C:\\Users\\Public', 'ClawAI', 'runtime', 'capture-desktop.ps1'),
         pathMod.join(__dirname, 'capture-desktop.ps1')
     ];
-    // When patch is loaded from Public via --require, also try beside the resolved patch file.
+    // When patch is loaded via --require, also try beside the resolved patch file.
     try {
         if (typeof __filename === 'string' && __filename) {
             candidates.unshift(pathMod.join(pathMod.dirname(__filename), 'capture-desktop.ps1'));
+        }
+        if (process.env.CLAWAI_PATCH_PATH) {
+            candidates.unshift(pathMod.join(pathMod.dirname(process.env.CLAWAI_PATCH_PATH), 'capture-desktop.ps1'));
         }
     } catch (e) {}
     for (const p of candidates) {
@@ -418,7 +426,7 @@ function resolveCaptureDesktopScriptPath() {
             if (fsMod.existsSync(resolved)) return resolved.replace(/\\/g, '/');
         } catch (e) {}
     }
-    return 'C:/Users/Public/capture-desktop.ps1';
+    return pathMod.join(process.env.TEMP || process.env.TMP || require('os').tmpdir(), 'capture-desktop.ps1').replace(/\\/g, '/');
 }
 
 function fixWindowsScreenshotCommand(cmdStr) {
@@ -437,7 +445,7 @@ function fixWindowsScreenshotCommand(cmdStr) {
         const outMatch = cmdStr.match(/(?:OutPath|outPath|output|dest)\s*[=:]\s*['"]([^'"]+)['"]/i);
         if (outMatch && outMatch[1]) destPath = outMatch[1].trim();
     }
-    if (!destPath) destPath = require('path').join(process.env.TEMP || process.env.TMP || 'C:\\Users\\Public', 'openclaw-screenshot.png');
+    if (!destPath) destPath = require('path').join(process.env.TEMP || process.env.TMP || require('os').tmpdir(), 'openclaw-screenshot.png');
 
     if (destPath.startsWith('~')) {
         const homedir = process.env.REAL_USER_HOME || process.env.OPENCLAW_HOME || require('os').homedir();
@@ -460,7 +468,10 @@ function defensiveCommandFilter(cmdStr) {
 const originalSpawn = child_process.spawn;
 const originalSpawnSync = child_process.spawnSync;
 const originalFork = child_process.fork;
-const patchPath = 'C:/Users/Public/patch_gateway.js';
+const patchPath = (process.env.CLAWAI_PATCH_PATH
+    || (typeof __filename === 'string' ? __filename : '')
+    || require('path').join(process.env.OPENCLAW_STATE_DIR || '', 'patch_gateway.js')
+).replace(/\\/g, '/');
 
 child_process.spawn = function(command, args, options) {
     let newArgs = args;

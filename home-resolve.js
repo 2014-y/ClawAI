@@ -34,18 +34,45 @@ function detectRestrictedDesktop(env = process.env) {
     if (env.CLIENTNAME) hints.push('thin-client');
     if (isTempLikePath(env.TEMP) || isTempLikePath(env.TMP)) hints.push('session-temp');
 
+    const user = String(env.USERNAME || env.USER || '').toLowerCase();
+    // 无影/云电脑常见默认用户名 + 会话特征
+    if (user === 'admin' || user === 'administrator' || user === 'user' || user === 'wuying') {
+        if (/^rdp-/i.test(sessionName) || env.CLIENTNAME || env.EDS_DESKTOP || env.WY_SESSION) {
+            hints.push('cloud-default-user');
+        }
+    }
+
     for (const [k, v] of Object.entries(env)) {
         const kv = `${k}=${v}`;
-        if (/wuying|eds_?desktop|aliyun.*desktop|clouddesktop|citrix|vmware.?horizon|huawei.?workspace|tencent.?desk|aws.?workspaces/i.test(kv)) {
+        if (/wuying|eds_?desktop|aliyun.*desktop|clouddesktop|citrix|vmware.?horizon|huawei.?workspace|tencent.?desk|aws.?workspaces|aspace|yunding/i.test(kv)) {
             hints.push('cloud-desktop-env');
             break;
         }
     }
+    // D 盘存在仅作为辅助信号：只有在已有其他云电脑特征时才计入，
+    // 避免普通家用电脑（用户名 admin + 有 D 盘）被误判为受限环境，
+    // 进而导致 HOME 重定向到 AppData\Local\ClawAI 引发 token 不同步和 EPERM。
     try {
-        if (fs.existsSync('D:\\') && fs.statSync('D:\\').isDirectory()) hints.push('data-disk-d');
+        if (hints.length > 0 && fs.existsSync('D:\\') && fs.statSync('D:\\').isDirectory()) hints.push('data-disk-d');
     } catch (e) {}
 
     return { restricted: hints.length > 0, hints };
+}
+
+/** 路径是否指向「另一台电脑/另一个用户」的配置（无影拷贝本机配置时最常见） */
+function isForeignUserPath(p, env = process.env) {
+    const s = String(p || '');
+    const m = s.match(/[\\/]Users[\\/]([^\\/]+)[\\/]/i);
+    if (!m) return false;
+    const pathUser = String(m[1] || '').toLowerCase();
+    const current = safeUsername(env).toLowerCase();
+    if (!pathUser || !current) return false;
+    if (pathUser === current) return false;
+    // Public / Default 不算「别人的配置家目录」
+    if (pathUser === 'public' || pathUser === 'default' || pathUser === 'default user' || pathUser === 'all users') {
+        return false;
+    }
+    return true;
 }
 
 /**
@@ -306,6 +333,7 @@ module.exports = {
     isTempLikePath,
     safeUsername,
     detectRestrictedDesktop,
+    isForeignUserPath,
     probeOpenClawHomeWritable,
     buildExtremeFallbacks,
     buildHomeCandidates,

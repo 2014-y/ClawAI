@@ -9,9 +9,15 @@ const {
     resolveStableOpenClawHome: resolveStableOpenClawHomeCore,
     applyOpenClawHomeEnv,
     detectRestrictedDesktop,
+    isForeignUserPath,
     writeHomeHealthMarker
 } = require('./home-resolve');
 const { ensureLatencySafeConfig } = require('./latency-tune');
+const {
+    isPluginPathStaleOnThisMachine,
+    looksLikeOfficialOpenClawChannelPath,
+    sanitizePluginPathsForThisMachine
+} = require('./plugin-adapt');
 const {
     ensureUiPluginCatalog,
     ensureLongTermMemoryStack,
@@ -23,15 +29,36 @@ const {
     LONG_TERM_MEMORY_STACK,
     ASYNC_CHANNEL_LOGIN
 } = require('./plugin-catalog');
+const { resolveOpenClawStateDir } = require('./openclaw-state');
+
+function safeMainErrorLogPath() {
+    try {
+        if (typeof CONFIG_DIR === 'string' && CONFIG_DIR) {
+            return path.join(CONFIG_DIR, 'main_error.log');
+        }
+    } catch (e) {}
+    try {
+        if (process.env.OPENCLAW_STATE_DIR) {
+            return path.join(process.env.OPENCLAW_STATE_DIR, 'main_error.log');
+        }
+    } catch (e) {}
+    try {
+        return path.join(app.getPath('userData'), 'main_error.log');
+    } catch (e) {}
+    return path.join(resolveOpenClawStateDir(), 'main_error.log');
+}
+
 process.on('uncaughtException', (err) => {
     try {
-        const logPath = path.join(process.env.USERPROFILE || process.env.HOME || process.env.APPDATA || 'C:\\', '.openclaw', 'main_error.log');
+        const logPath = safeMainErrorLogPath();
+        fs.mkdirSync(path.dirname(logPath), { recursive: true });
         fs.writeFileSync(logPath, err.stack || err.message, 'utf8');
     } catch(e) {}
 });
 process.on('unhandledRejection', (reason) => {
     try {
-        const logPath = path.join(process.env.USERPROFILE || process.env.HOME || process.env.APPDATA || 'C:\\', '.openclaw', 'main_error.log');
+        const logPath = safeMainErrorLogPath();
+        fs.mkdirSync(path.dirname(logPath), { recursive: true });
         fs.writeFileSync(logPath, String(reason), 'utf8');
     } catch(e) {}
 });
@@ -357,6 +384,37 @@ let normalBounds = null;
 const appStartTime = Date.now();
 global.latestAcpDashboardUrl = '';
 
+// 与 open-external / 示例配置一致的桌面端默认网关令牌（仅本机 loopback）
+const CLAWAI_DEFAULT_GATEWAY_TOKEN = 'openclaw-dev-token-998877';
+
+/** 从 openclaw.json 组装 Control UI 免密 URL（优先 #token=，并保留 ?token= 兼容旧版） */
+function buildGatewayDashboardUrl() {
+    let port = 18789;
+    let token = CLAWAI_DEFAULT_GATEWAY_TOKEN;
+    try {
+        const configPath = path.join(CONFIG_DIR, 'openclaw.json');
+        if (fs.existsSync(configPath)) {
+            const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            if (config.gateway && Number(config.gateway.port) > 0) {
+                port = Number(config.gateway.port);
+            }
+            const t = config.gateway && config.gateway.auth && config.gateway.auth.token;
+            if (t && String(t).trim()) token = String(t).trim();
+        }
+    } catch (e) {}
+    const enc = encodeURIComponent(token);
+    // OpenClaw 文档：优先 URL fragment `#token=`；query 作旧版兜底
+    return `http://127.0.0.1:${port}/acp/?token=${enc}#token=${enc}`;
+}
+
+function rememberDashboardUrl(url) {
+    if (!url || typeof url !== 'string') return buildGatewayDashboardUrl();
+    // 日志里的旧链接可能缺 token / 令牌过期；一律用当前配置重写
+    const fresh = buildGatewayDashboardUrl();
+    global.latestAcpDashboardUrl = fresh;
+    return fresh;
+}
+
 let CONFIG_DIR = path.join(process.env.USERPROFILE || process.env.HOME || 'C:\\Users\\Public', '.openclaw');
 let CONFIG_PATH = path.join(CONFIG_DIR, 'openclaw.json');
 
@@ -439,9 +497,47 @@ function applyResolvedOpenClawHome(homePath) {
     CONFIG_PATH = path.join(CONFIG_DIR, 'openclaw.json');
 }
 
-// 统一公共补丁位置 (绝对无空格路径，杜绝 Windows 空格解析 Bug)
-const PUBLIC_PATCH_PATH = 'C:\\Users\\Public\\patch_gateway.js';
-// (Copy logic moved to startGateway to ensure no file locking from zombie processes)
+/** 运行时补丁/脚本落盘目录：优先状态目录，不依赖固定 Users\Public */
+function resolveWritableRuntimeDir() {
+    const candidates = [
+        typeof CONFIG_DIR === 'string' ? CONFIG_DIR : null,
+        process.env.OPENCLAW_STATE_DIR,
+        process.env.OPENCLAW_HOME && path.join(process.env.OPENCLAW_HOME, '.openclaw'),
+        path.join(process.env.ProgramData || 'C:\\ProgramData', 'ClawAI', 'runtime'),
+        path.join(process.env.PUBLIC || 'C:\\Users\\Public', 'ClawAI', 'runtime'),
+        path.join(resolveOpenClawStateDir(), 'runtime')
+    ].filter(Boolean);
+    for (const dir of candidates) {
+        try {
+            fs.mkdirSync(dir, { recursive: true });
+            const probe = path.join(dir, `.write-probe-${process.pid}`);
+            fs.writeFileSync(probe, '1', 'utf8');
+            fs.unlinkSync(probe);
+            return dir;
+        } catch (e) {}
+    }
+    return candidates[0] || path.join(__dirname);
+}
+
+/** 把补丁与截图脚本部署到可写运行时目录，返回正斜杠补丁路径供 --require 使用 */
+function deployRuntimeArtifacts() {
+    const dir = resolveWritableRuntimeDir();
+    const names = ['patch_gateway.js', 'token-usage-parse.js', 'capture-desktop.ps1', 'openclaw-state.js'];
+    for (const name of names) {
+        const src = path.join(__dirname, name);
+        if (!fs.existsSync(src)) continue;
+        try {
+            fs.copyFileSync(src, path.join(dir, name));
+        } catch (e) {
+            console.warn(`[TokenGuard] copy ${name} failed:`, e.message);
+        }
+    }
+    const patchAbs = path.join(dir, 'patch_gateway.js');
+    const patchPath = patchAbs.replace(/\\/g, '/');
+    process.env.CLAWAI_PATCH_PATH = patchPath;
+    process.env.CLAWAI_RUNTIME_DIR = dir;
+    return { runtimeDir: dir, patchPath, patchAbs };
+}
 
 // 随应用打包、必须在别人电脑上默认可运行的自定义插件清单
 const BUNDLED_CUSTOM_PLUGINS = [
@@ -457,18 +553,42 @@ const BUNDLED_CUSTOM_PLUGINS = [
     'remote-policy'
 ];
 
-// 随安装包一起交付的 npm 渠道插件（写进 plugins.load.paths，别人电脑无需再 npm install）
+// 随安装包一起交付的 npm 渠道插件。
+// viaLoadPaths=false：走官方 installs（复制到本机 ~/.openclaw/npm/projects），
+// 避免无影上残留「别人电脑」的绝对路径 / Program Files 坏入口导致全部加载失败。
 const BUNDLED_NPM_CHANNEL_PLUGINS = [
-    { id: 'openclaw-weixin', candidates: [path.join('node_modules', '@tencent-weixin', 'openclaw-weixin')] },
-    { id: 'qqbot', candidates: [path.join('node_modules', '@openclaw', 'qqbot')] },
-    { id: 'feishu', candidates: [path.join('node_modules', '@openclaw', 'feishu')] },
-    // voice-call 不要写入 load.paths：以 load.paths 加载会被当成非官方插件，
-    // OpenClaw 2026.7+ 会拒绝 openKeyedStore（通话记录 SQLite），报 trusted plugins 错误。
-    // 保留 package.json 依赖以随包交付；运行时走 AppData 里的官方 npm 安装记录。
-    { id: 'slack', candidates: [path.join('node_modules', '@openclaw', 'slack')] },
-    { id: 'whatsapp', candidates: [path.join('node_modules', '@openclaw', 'whatsapp')] },
-    { id: 'matrix', candidates: [path.join('node_modules', '@openclaw', 'matrix')] }
+    { id: 'openclaw-weixin', viaLoadPaths: true, candidates: [path.join('node_modules', '@tencent-weixin', 'openclaw-weixin')] },
+    { id: 'qqbot', viaLoadPaths: false, packageName: '@openclaw/qqbot', candidates: [path.join('node_modules', '@openclaw', 'qqbot')] },
+    { id: 'feishu', viaLoadPaths: false, packageName: '@openclaw/feishu', candidates: [path.join('node_modules', '@openclaw', 'feishu')] },
+    // voice-call 绝不能进 load.paths（trusted store）
+    { id: 'voice-call', viaLoadPaths: false, packageName: '@openclaw/voice-call', candidates: [path.join('node_modules', '@openclaw', 'voice-call')] },
+    { id: 'slack', viaLoadPaths: false, packageName: '@openclaw/slack', candidates: [path.join('node_modules', '@openclaw', 'slack')] },
+    { id: 'whatsapp', viaLoadPaths: false, packageName: '@openclaw/whatsapp', candidates: [path.join('node_modules', '@openclaw', 'whatsapp')] },
+    { id: 'matrix', viaLoadPaths: false, packageName: '@openclaw/matrix', candidates: [path.join('node_modules', '@openclaw', 'matrix')] }
 ];
+
+function pathLooksLikeOfficialOpenClawChannel(p) {
+    return looksLikeOfficialOpenClawChannelPath(p);
+}
+
+function pluginPathUsableOnThisMachine(p) {
+    if (!p || typeof p !== 'string') return false;
+    return !isPluginPathStaleOnThisMachine(p, {
+        userProfile: process.env.USERPROFILE || process.env.HOME || '',
+        configDir: typeof CONFIG_DIR !== 'undefined' ? CONFIG_DIR : '',
+        appRoot: __dirname,
+        isForeignUserPath
+    });
+}
+
+function applyMachinePluginPathSanitize(config) {
+    return sanitizePluginPathsForThisMachine(config, {
+        userProfile: process.env.USERPROFILE || process.env.HOME || '',
+        configDir: typeof CONFIG_DIR !== 'undefined' ? CONFIG_DIR : '',
+        appRoot: __dirname,
+        isForeignUserPath
+    });
+}
 
 function resolveBundledNpmPluginPath(entry) {
     const candidates = entry.candidates || [];
@@ -513,6 +633,156 @@ function encodeOpenClawNpmProjectDirName(packageName) {
 }
 
 /**
+ * OpenClaw 官方 npm 插件常把 extensions 写成 ./index.ts，但发布包里只有 dist/index.js。
+ * 不修的话 Gateway 会 ENOENT 跳过，表现为飞书/QQ/Slack 等「全部没加载」。
+ * @returns {boolean} 是否改写了 package.json
+ */
+function repairOpenClawPluginPackageEntry(pluginDir) {
+    if (!pluginDir || typeof pluginDir !== 'string') return false;
+    const pkgPath = path.join(pluginDir, 'package.json');
+    if (!fs.existsSync(pkgPath)) return false;
+    let pkg;
+    try {
+        pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    } catch (e) {
+        return false;
+    }
+    if (!pkg || typeof pkg !== 'object') return false;
+
+    let changed = false;
+    const resolveExisting = (rel) => {
+        if (!rel || typeof rel !== 'string') return null;
+        const abs = path.isAbsolute(rel) ? rel : path.join(pluginDir, rel);
+        return fs.existsSync(abs) ? abs : null;
+    };
+
+    const pickFallback = () => {
+        const candidates = [
+            './dist/index.js',
+            './dist/channel-entry.js',
+            './index.js',
+            './index.mjs'
+        ];
+        for (const c of candidates) {
+            if (resolveExisting(c)) return c;
+        }
+        return null;
+    };
+
+    const patchRelPath = (rel) => {
+        if (!rel || typeof rel !== 'string') return rel;
+        if (resolveExisting(rel)) return rel;
+        // 典型坏配置：./index.ts 在 npm 包中不存在
+        if (/\.tsx?$/i.test(rel) || /(?:^|[\\/])index\.tsx?$/i.test(rel)) {
+            const fb = pickFallback();
+            if (fb) {
+                changed = true;
+                return fb;
+            }
+        }
+        const fb = pickFallback();
+        if (fb && !resolveExisting(rel)) {
+            changed = true;
+            return fb;
+        }
+        return rel;
+    };
+
+    if (pkg.openclaw && Array.isArray(pkg.openclaw.extensions)) {
+        const next = pkg.openclaw.extensions.map(patchRelPath);
+        if (JSON.stringify(next) !== JSON.stringify(pkg.openclaw.extensions)) {
+            pkg.openclaw.extensions = next;
+            changed = true;
+        }
+    }
+
+    if (pkg.openclaw && typeof pkg.openclaw.setupEntry === 'string') {
+        const nextSetup = patchRelPath(pkg.openclaw.setupEntry);
+        if (nextSetup !== pkg.openclaw.setupEntry) {
+            pkg.openclaw.setupEntry = nextSetup;
+            changed = true;
+        }
+    }
+
+    // 若仍缺源文件，补一个最小 JS 入口，避免 OpenClaw 再追 index.ts
+    try {
+        const distIndex = path.join(pluginDir, 'dist', 'index.js');
+        const rootTs = path.join(pluginDir, 'index.ts');
+        const rootJs = path.join(pluginDir, 'index.js');
+        if (fs.existsSync(distIndex) && !fs.existsSync(rootTs) && !fs.existsSync(rootJs)) {
+            fs.writeFileSync(
+                rootJs,
+                "export * from './dist/index.js';\nexport { default } from './dist/index.js';\n",
+                'utf8'
+            );
+            changed = true;
+        }
+    } catch (e) {}
+
+    if (changed) {
+        try {
+            fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
+            console.log(`[PluginSeed] Repaired plugin entry: ${pluginDir}`);
+        } catch (e) {
+            console.warn(`[PluginSeed] Failed to write repaired package.json at ${pkgPath}:`, e.message);
+            return false;
+        }
+    }
+    return changed;
+}
+
+/** 扫描随包 / load.paths / npm installs，批量修复坏掉的插件入口 */
+function repairAllOpenClawPluginEntries(extraDirs) {
+    const dirs = new Set();
+    const add = (d) => {
+        if (d && typeof d === 'string') dirs.add(path.resolve(d));
+    };
+    for (const entry of BUNDLED_NPM_CHANNEL_PLUGINS) {
+        add(resolveBundledNpmPluginPath(entry));
+    }
+    if (Array.isArray(extraDirs)) {
+        for (const d of extraDirs) add(d);
+    }
+    try {
+        const installsRoot = path.join(CONFIG_DIR, 'npm', 'projects');
+        if (fs.existsSync(installsRoot)) {
+            for (const project of fs.readdirSync(installsRoot)) {
+                const nm = path.join(installsRoot, project, 'node_modules');
+                if (!fs.existsSync(nm)) continue;
+                // @scope/name
+                for (const scopeOrPkg of fs.readdirSync(nm)) {
+                    const p1 = path.join(nm, scopeOrPkg);
+                    if (scopeOrPkg.startsWith('@')) {
+                        try {
+                            for (const name of fs.readdirSync(p1)) add(path.join(p1, name));
+                        } catch (e) {}
+                    } else {
+                        add(p1);
+                    }
+                }
+            }
+        }
+    } catch (e) {}
+
+    let n = 0;
+    for (const d of dirs) {
+        try {
+            const pkgPath = path.join(d, 'package.json');
+            if (!fs.existsSync(pkgPath)) continue;
+            let name = '';
+            try { name = JSON.parse(fs.readFileSync(pkgPath, 'utf8')).name || ''; } catch (e) {}
+            // 仅修 OpenClaw 渠道/官方插件，避免误伤无关包
+            if (!name.startsWith('@openclaw/') && !name.includes('openclaw-weixin') && !name.includes('openclaw-qqbot')) {
+                continue;
+            }
+            if (repairOpenClawPluginPackageEntry(d)) n += 1;
+        } catch (e) {}
+    }
+    if (n > 0) console.log(`[PluginSeed] Repaired ${n} plugin package entry(ies)`);
+    return n;
+}
+
+/**
  * 把随包自带的官方 npm 插件离线种进 ~/.openclaw/npm/projects/...，
  * 让 OpenClaw 按官方安装恢复 install record → trustedOfficialInstall=true。
  * 这样别人电脑无需联网 npm install，也不必写 load.paths（load.paths 会丢掉 trust）。
@@ -528,6 +798,9 @@ function ensureOfficialExternalNpmPluginSeeded(params) {
     if (!fs.existsSync(bundledSrc)) {
         return { seeded: false, reason: `bundled package missing: ${bundledSrc}` };
     }
+
+    // 源目录也先修入口，避免 cpSync 把坏 package.json 再写进去
+    try { repairOpenClawPluginPackageEntry(bundledSrc); } catch (e) {}
 
     let srcVersion = '';
     try {
@@ -558,6 +831,9 @@ function ensureOfficialExternalNpmPluginSeeded(params) {
         fs.cpSync(bundledSrc, installPath, { recursive: true, force: true });
         console.log(`[PluginSeed] Official npm seed: ${pluginId} → ${installPath}`);
     }
+
+    // 目标安装目录再修一遍（含历史坏副本）
+    try { repairOpenClawPluginPackageEntry(installPath); } catch (e) {}
 
     // 项目级 package.json，供 OpenClaw buildRecoveredManagedNpmInstallRecords 扫描
     const projectPkgPath = path.join(projectDir, 'package.json');
@@ -615,6 +891,9 @@ function sanitizeFeishuConfig(config) {
         if (!Array.isArray(feishu.allowFrom)) { feishu.allowFrom = ['*']; changed = true; }
         if (!feishu.groupPolicy) { feishu.groupPolicy = 'open'; changed = true; }
         if (!Array.isArray(feishu.groupAllowFrom)) { feishu.groupAllowFrom = ['*']; changed = true; }
+        // 群里未 @ 也放行，避免「发了没反应」被误当成插件没加载
+        if (feishu.requireMention === true) { feishu.requireMention = false; changed = true; }
+        if (!feishu.connectionMode) { feishu.connectionMode = 'websocket'; changed = true; }
     }
 
     return changed;
@@ -622,10 +901,12 @@ function sanitizeFeishuConfig(config) {
 
 // 通过 NODE_OPTIONS 把 patch_gateway.js 传播到ClawAI及其 spawn 出的所有子进程/worker。
 function buildPatchedNodeOptions(patchPath) {
-    const targetPath = 'C:/Users/Public/patch_gateway.js';
+    const targetPath = String(patchPath || process.env.CLAWAI_PATCH_PATH || '')
+        .replace(/\\/g, '/');
+    if (!targetPath) return (process.env.NODE_OPTIONS || '').trim();
     const injected = `--require "${targetPath}" --dns-result-order=ipv4first --no-warnings`;
     const existing = (process.env.NODE_OPTIONS || '').trim();
-    if (existing.includes(targetPath)) return existing;
+    if (existing.includes(targetPath) || existing.includes('patch_gateway.js')) return existing.includes(targetPath) ? existing : `${injected} ${existing}`;
     return existing ? `${injected} ${existing}` : injected;
 }
 
@@ -914,8 +1195,40 @@ function prepareChannelPluginsBeforeGateway() {
     if (!Array.isArray(config.plugins.load.paths)) { config.plugins.load.paths = []; needsSave = true; }
     if (!config.plugins.installs) { config.plugins.installs = {}; needsSave = true; }
 
+    // 启动前：多机/多用户路径自愈（云电脑、换账号、从旧机拷配置都能用）
+    try {
+        const sanitized = applyMachinePluginPathSanitize(config);
+        if (sanitized.changed) {
+            needsSave = true;
+            console.warn(
+                `[PluginSeed] Machine adapt cleaned ${sanitized.droppedPaths.length} stale path(s):`,
+                (sanitized.notes || []).slice(0, 8).join(', ')
+            );
+        }
+    } catch (e) {
+        console.warn('[PluginSeed] applyMachinePluginPathSanitize:', e.message);
+    }
+
+    // 启动前先修坏掉的 index.ts 入口，否则飞书/QQ/Slack 等会整批加载失败
+    try {
+        const installPaths = Object.values(config.plugins.installs || {})
+            .map((x) => x && x.installPath)
+            .filter(Boolean);
+        repairAllOpenClawPluginEntries([...(config.plugins.load.paths || []), ...installPaths]);
+    } catch (e) {
+        console.warn('[PluginSeed] repairAllOpenClawPluginEntries:', e.message);
+    }
+
+    // fatal/silent 会让渠道收消息在控制台完全没痕迹，像「没加载 / 没反应」
+    if (!config.logging) { config.logging = {}; needsSave = true; }
+    if (config.logging.level === 'fatal' || config.logging.level === 'silent' || !config.logging.level) {
+        config.logging.level = 'info';
+        needsSave = true;
+    }
+
     const wantById = {};
     for (const entry of BUNDLED_NPM_CHANNEL_PLUGINS) {
+        if (entry.viaLoadPaths === false) continue;
         const abs = resolveBundledNpmPluginPath(entry);
         if (abs) wantById[entry.id] = path.resolve(abs);
     }
@@ -926,15 +1239,27 @@ function prepareChannelPluginsBeforeGateway() {
         { id: 'qqbot', re: /[\\/]@openclaw[\\/]qqbot(?:[\\/]|$)/i },
         { id: 'slack', re: /[\\/]@openclaw[\\/]slack(?:[\\/]|$)/i },
         { id: 'whatsapp', re: /[\\/]@openclaw[\\/]whatsapp(?:[\\/]|$)/i },
-        { id: 'matrix', re: /[\\/]@openclaw[\\/]matrix(?:[\\/]|$)/i }
+        { id: 'matrix', re: /[\\/]@openclaw[\\/]matrix(?:[\\/]|$)/i },
+        { id: 'voice-call', re: /[\\/]@openclaw[\\/]voice-call(?:[\\/]|$)/i }
     ];
 
     const filteredPaths = [];
     for (const p of config.plugins.load.paths) {
         if (typeof p !== 'string') { needsSave = true; continue; }
+        // 无影：丢掉「别人电脑」绝对路径 / 已删除路径 / 应走 installs 的官方包
+        if (isForeignUserPath(p) || pathLooksLikeOfficialOpenClawChannel(p) || !pluginPathUsableOnThisMachine(p)) {
+            needsSave = true;
+            continue;
+        }
         let drop = false;
         for (const m of channelPathMatchers) {
             if (!m.re.test(p)) continue;
+            const entry = BUNDLED_NPM_CHANNEL_PLUGINS.find((e) => e.id === m.id);
+            if (entry && entry.viaLoadPaths === false) {
+                drop = true;
+                needsSave = true;
+                break;
+            }
             const want = wantById[m.id];
             if (!want || path.resolve(p) !== want) {
                 drop = true;
@@ -943,22 +1268,30 @@ function prepareChannelPluginsBeforeGateway() {
             break;
         }
         if (drop) continue;
-        try {
-            if (!fs.existsSync(p)) {
-                needsSave = true;
-                continue;
-            }
-        } catch (e) {
-            needsSave = true;
-            continue;
-        }
         filteredPaths.push(p);
     }
 
+    // 仅微信等非官方包写入 load.paths；飞书/QQ 等一律走下方 installs 种子
     for (const entry of BUNDLED_NPM_CHANNEL_PLUGINS) {
+        if (entry.viaLoadPaths === false) {
+            if (!config.plugins.entries[entry.id]) {
+                config.plugins.entries[entry.id] = { enabled: true };
+                needsSave = true;
+            }
+            if (config.plugins.entries[entry.id].enabled === true && !config.plugins.allow.includes(entry.id)) {
+                config.plugins.allow.push(entry.id);
+                needsSave = true;
+            }
+            continue;
+        }
         const abs = resolveBundledNpmPluginPath(entry);
         if (!abs) {
             console.warn(`[PluginSeed] Pre-gateway missing bundled: ${entry.id}`);
+            continue;
+        }
+        // 即便 bundled 在 Program Files，也优先种到本机 installs 再用；load.paths 仅保留本机可用路径
+        if (!pluginPathUsableOnThisMachine(abs) || isForeignUserPath(abs)) {
+            console.warn(`[PluginSeed] Skip foreign/missing load path for ${entry.id}: ${abs}`);
             continue;
         }
         const resolvedPath = path.resolve(abs);
@@ -981,38 +1314,108 @@ function prepareChannelPluginsBeforeGateway() {
         needsSave = true;
     }
 
-    for (const item of [
-        { pluginId: 'openclaw-weixin', packageName: '@tencent-weixin/openclaw-weixin' },
-        { pluginId: 'feishu', packageName: '@openclaw/feishu' },
-        { pluginId: 'qqbot', packageName: '@openclaw/qqbot' },
-    ]) {
+    // 官方渠道：强制种到「当前用户」的 npm/projects，并纠正跨机 installPath
+    for (const entry of BUNDLED_NPM_CHANNEL_PLUGINS) {
+        const packageName = entry.packageName
+            || (entry.id === 'openclaw-weixin' ? '@tencent-weixin/openclaw-weixin' : null);
+        if (!packageName) continue;
         try {
-            const seed = ensureOfficialExternalNpmPluginSeeded(item);
+            const prev = config.plugins.installs[entry.id] || {};
+            if (prev.installPath && (isForeignUserPath(prev.installPath) || !fs.existsSync(prev.installPath))) {
+                delete config.plugins.installs[entry.id];
+                needsSave = true;
+                console.warn(`[PluginSeed] Dropped foreign/missing install for ${entry.id}: ${prev.installPath}`);
+            }
+            const seed = ensureOfficialExternalNpmPluginSeeded({
+                pluginId: entry.id,
+                packageName
+            });
             if (!seed.seeded) {
-                console.warn(`[PluginSeed] Pre-gateway ${item.pluginId}:`, seed.reason);
+                console.warn(`[PluginSeed] Pre-gateway ${entry.id}:`, seed.reason);
                 continue;
             }
-            const prev = config.plugins.installs[item.pluginId] || {};
-            const ver = seed.version || prev.resolvedVersion || '0.0.0';
+            const ver = seed.version || (prev && prev.resolvedVersion) || '0.0.0';
             const next = {
-                ...prev,
+                ...(config.plugins.installs[entry.id] || {}),
                 source: 'npm',
-                spec: `${item.packageName}@${ver}`,
+                spec: `${packageName}@${ver}`,
                 installPath: seed.installPath,
-                resolvedName: item.packageName,
+                resolvedName: packageName,
                 resolvedVersion: ver,
-                resolvedSpec: `${item.packageName}@${ver}`,
+                resolvedSpec: `${packageName}@${ver}`,
                 version: ver,
-                installedAt: prev.installedAt || new Date().toISOString()
+                installedAt: (config.plugins.installs[entry.id] && config.plugins.installs[entry.id].installedAt)
+                    || new Date().toISOString()
             };
-            if (JSON.stringify(prev) !== JSON.stringify(next)) {
-                config.plugins.installs[item.pluginId] = next;
+            if (JSON.stringify(config.plugins.installs[entry.id] || {}) !== JSON.stringify(next)) {
+                config.plugins.installs[entry.id] = next;
                 needsSave = true;
             }
         } catch (e) {
-            console.warn(`[PluginSeed] Pre-gateway ${item.pluginId} failed:`, e.message);
+            console.warn(`[PluginSeed] Pre-gateway ${entry.id} failed:`, e.message);
         }
     }
+
+    // 已配置凭证的渠道必须 enabled+allow，否则 Gateway 不加载、发消息控制台无日志也不回复
+    try {
+        const forceOn = (pluginId) => {
+            if (!config.plugins.entries[pluginId]) config.plugins.entries[pluginId] = {};
+            if (config.plugins.entries[pluginId].enabled !== true) {
+                config.plugins.entries[pluginId].enabled = true;
+                needsSave = true;
+            }
+            if (!config.plugins.allow.includes(pluginId)) {
+                config.plugins.allow.push(pluginId);
+                needsSave = true;
+            }
+        };
+        if (config.channels && config.channels.feishu) {
+            if (sanitizeFeishuConfig(config)) needsSave = true;
+            const f = config.channels.feishu;
+            const hasCred = !!(f.appId && f.appSecret)
+                || (f.accounts && Object.values(f.accounts).some((a) => a && a.appId && a.appSecret));
+            if (hasCred) {
+                if (f.enabled !== true) { f.enabled = true; needsSave = true; }
+                forceOn('feishu');
+            }
+        }
+        if (config.channels && config.channels.qqbot) {
+            const q = config.channels.qqbot;
+            const hasQ = !!(q.appId || q.appSecret || q.clientId
+                || (q.accounts && Object.keys(q.accounts).length));
+            if (hasQ || q.enabled === true) {
+                if (q.enabled !== true) { q.enabled = true; needsSave = true; }
+                forceOn('qqbot');
+            }
+        }
+        // 微信以磁盘账号为准：accounts.json 有号 → 强制开插件
+        try {
+            const wxAccounts = path.join(CONFIG_DIR, 'openclaw-weixin', 'accounts.json');
+            if (fs.existsSync(wxAccounts)) {
+                const list = JSON.parse(fs.readFileSync(wxAccounts, 'utf8'));
+                if (Array.isArray(list) && list.length > 0) forceOn('openclaw-weixin');
+            }
+        } catch (e) {}
+        if (config.channels && config.channels['openclaw-weixin']) forceOn('openclaw-weixin');
+    } catch (e) {
+        console.warn('[PluginSeed] channel force-enable skipped:', e.message);
+    }
+
+    // 持久化 gateway auth token，避免每次启动临时 token + 控制台刷屏
+    try {
+        if (!config.gateway) { config.gateway = {}; needsSave = true; }
+        if (!config.gateway.auth) { config.gateway.auth = {}; needsSave = true; }
+        if (config.gateway.auth.mode !== 'token') {
+            config.gateway.auth.mode = 'token';
+            needsSave = true;
+        }
+        if (!config.gateway.auth.token || String(config.gateway.auth.token).trim() === '') {
+            // 固定桌面端默认令牌，保证内置 Control UI 能稳定免密登入
+            config.gateway.auth.token = CLAWAI_DEFAULT_GATEWAY_TOKEN;
+            needsSave = true;
+            console.log('[PluginSeed] Persisted default gateway.auth.token');
+        }
+    } catch (e) {}
 
     if (needsSave) {
         fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
@@ -1318,12 +1721,13 @@ async function startGatewayProcess() {
             mainWindow.webContents.send('gateway-log', '[System] 正在拉起内置 OpenClaw Gateway 核心...\n');
         }
         try {
-            // 终极物理自愈：强行清理可能引发 EPERM 的 skills-prompts 缓存（不管它是文件还是损坏目录）
+            // 仅清理当前状态目录下的 skills-prompts 缓存（禁止硬编码 Users\Yuan / admin）
             const cleanupPaths = [
-                path.join(process.env.USERPROFILE || process.env.HOME || 'C:\\Users\\admin', '.openclaw', 'agents', 'main', 'sessions', 'skills-prompts'),
-                'C:\\Users\\admin\\.openclaw\\agents\\main\\sessions\\skills-prompts',
-                'C:\\Users\\Yuan\\.openclaw\\agents\\main\\sessions\\skills-prompts'
-            ];
+                path.join(CONFIG_DIR, 'agents', 'main', 'sessions', 'skills-prompts'),
+                process.env.OPENCLAW_STATE_DIR
+                    ? path.join(process.env.OPENCLAW_STATE_DIR, 'agents', 'main', 'sessions', 'skills-prompts')
+                    : null
+            ].filter(Boolean);
             cleanupPaths.forEach(p => {
                 try {
                     if (fs.existsSync(p)) {
@@ -1361,39 +1765,16 @@ async function startGatewayProcess() {
                 console.warn('[LatencyTune] pre-gateway skipped:', e.message);
             }
 
-            // 在杀掉所有可能锁定补丁的僵尸进程后，安全地拷贝最新的 patch_gateway.js 与截图脚本
+            // 部署补丁/截图脚本到可写运行时目录（云电脑不用固定 Public）
+            let patchPath = path.join(__dirname, 'patch_gateway.js').replace(/\\/g, '/');
             try {
-                const localPatch = path.join(__dirname, 'patch_gateway.js');
-                if (fs.existsSync(localPatch)) {
-                    fs.copyFileSync(localPatch, PUBLIC_PATCH_PATH);
-                    console.log(`[TokenGuard] Copied public patch to ${PUBLIC_PATCH_PATH} successfully after cleanup.`);
-                }
-                const localTokenParse = path.join(__dirname, 'token-usage-parse.js');
-                if (fs.existsSync(localTokenParse)) {
-                    try {
-                        fs.copyFileSync(localTokenParse, 'C:\\Users\\Public\\token-usage-parse.js');
-                    } catch (e) {}
-                }
-                const localCapture = path.join(__dirname, 'capture-desktop.ps1');
-                const publicCapture = 'C:\\Users\\Public\\capture-desktop.ps1';
-                if (fs.existsSync(localCapture)) {
-                    fs.copyFileSync(localCapture, publicCapture);
-                    // 同步一份到 OPENCLAW_STATE_DIR / 家目录，方便手工与无影环境定位
-                    const altDirs = [
-                        process.env.OPENCLAW_STATE_DIR,
-                        process.env.OPENCLAW_HOME && path.join(process.env.OPENCLAW_HOME, '.openclaw'),
-                        CONFIG_DIR
-                    ].filter(Boolean);
-                    for (const dir of altDirs) {
-                        try {
-                            fs.mkdirSync(dir, { recursive: true });
-                            fs.copyFileSync(localCapture, path.join(dir, 'capture-desktop.ps1'));
-                        } catch (e) {}
-                    }
-                    console.log(`[TokenGuard] Copied capture-desktop.ps1 to ${publicCapture}`);
+                const deployed = deployRuntimeArtifacts();
+                if (deployed && deployed.patchPath && fs.existsSync(deployed.patchAbs)) {
+                    patchPath = deployed.patchPath;
+                    console.log(`[TokenGuard] Runtime artifacts at ${deployed.runtimeDir}`);
                 }
             } catch (e) {
-                console.error('[TokenGuard] Failed to copy public patch after cleanup:', e.message);
+                console.error('[TokenGuard] Failed to deploy runtime artifacts:', e.message);
             }
 
             // 优先通过物理路径直接定位（完美避开打包后 Node.js 模块 exports 对子路径文件的加载限制）
@@ -1404,13 +1785,17 @@ async function startGatewayProcess() {
             
             // 优先使用打包内置的或系统全局符合版本要求的 Node 运行时
             const nodeExePath = getAvailableNodePath();
-            const patchPath = 'C:/Users/Public/patch_gateway.js';
             const forkOptions = {
                 cwd: CONFIG_DIR,
                 stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
                 execArgv: ['--require', patchPath, '--no-warnings', '--dns-result-order=ipv4first'],
                 // NODE_OPTIONS 确保补丁被继承到 openclaw 派生的所有后代 node 进程 (修复子进程 EPERM 顽疾)
-                env: { ...process.env, NODE_TLS_REJECT_UNAUTHORIZED: '0', NODE_OPTIONS: buildPatchedNodeOptions(patchPath) }
+                env: {
+                    ...process.env,
+                    NODE_TLS_REJECT_UNAUTHORIZED: '0',
+                    CLAWAI_PATCH_PATH: patchPath,
+                    NODE_OPTIONS: buildPatchedNodeOptions(patchPath)
+                }
             };
             if (nodeExePath) {
                 forkOptions.execPath = nodeExePath;
@@ -1450,10 +1835,13 @@ async function startGatewayProcess() {
                 if (mainWindow) {
                     mainWindow.webContents.send('gateway-log', text);
                     
-                    // 拦截带动态密钥的控制台免密登录 URL
+                    // 拦截控制台免密登录 URL，并统一改写为当前配置令牌（避免日志旧 token 导致限流）
                     const acpMatch = text.match(/https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):\d+\/acp\/[^\s"'\n]+/);
                     if (acpMatch) {
-                        global.latestAcpDashboardUrl = acpMatch[0].trim();
+                        const fresh = rememberDashboardUrl(acpMatch[0].trim());
+                        if (mainWindow && !mainWindow.isDestroyed()) {
+                            mainWindow.webContents.send('dashboard-url-updated', fresh);
+                        }
                     }
 
                     // 跨分片拼接后再抓微信扫码 URL（liteapp.weixin.qq.com/q/... 等）
@@ -1766,17 +2154,29 @@ ipcMain.handle('config-read', async () => {
             } catch (e) {}
         }
         
+        // 多用户/云电脑：读配置时也清洗野指针，避免长期保留别人机器的绝对路径
+        try {
+            const sanitized = applyMachinePluginPathSanitize(config);
+            if (sanitized.changed) needsSave = true;
+        } catch (e) {}
+
         const weixinPluginPath = path.join(__dirname, 'node_modules', '@tencent-weixin', 'openclaw-weixin');
-        // 当前安装目录下随包渠道插件的权威绝对路径（别人电脑 / 换安装位置后必须重写）
+        // 当前安装目录下「允许进 load.paths」的渠道插件权威路径（仅微信等非官方）
         const bundledChannelAbsById = {};
         for (const entry of BUNDLED_NPM_CHANNEL_PLUGINS) {
+            if (entry.viaLoadPaths === false) continue;
             const abs = resolveBundledNpmPluginPath(entry);
             if (abs) bundledChannelAbsById[entry.id] = path.resolve(abs);
         }
         const originalPaths = config.plugins.load.paths || [];
         const filteredPaths = originalPaths.filter(p => {
             if (typeof p !== 'string') return false;
-            // 迁移：剔除 load.paths 里的 voice-call，避免 trusted store 被拒
+            // 无影/换机：别人的 Users\xxx 路径一律丢掉
+            if (isForeignUserPath(p) || pathLooksLikeOfficialOpenClawChannel(p)) {
+                needsSave = true;
+                return false;
+            }
+            // 迁移：剔除 load.paths 里的官方 @openclaw 包与 voice-call
             if (/[\\/]@openclaw[\\/]voice-call(?:[\\/]|$)/i.test(p) || /[\\/]voice-call$/i.test(p)) {
                 needsSave = true;
                 return false;
@@ -1785,22 +2185,6 @@ ipcMain.handle('config-read', async () => {
             if (/(?:^|[\\/])openclaw-weixin(?:[\\/]|$)/i.test(p) || p.endsWith('openclaw-weixin')) {
                 const want = bundledChannelAbsById['openclaw-weixin'] || path.resolve(weixinPluginPath);
                 if (path.resolve(p) !== want) {
-                    needsSave = true;
-                    return false;
-                }
-            }
-            // 飞书 / QQ / Slack / WhatsApp / Matrix：剔除其它机器或其它安装目录遗留的绝对路径
-            const channelPathMatchers = [
-                { id: 'feishu', re: /[\\/]@openclaw[\\/]feishu(?:[\\/]|$)/i },
-                { id: 'qqbot', re: /[\\/]@openclaw[\\/]qqbot(?:[\\/]|$)/i },
-                { id: 'slack', re: /[\\/]@openclaw[\\/]slack(?:[\\/]|$)/i },
-                { id: 'whatsapp', re: /[\\/]@openclaw[\\/]whatsapp(?:[\\/]|$)/i },
-                { id: 'matrix', re: /[\\/]@openclaw[\\/]matrix(?:[\\/]|$)/i }
-            ];
-            for (const m of channelPathMatchers) {
-                if (!m.re.test(p)) continue;
-                const want = bundledChannelAbsById[m.id];
-                if (!want || path.resolve(p) !== want) {
                     needsSave = true;
                     return false;
                 }
@@ -1818,12 +2202,22 @@ ipcMain.handle('config-read', async () => {
             return true;
         });
 
-        // 把随包 npm 渠道插件（微信 / QQ / 飞书 / Slack / WhatsApp / Matrix）注入 load.paths，
-        // 保证别人电脑开箱即用，不依赖 openclaw plugins install / 联网下载。
+        // 仅微信等 viaLoadPaths=true 写入 load.paths；飞书/QQ 等走官方 installs
         for (const entry of BUNDLED_NPM_CHANNEL_PLUGINS) {
+            if (entry.viaLoadPaths === false) {
+                if (!config.plugins.entries[entry.id]) {
+                    config.plugins.entries[entry.id] = { enabled: true };
+                    needsSave = true;
+                }
+                if (config.plugins.entries[entry.id].enabled === true && !config.plugins.allow.includes(entry.id)) {
+                    config.plugins.allow.push(entry.id);
+                    needsSave = true;
+                }
+                continue;
+            }
             const abs = resolveBundledNpmPluginPath(entry);
-            if (!abs) {
-                console.warn(`[PluginSeed] Bundled npm plugin missing: ${entry.id}`);
+            if (!abs || !pluginPathUsableOnThisMachine(abs)) {
+                console.warn(`[PluginSeed] Bundled npm plugin missing/unusable: ${entry.id}`);
                 continue;
             }
             const resolvedPath = path.resolve(abs);
@@ -1832,7 +2226,6 @@ ipcMain.handle('config-read', async () => {
                 filteredPaths.push(abs);
                 needsSave = true;
             }
-            // 确保配置里有 entry + allow（凭证类不强行写 enabled，尊重现有；缺省创建 enabled）
             if (!config.plugins.entries[entry.id]) {
                 config.plugins.entries[entry.id] = { enabled: true };
                 needsSave = true;
@@ -1843,77 +2236,45 @@ ipcMain.handle('config-read', async () => {
             }
         }
 
-        // voice-call：不走 load.paths；离线种进官方 npm/projects，别人电脑也能 trusted + 开通话记录库
-        try {
-            const voiceSeed = ensureOfficialExternalNpmPluginSeeded({
-                pluginId: 'voice-call',
-                packageName: '@openclaw/voice-call'
-            });
-            if (!voiceSeed.seeded) {
-                console.warn('[PluginSeed] voice-call official seed skipped:', voiceSeed.reason);
-            } else if (voiceSeed.installPath) {
+        // 官方渠道：离线种进本机 npm/projects（纠正无影上残留的本机 Yuan 路径）
+        for (const entry of BUNDLED_NPM_CHANNEL_PLUGINS) {
+            const packageName = entry.packageName
+                || (entry.id === 'openclaw-weixin' ? '@tencent-weixin/openclaw-weixin' : null);
+            if (!packageName) continue;
+            try {
                 if (!config.plugins.installs) config.plugins.installs = {};
-                const prev = config.plugins.installs['voice-call'] || {};
-                const next = {
-                    ...prev,
-                    source: 'npm',
-                    spec: `@openclaw/voice-call@${voiceSeed.version || '2026.7.1'}`,
-                    installPath: voiceSeed.installPath,
-                    resolvedName: '@openclaw/voice-call',
-                    resolvedVersion: voiceSeed.version || prev.resolvedVersion || '2026.7.1',
-                    resolvedSpec: `@openclaw/voice-call@${voiceSeed.version || '2026.7.1'}`,
-                    version: voiceSeed.version || prev.version || '2026.7.1',
-                    installedAt: prev.installedAt || new Date().toISOString()
-                };
-                if (JSON.stringify(prev) !== JSON.stringify(next)) {
-                    config.plugins.installs['voice-call'] = next;
+                const prev = config.plugins.installs[entry.id] || {};
+                if (prev.installPath && (isForeignUserPath(prev.installPath) || !fs.existsSync(prev.installPath))) {
+                    delete config.plugins.installs[entry.id];
                     needsSave = true;
                 }
-            }
-        } catch (e) {
-            console.warn('[PluginSeed] voice-call seed failed:', e.message);
-        }
-        if (!config.plugins.entries['voice-call']) {
-            config.plugins.entries['voice-call'] = { enabled: true };
-            needsSave = true;
-        }
-        if (config.plugins.entries['voice-call'].enabled === true && !config.plugins.allow.includes('voice-call')) {
-            config.plugins.allow.push('voice-call');
-            needsSave = true;
-        }
-
-        // 微信 / 飞书 / QQ：同步官方 npm installs，避免网关启动时卡在「Install xxx plugin?」交互问答
-        for (const item of [
-            { pluginId: 'openclaw-weixin', packageName: '@tencent-weixin/openclaw-weixin' },
-            { pluginId: 'feishu', packageName: '@openclaw/feishu' },
-            { pluginId: 'qqbot', packageName: '@openclaw/qqbot' },
-        ]) {
-            try {
-                const seed = ensureOfficialExternalNpmPluginSeeded(item);
+                const seed = ensureOfficialExternalNpmPluginSeeded({
+                    pluginId: entry.id,
+                    packageName
+                });
                 if (!seed.seeded) {
-                    console.warn(`[PluginSeed] ${item.pluginId} official seed skipped:`, seed.reason);
-                } else if (seed.installPath) {
-                    if (!config.plugins.installs) config.plugins.installs = {};
-                    const prev = config.plugins.installs[item.pluginId] || {};
-                    const ver = seed.version || prev.resolvedVersion || '2026.6.11';
-                    const next = {
-                        ...prev,
-                        source: 'npm',
-                        spec: `${item.packageName}@${ver}`,
-                        installPath: seed.installPath,
-                        resolvedName: item.packageName,
-                        resolvedVersion: ver,
-                        resolvedSpec: `${item.packageName}@${ver}`,
-                        version: ver,
-                        installedAt: prev.installedAt || new Date().toISOString()
-                    };
-                    if (JSON.stringify(prev) !== JSON.stringify(next)) {
-                        config.plugins.installs[item.pluginId] = next;
-                        needsSave = true;
-                    }
+                    console.warn(`[PluginSeed] ${entry.id} official seed skipped:`, seed.reason);
+                    continue;
+                }
+                const ver = seed.version || '0.0.0';
+                const next = {
+                    ...(config.plugins.installs[entry.id] || {}),
+                    source: 'npm',
+                    spec: `${packageName}@${ver}`,
+                    installPath: seed.installPath,
+                    resolvedName: packageName,
+                    resolvedVersion: ver,
+                    resolvedSpec: `${packageName}@${ver}`,
+                    version: ver,
+                    installedAt: (config.plugins.installs[entry.id] && config.plugins.installs[entry.id].installedAt)
+                        || new Date().toISOString()
+                };
+                if (JSON.stringify(config.plugins.installs[entry.id] || {}) !== JSON.stringify(next)) {
+                    config.plugins.installs[entry.id] = next;
+                    needsSave = true;
                 }
             } catch (e) {
-                console.warn(`[PluginSeed] ${item.pluginId} seed failed:`, e.message);
+                console.warn(`[PluginSeed] ${entry.id} seed failed:`, e.message);
             }
         }
         
@@ -2334,8 +2695,273 @@ function emitChannelLoginFailed(sess, error) {
 }
 
 /**
+ * 解析/落盘微信直连登录脚本：安装包遗漏或只热更了 main.js 时，自动写到用户目录以保证可用。
+ */
+function ensureWeixinDirectLoginScript() {
+    const candidates = [
+        path.join(__dirname, 'weixin-direct-login.mjs'),
+        path.join(CONFIG_DIR, 'weixin-direct-login.mjs')
+    ];
+    for (const p of candidates) {
+        try {
+            if (fs.existsSync(p)) return p;
+        } catch (e) {}
+    }
+
+    const src = path.join(__dirname, 'weixin-direct-login.mjs');
+    // 开发树有源文件时拷到 ~/.openclaw
+    if (fs.existsSync(src)) {
+        try {
+            fs.mkdirSync(CONFIG_DIR, { recursive: true });
+            const dest = path.join(CONFIG_DIR, 'weixin-direct-login.mjs');
+            fs.copyFileSync(src, dest);
+            return dest;
+        } catch (e) {}
+        return src;
+    }
+
+    // 打包遗漏时内嵌写出，避免再报「缺少 weixin-direct-login.mjs」
+    const embedded = `/**
+ * 直接调用 @tencent-weixin/openclaw-weixin 扫码登录 API（ClawAI 运行时自动落盘）
+ */
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+function emit(obj) { process.stdout.write(JSON.stringify(obj) + '\\n'); }
+function normalizeAccountId(id) {
+  return String(id || '').trim().replace(/@/g, '-').replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'weixin';
+}
+async function main() {
+  const pluginRoot = process.env.WEIXIN_PLUGIN_ROOT;
+  if (!pluginRoot) { emit({ type: 'error', message: 'WEIXIN_PLUGIN_ROOT 未设置' }); process.exit(1); }
+  const loginQrUrl = pathToFileURL(path.join(pluginRoot, 'dist', 'src', 'auth', 'login-qr.js')).href;
+  const accountsUrl = pathToFileURL(path.join(pluginRoot, 'dist', 'src', 'auth', 'accounts.js')).href;
+  let loginQr, accounts;
+  try {
+    loginQr = await import(loginQrUrl);
+    accounts = await import(accountsUrl);
+  } catch (e) {
+    emit({ type: 'error', message: '加载微信登录模块失败: ' + (e.message || e) });
+    process.exit(1);
+  }
+  const botType = loginQr.DEFAULT_ILINK_BOT_TYPE || '3';
+  emit({ type: 'log', message: '正在向微信请求登录二维码...' });
+  let startResult;
+  try {
+    startResult = await loginQr.startWeixinLoginWithQr({ botType, verbose: false });
+  } catch (e) {
+    emit({ type: 'error', message: '拉取二维码失败: ' + (e.message || e) });
+    process.exit(1);
+  }
+  if (!startResult || !startResult.qrcodeUrl) {
+    emit({ type: 'error', message: (startResult && startResult.message) || '未返回二维码链接' });
+    process.exit(1);
+  }
+  emit({ type: 'qr', url: startResult.qrcodeUrl });
+  emit({ type: 'log', message: '二维码已生成，请用手机微信扫码确认...' });
+  let waitResult;
+  try {
+    waitResult = await loginQr.waitForWeixinLogin({
+      sessionKey: startResult.sessionKey,
+      apiBaseUrl: accounts.DEFAULT_BASE_URL || 'https://ilinkai.weixin.qq.com',
+      timeoutMs: 480000, verbose: false, botType
+    });
+  } catch (e) {
+    emit({ type: 'error', message: '等待扫码失败: ' + (e.message || e) });
+    process.exit(1);
+  }
+  if (waitResult && waitResult.alreadyConnected) {
+    emit({ type: 'success', accountId: 'already-connected', alreadyConnected: true });
+    process.exit(0);
+  }
+  if (waitResult && waitResult.connected && waitResult.botToken && waitResult.accountId) {
+    try {
+      const normalizedId = normalizeAccountId(waitResult.accountId);
+      accounts.saveWeixinAccount(normalizedId, {
+        token: waitResult.botToken, baseUrl: waitResult.baseUrl, userId: waitResult.userId
+      });
+      accounts.registerWeixinAccountId(normalizedId);
+      emit({ type: 'success', accountId: normalizedId, userId: waitResult.userId || null });
+      process.exit(0);
+    } catch (e) {
+      emit({ type: 'error', message: '保存微信账号失败: ' + (e.message || e) });
+      process.exit(1);
+    }
+  }
+  emit({ type: 'error', message: (waitResult && waitResult.message) || '扫码未完成' });
+  process.exit(1);
+}
+main().catch((e) => { emit({ type: 'error', message: String(e && e.message || e) }); process.exit(1); });
+`;
+    try {
+        fs.mkdirSync(CONFIG_DIR, { recursive: true });
+        const dest = path.join(CONFIG_DIR, 'weixin-direct-login.mjs');
+        fs.writeFileSync(dest, embedded, 'utf8');
+        return dest;
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * 微信专用：直接跑 weixin-direct-login.mjs，不经过 openclaw channels login。
+ */
+function startDirectWeixinChannelLogin(spec) {
+    const pluginEntry = BUNDLED_NPM_CHANNEL_PLUGINS.find((e) => e.id === 'openclaw-weixin');
+    let pluginRoot = pluginEntry ? resolveBundledNpmPluginPath(pluginEntry) : null;
+    if (!pluginRoot) {
+        try {
+            const raw = fs.readFileSync(CONFIG_PATH, 'utf8').replace(/^\uFEFF/, '');
+            const cfg = JSON.parse(raw);
+            const ip = cfg?.plugins?.installs?.['openclaw-weixin']?.installPath;
+            if (ip && fs.existsSync(ip)) pluginRoot = ip;
+        } catch (e) {}
+    }
+    if (!pluginRoot || !fs.existsSync(path.join(pluginRoot, 'dist', 'src', 'auth', 'login-qr.js'))) {
+        return { success: false, error: '未找到内置微信插件登录模块，请重装 ClawAI' };
+    }
+
+    const scriptPath = ensureWeixinDirectLoginScript();
+    if (!scriptPath || !fs.existsSync(scriptPath)) {
+        return { success: false, error: '缺少微信直连登录脚本，请更新/重装 ClawAI' };
+    }
+
+    const nodeExePath = getAvailableNodePath() || process.execPath;
+    const { spawn } = require('child_process');
+    const env = { ...process.env, NODE_TLS_REJECT_UNAUTHORIZED: '0' };
+    for (const key of Object.keys(env)) {
+        if (key.toLowerCase().includes('proxy')) delete env[key];
+    }
+    env.WEIXIN_PLUGIN_ROOT = pluginRoot;
+    // 让插件能解析到同级的 openclaw/plugin-sdk
+    const appNm = path.join(__dirname, 'node_modules');
+    env.NODE_PATH = env.NODE_PATH ? `${appNm}${path.delimiter}${env.NODE_PATH}` : appNm;
+
+    const child = spawn(nodeExePath, [scriptPath], {
+        cwd: CONFIG_DIR,
+        env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true
+    });
+
+    const sess = {
+        pluginId: spec.pluginId,
+        openclawChannel: spec.openclawChannel,
+        label: spec.label,
+        uiChannel: spec.uiChannel,
+        process: child,
+        qrEmitted: false,
+        failEmitted: false,
+        wakeTimer: null,
+        successWatcher: null,
+        direct: true
+    };
+    activeChannelLogin = sess;
+    wechatLoginProcess = child;
+
+    sess.wakeTimer = setTimeout(() => {
+        if (!sess.qrEmitted) {
+            forceKillChildProcess(sess.process);
+            wechatLoginProcess = null;
+            sess.process = null;
+            emitChannelLoginFailed(sess, `等待${sess.label}二维码超时。请检查网络后重试。`);
+            if (activeChannelLogin === sess) activeChannelLogin = null;
+        }
+    }, spec.wakeTimeoutMs);
+    wechatQrWaitTimer = sess.wakeTimer;
+
+    let lineBuf = '';
+    const onChunk = (buf) => {
+        const text = buf.toString();
+        lineBuf += text;
+        const parts = lineBuf.split(/\r?\n/);
+        lineBuf = parts.pop() || '';
+        for (const line of parts) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            let msg;
+            try { msg = JSON.parse(trimmed); } catch (e) {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('gateway-log', `[WeChat Login] ${trimmed}\n`);
+                }
+                continue;
+            }
+            if (msg.type === 'log' && mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('gateway-log', `[WeChat Login] ${msg.message}\n`);
+            } else if (msg.type === 'qr' && msg.url) {
+                sess.qrEmitted = true;
+                wechatQrEmitted = true;
+                if (sess.wakeTimer) {
+                    clearTimeout(sess.wakeTimer);
+                    sess.wakeTimer = null;
+                }
+                clearWeChatQrWaitTimer();
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('gateway-log', `[WeChat Login] 二维码已生成\n`);
+                    mainWindow.webContents.send('gateway-qrcode', {
+                        url: msg.url,
+                        channel: 'wechat',
+                        pluginId: 'openclaw-weixin',
+                        title: '微信扫码登录',
+                        tip: '请使用手机微信扫描下方二维码授权登录。'
+                    });
+                }
+            } else if (msg.type === 'success') {
+                clearWeChatQrWaitTimer();
+                if (sess.wakeTimer) {
+                    clearTimeout(sess.wakeTimer);
+                    sess.wakeTimer = null;
+                }
+                try {
+                    const status = getWeChatStatus();
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('wechat-login-success', status.bound ? status : {
+                            success: true,
+                            bound: true,
+                            details: { accountId: msg.accountId || 'weixin', userId: msg.userId || 'WeChat Bot' }
+                        });
+                        mainWindow.webContents.send('channel-login-success', {
+                            pluginId: 'openclaw-weixin',
+                            channel: 'wechat',
+                            accountId: msg.accountId
+                        });
+                        mainWindow.webContents.send('gateway-log', `[WeChat Login] ✅ 绑定成功\n`);
+                    }
+                } catch (e) {}
+            } else if (msg.type === 'error') {
+                emitChannelLoginFailed(sess, msg.message || '微信绑定失败');
+            }
+        }
+    };
+
+    child.stdout.on('data', onChunk);
+    child.stderr.on('data', (d) => {
+        const t = d.toString();
+        if (mainWindow && !mainWindow.isDestroyed() && t.trim()) {
+            mainWindow.webContents.send('gateway-log', `[WeChat Login] ${t}`);
+        }
+    });
+    child.on('exit', (code) => {
+        console.log(`[Channel Login] Weixin direct exited code=${code}`);
+        if (wechatLoginProcess === child) wechatLoginProcess = null;
+        sess.process = null;
+        if (sess.wakeTimer) {
+            clearTimeout(sess.wakeTimer);
+            sess.wakeTimer = null;
+        }
+        clearWeChatQrWaitTimer();
+        if (!sess.qrEmitted && !sess.failEmitted) {
+            emitChannelLoginFailed(sess, `微信绑定进程已退出（code ${code == null ? '?' : code}），未能生成二维码`);
+        }
+        if (activeChannelLogin === sess) activeChannelLogin = null;
+    });
+
+    return { success: true, pluginId: spec.pluginId, channel: spec.uiChannel, mode: 'direct' };
+}
+
+/**
  * 通用内置渠道 login。新增扫码插件：在 ASYNC_CHANNEL_LOGIN 登记，或 IPC 传 openclawChannel/label。
  * 统一：信任预同步、跳过 Install?、出码超时、失败事件、可取消。
+ * 微信：走 weixin-direct-login.mjs 直连，避开 channels login 的 does not support login。
  */
 async function startBundledChannelLogin(pluginIdOrOpts) {
     const spec = resolveAsyncChannelLoginSpec(pluginIdOrOpts);
@@ -2355,14 +2981,26 @@ async function startBundledChannelLogin(pluginIdOrOpts) {
         console.warn('[Channel Login] prepareChannelPluginsBeforeGateway:', e.message);
     }
 
+    if (spec.openclawChannel === 'openclaw-weixin') {
+        return startDirectWeixinChannelLogin(spec);
+    }
+
     const openclawEntry = path.join(__dirname, 'node_modules', 'openclaw', 'dist', 'index.js');
     if (!fs.existsSync(openclawEntry)) {
         return { success: false, error: '内置 OpenClaw 模块缺失，无法唤醒绑定' };
     }
 
     const nodeExePath = getAvailableNodePath();
-    const patchPath = path.join(__dirname, 'patch_gateway.js');
-    const cleanEnv = { ...process.env, NODE_TLS_REJECT_UNAUTHORIZED: '0' };
+    const deployed = (() => {
+        try { return deployRuntimeArtifacts(); } catch (e) { return null; }
+    })();
+    const patchPath = (deployed && deployed.patchPath)
+        || path.join(__dirname, 'patch_gateway.js').replace(/\\/g, '/');
+    const cleanEnv = {
+        ...process.env,
+        NODE_TLS_REJECT_UNAUTHORIZED: '0',
+        CLAWAI_PATCH_PATH: patchPath
+    };
     for (const key of Object.keys(cleanEnv)) {
         if (key.toLowerCase().includes('proxy')) delete cleanEnv[key];
     }
@@ -3023,41 +3661,22 @@ ipcMain.handle('stats-get', async () => {
     }
 });
 
-// 获取本地最新的带 token 的ClawAI面板 URL
+// 获取本地最新的带 token 的ClawAI面板 URL（始终按当前 openclaw.json 组装，保证默认免密登入）
 ipcMain.handle('get-dashboard-url', async () => {
-    if (global.latestAcpDashboardUrl && global.latestAcpDashboardUrl.includes('?token=')) {
-        return global.latestAcpDashboardUrl;
-    }
+    return rememberDashboardUrl(global.latestAcpDashboardUrl || buildGatewayDashboardUrl());
+});
+
+// 清除内置 Control UI webview 的持久化会话（过期 token / 限流后重建）
+ipcMain.handle('clear-openclaw-panel-session', async () => {
     try {
-        const logPath = path.join(CONFIG_DIR, 'gateway_stdout.log');
-        if (fs.existsSync(logPath)) {
-            const logContent = fs.readFileSync(logPath, 'utf8');
-            const matches = logContent.match(/https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):\d+\/acp\/[^\s"'\n]+/g);
-            if (matches && matches.length > 0) {
-                const latestUrl = matches[matches.length - 1].trim();
-                global.latestAcpDashboardUrl = latestUrl;
-                return latestUrl;
-            }
-        }
+        const ses = session.fromPartition('persist:clawai-openclaw-panel');
+        await ses.clearStorageData({
+            storages: ['cookies', 'localstorage', 'indexdb', 'serviceworkers', 'cachestorage']
+        });
+        return { success: true };
     } catch (e) {
-        console.error('Failed to parse gateway log for dashboard url:', e);
+        return { success: false, error: e.message };
     }
-    
-    // 降级读取 openclaw.json 的 token 拼接成免密 URL
-    let fallbackToken = '';
-    try {
-        const configPath = path.join(CONFIG_DIR, 'openclaw.json');
-        if (fs.existsSync(configPath)) {
-            const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-            if (config.gateway && config.gateway.auth && config.gateway.auth.token) {
-                fallbackToken = config.gateway.auth.token;
-            }
-        }
-    } catch (err) {}
-    
-    return fallbackToken 
-        ? `http://127.0.0.1:18789/acp/?token=${fallbackToken}`
-        : 'http://127.0.0.1:18789/acp/';
 });
 
 // 一键拉起外部浏览器链接 (用于免密 ACP 控制台跳转)
@@ -3067,93 +3686,10 @@ ipcMain.handle('open-external', async (event, url) => {
         
         // 特殊处理：如果是打开 OpenClaw 控制面板，我们通过官方 dashboard 命令动态获取带最新令牌的免密 URL
         if (url === 'openclaw-dashboard') {
-            if (global.latestAcpDashboardUrl) {
-                shell.openExternal(global.latestAcpDashboardUrl);
-                return true;
-            }
-
-            // 次优先：从本地持久化日志流中扫描是否有最近一次ClawAI启动时输出的免密登录链接
-            try {
-                const logPath = path.join(CONFIG_DIR, 'gateway_stdout.log');
-                if (fs.existsSync(logPath)) {
-                    const logContent = fs.readFileSync(logPath, 'utf8');
-                    const matches = logContent.match(/https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):\d+\/acp\/[^\s"'\n]+/g);
-                    if (matches && matches.length > 0) {
-                        const latestUrl = matches[matches.length - 1].trim();
-                        global.latestAcpDashboardUrl = latestUrl;
-                        shell.openExternal(latestUrl);
-                        return true;
-                    }
-                }
-            } catch (e) {
-                console.error('Failed to parse gateway log URL fallback:', e);
-            }
-
-            const { fork } = require('child_process');
-            
-            let openclawEntry = path.join(__dirname, 'node_modules', 'openclaw', 'dist', 'index.js');
-            if (!require('fs').existsSync(openclawEntry)) {
-                try {
-                    openclawEntry = require.resolve('openclaw/dist/index.js');
-                } catch(e) {
-                    // 降级使用全局 openclaw 命令定位，不使用硬编码路径
-                    openclawEntry = 'openclaw';
-                }
-            }
-
-            return new Promise((resolve) => {
-                const nodeExePath = getAvailableNodePath();
-                const forkOptions = {
-                    stdio: 'pipe',
-                    execArgv: ['--no-warnings', '--dns-result-order=ipv4first'],
-                    env: {
-                        ...process.env,
-                        NODE_TLS_REJECT_UNAUTHORIZED: '0'
-                    }
-                };
-                if (nodeExePath) {
-                    forkOptions.execPath = nodeExePath;
-                    const sandboxDir = path.dirname(nodeExePath);
-                    const pathKey = process.platform === 'win32' ? 'Path' : 'PATH';
-                    const originalPath = process.env[pathKey] || '';
-                    forkOptions.env[pathKey] = `${sandboxDir}${path.delimiter}${originalPath}`;
-                }
-                const child = fork(openclawEntry, ['dashboard', '--no-open'], forkOptions);
-
-                let resolved = false;
-                const handleData = (data) => {
-                    const text = data.toString();
-                    // 正则提取含 token/key 且包含 127.0.0.1 或 localhost 的 URL 链接
-                    const urlMatch = text.match(/https?:\/\/(?:127\.0\.0\.1|localhost):\d+\/[^\s]+/);
-                    if (urlMatch && !resolved) {
-                        resolved = true;
-                        shell.openExternal(urlMatch[0].trim());
-                        child.kill();
-                        resolve(true);
-                    }
-                };
-
-                child.stdout.on('data', handleData);
-                child.stderr.on('data', handleData);
-
-                // 5秒超时安全退出
-                setTimeout(() => {
-                    if (!resolved) {
-                        resolved = true;
-                        child.kill();
-                        shell.openExternal("http://127.0.0.1:18789/acp/chat?token=openclaw-dev-token-998877&key=openclaw-dev-token-998877&apiKey=openclaw-dev-token-998877&session=main");
-                        resolve(false);
-                    }
-                }, 5000);
-
-                child.on('exit', () => {
-                    if (!resolved) {
-                        resolved = true;
-                        shell.openExternal("http://127.0.0.1:18789/acp/chat?token=openclaw-dev-token-998877&key=openclaw-dev-token-998877&apiKey=openclaw-dev-token-998877&session=main");
-                        resolve(false);
-                    }
-                });
-            });
+            const freshUrl = buildGatewayDashboardUrl();
+            global.latestAcpDashboardUrl = freshUrl;
+            shell.openExternal(freshUrl);
+            return true;
         }
 
         await shell.openExternal(url);

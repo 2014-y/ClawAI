@@ -9,9 +9,11 @@ import path from 'node:path';
 import os from 'node:os';
 
 const PLUGIN_NAME = 'memory-rotate';
-// 自适应用户主目录, 避免硬编码路径导致在其他电脑上失效
-const MEMORY_FILE = path.join(os.homedir(), '.openclaw', 'workspace', 'MEMORY.md');
-const MEMORY_DIR = path.join(os.homedir(), '.openclaw', 'workspace', 'memory');
+// 优先 OPENCLAW_STATE_DIR（云电脑 / 多用户安全）
+const STATE_DIR = process.env.OPENCLAW_STATE_DIR
+  || path.join(process.env.OPENCLAW_HOME || process.env.USERPROFILE || process.env.HOME || os.homedir(), '.openclaw');
+const MEMORY_FILE = path.join(STATE_DIR, 'workspace', 'MEMORY.md');
+const MEMORY_DIR = path.join(STATE_DIR, 'workspace', 'memory');
 const MAX_CHARS = 2000;
 
 export default function createPlugin(runtime) {

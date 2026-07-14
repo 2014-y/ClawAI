@@ -5,12 +5,32 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const {
+  resolveStableOpenClawHome,
+  applyOpenClawHomeEnv,
+  detectRestrictedDesktop,
+  probeOpenClawHomeWritable
+} = require('./home-resolve');
 
-const BASE_PATH = path.join(process.env.HOME || process.env.USERPROFILE, '.openclaw');
+const preferredHome = process.env.HOME || process.env.USERPROFILE || os.homedir();
+const desktopInfo = detectRestrictedDesktop(process.env);
+const preferredWritable = preferredHome ? probeOpenClawHomeWritable(preferredHome) : false;
+const resolved = (!preferredWritable || desktopInfo.restricted)
+  ? resolveStableOpenClawHome(preferredWritable ? preferredHome : null, {
+      installDir: __dirname,
+      env: process.env,
+      appPaths: { home: preferredHome }
+    })
+  : { homePath: preferredHome };
+
+applyOpenClawHomeEnv(resolved.homePath, process.env);
+const BASE_PATH = process.env.OPENCLAW_STATE_DIR || path.join(resolved.homePath, '.openclaw');
 const CONFIG_PATH = path.join(BASE_PATH, 'openclaw.json');
 
 function checkPrerequisites() {
   console.log('[检查] 前置依赖...\n');
+  console.log(`[状态目录] ${BASE_PATH}`);
   
   // 检查 Node.js
   try {
@@ -31,6 +51,7 @@ function checkPrerequisites() {
   }
   
   // 检查配置
+  fs.mkdirSync(BASE_PATH, { recursive: true });
   if (!fs.existsSync(CONFIG_PATH)) {
     console.log('\n⚠ 配置文件不存在，正在初始化...\n');
     const examplePath = path.join(__dirname, 'config', 'openclaw.json.example');
@@ -51,10 +72,11 @@ function startGateway() {
     const openclawCmd = 'openclaw';
     const args = ['gateway', 'run', '--force'];
     
-    const child = execSync(openclawCmd + ' ' + args.join(' '), {
+    execSync(openclawCmd + ' ' + args.join(' '), {
       cwd: BASE_PATH,
       stdio: 'inherit',
-      shell: true
+      shell: true,
+      env: process.env
     });
   } catch (e) {
     console.error('Gateway 启动失败:', e.message);

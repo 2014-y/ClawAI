@@ -1,9 +1,13 @@
 var fs = require('fs');
 var path = require('path');
+var os = require('os');
 
-var LEARNING_DATA_PATH = process.env.USERPROFILE + '/glm4_finetune/learning_data/learning_log.jsonl';
-var LEARNING_SUMMARY_PATH = process.env.USERPROFILE + '/glm4_finetune/learning_data/learning_summary.jsonl';
-var SUMMARY_CACHE_PATH = process.env.USERPROFILE + '/glm4_finetune/learning_data/last_summary_index.txt';
+var STATE_DIR = process.env.OPENCLAW_STATE_DIR
+  || path.join(process.env.OPENCLAW_HOME || process.env.USERPROFILE || process.env.HOME || os.homedir(), '.openclaw');
+var LEARN_DIR = path.join(STATE_DIR, 'workspace', 'learning_data');
+var LEARNING_DATA_PATH = path.join(LEARN_DIR, 'learning_log.jsonl');
+var LEARNING_SUMMARY_PATH = path.join(LEARN_DIR, 'learning_summary.jsonl');
+var SUMMARY_CACHE_PATH = path.join(LEARN_DIR, 'last_summary_index.txt');
 
 function generateLearningSummary() {
   try {
