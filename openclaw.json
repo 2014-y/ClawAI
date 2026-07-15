@@ -68,6 +68,9 @@
   },
   "channels": {
     "openclaw-weixin": {
+      "accounts": [
+        "5b50960c8036-im-bot"
+      ],
       "dmPolicy": "open",
       "groupPolicy": "open",
       "actions": {
