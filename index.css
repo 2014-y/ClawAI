@@ -2032,6 +2032,7 @@ input:focus, select:focus, textarea:focus {
   color: var(--text-secondary);
   transition: transform 0.2s ease;
   pointer-events: none;
+  margin-left: 6px;
 }
 
 .custom-select-wrapper.active .custom-select-arrow {

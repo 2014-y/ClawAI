@@ -372,7 +372,7 @@ function renderFeishuAccounts() {
     if (accountIds.length === 0) {
         container.innerHTML = `
             <div style="padding: 16px; text-align: center; color: var(--text-secondary); background: rgba(255,255,255,0.01); border: 1px dashed var(--border-color); border-radius: 8px; font-size: 12px;">
-                暂无绑定的飞书账号。请点击下方“添加飞书绑定账号”进行配置。
+                ${t('comm.feishu.empty')}
             </div>
         `;
         return;
@@ -388,16 +388,19 @@ function renderFeishuAccounts() {
             border: 1px solid var(--border-color); border-radius: 10px;
         `;
         card.innerHTML = `
-            <div>
-                <div style="font-size: 13px; font-weight: bold; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-                    👤 账号标识: <span style="color: var(--accent-color);">${id}</span>
-                    ${isDefault ? '<span style="font-size: 10px; background: rgba(0, 230, 118, 0.15); color: #00e676; border: 1px solid rgba(0, 230, 118, 0.3); padding: 1px 6px; border-radius: 4px;">默认账号</span>' : ''}
-                </div>
-                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; display: flex; flex-direction: column; gap: 2px;">
-                    <span>App ID: ${acc.appId || '--'}</span>
-                    <span>Encrypt Key: ${acc.encryptKey ? '已配置' : '未配置'}</span>
-                    ${acc.domain ? `<span>域名: ${acc.domain === 'lark' ? 'Lark' : '飞书'}</span>` : ''}
-                    ${Array.isArray(acc.allowFrom) && acc.allowFrom.length ? `<span>私信白名单: ${acc.allowFrom.length === 1 ? '仅本人(扫码绑定)' : acc.allowFrom.length + ' 人'}</span>` : ''}
+            <div style="display: flex; gap: 8px;">
+                <div style="font-size: 14px;">👤</div>
+                <div>
+                    <div style="font-size: 13px; font-weight: bold; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                        ${t('comm.account.id')}<span style="color: var(--accent-color);">${id}</span>
+                        ${isDefault ? `<span style="font-size: 10px; background: rgba(0, 230, 118, 0.15); color: #00e676; border: 1px solid rgba(0, 230, 118, 0.3); padding: 1px 6px; border-radius: 4px;">${t('comm.account.default')}</span>` : ''}
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; display: flex; flex-direction: column; gap: 2px;">
+                        <span>App ID: ${acc.appId || '--'}</span>
+                        <span>Encrypt Key: ${acc.encryptKey ? '已配置' : '未配置'}</span>
+                        ${acc.domain ? `<span>域名: ${acc.domain === 'lark' ? 'Lark' : '飞书'}</span>` : ''}
+                        ${Array.isArray(acc.allowFrom) && acc.allowFrom.length ? `<span>私信白名单: ${acc.allowFrom.length === 1 ? '仅本人(扫码绑定)' : acc.allowFrom.length + ' 人'}</span>` : ''}
+                    </div>
                 </div>
             </div>
             <div style="display: flex; gap: 8px;">
@@ -522,7 +525,7 @@ function renderQqbotAccounts() {
     if (accountIds.length === 0) {
         container.innerHTML = `
             <div style="padding: 16px; text-align: center; color: var(--text-secondary); background: rgba(255,255,255,0.01); border: 1px dashed var(--border-color); border-radius: 8px; font-size: 12px;">
-                暂无绑定的 QQ 机器人。请点击下方“添加 QQ 机器人绑定账号”进行配置。
+                ${t('comm.qq.empty')}
             </div>
         `;
         return;
@@ -538,13 +541,16 @@ function renderQqbotAccounts() {
             border: 1px solid var(--border-color); border-radius: 10px;
         `;
         card.innerHTML = `
-            <div>
-                <div style="font-size: 13px; font-weight: bold; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-                    👤 账号标识: <span style="color: var(--accent-color);">${id}</span>
-                    ${isDefault ? '<span style="font-size: 10px; background: rgba(0, 230, 118, 0.15); color: #00e676; border: 1px solid rgba(0, 230, 118, 0.3); padding: 1px 6px; border-radius: 4px;">默认账号</span>' : ''}
-                </div>
-                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; display: flex; flex-direction: column; gap: 2px;">
-                    <span>App ID: ${acc.appId || '--'}</span>
+            <div style="display: flex; gap: 8px;">
+                <div style="font-size: 14px;">👤</div>
+                <div>
+                    <div style="font-size: 13px; font-weight: bold; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                        ${t('comm.account.id')}<span style="color: var(--accent-color);">${id}</span>
+                        ${isDefault ? `<span style="font-size: 10px; background: rgba(0, 230, 118, 0.15); color: #00e676; border: 1px solid rgba(0, 230, 118, 0.3); padding: 1px 6px; border-radius: 4px;">${t('comm.account.default')}</span>` : ''}
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; display: flex; flex-direction: column; gap: 2px;">
+                        <span>App ID: ${acc.appId || '--'}</span>
+                    </div>
                 </div>
             </div>
             <div style="display: flex; gap: 8px;">
@@ -1045,7 +1051,7 @@ async function init() {
             let values;
             try {
                 values = await window.promptFields('添加飞书账号', [
-                    { key: 'accountId', label: '账号标识 (如: feishu-1, 飞书客服)', placeholder: '请输入唯一的英文/中文标识' },
+                    { key: 'accountId', label: t('comm.feishu.account.placeholder').split(' (')[0] + ' ' + (t('comm.feishu.account.placeholder').includes('(') ? '(' + t('comm.feishu.account.placeholder').split('(')[1] : ''), placeholder: t('comm.feishu.account.placeholder') },
                     { key: 'appId', label: 'App ID', placeholder: 'cli_...' },
                     { key: 'appSecret', label: 'App Secret', placeholder: 'App Secret 密匙', type: 'password' },
                     { key: 'encryptKey', label: 'Encrypt Key (可选)', placeholder: '解密 Key' },
@@ -1060,7 +1066,7 @@ async function init() {
             if (!values) return;
             const accountId = values.accountId ? values.accountId.trim() : '';
             if (!accountId) {
-                showToast('账号标识不能为空！');
+                showToast(t('comm.account.empty_err'));
                 return;
             }
             if (!values.appId || !values.appSecret) {
@@ -1073,7 +1079,7 @@ async function init() {
             if (!configData.channels.feishu.accounts) configData.channels.feishu.accounts = {};
             
             if (configData.channels.feishu.accounts[accountId]) {
-                showToast('账号标识已存在，请使用其他名称！');
+                showToast(t('comm.account.exists_err'));
                 return;
             }
             
@@ -1126,7 +1132,7 @@ async function init() {
             let values;
             try {
                 values = await window.promptFields('添加 QQ 机器人', [
-                    { key: 'accountId', label: '账号标识 (如: qqbot-1, 客服QQ机器人)', placeholder: '请输入唯一的英文/中文标识' },
+                    { key: 'accountId', label: t('comm.qq.account.placeholder').split(' (')[0] + ' ' + (t('comm.qq.account.placeholder').includes('(') ? '(' + t('comm.qq.account.placeholder').split('(')[1] : ''), placeholder: t('comm.qq.account.placeholder') },
                     { key: 'appId', label: 'App ID', placeholder: '请输入机器人 AppID' },
                     { key: 'clientSecret', label: 'Client Secret', placeholder: '请输入机器人 AppSecret', type: 'password' }
                 ]);
@@ -1139,7 +1145,7 @@ async function init() {
             if (!values) return;
             const accountId = values.accountId ? values.accountId.trim() : '';
             if (!accountId) {
-                showToast('账号标识不能为空！');
+                showToast(t('comm.account.empty_err'));
                 return;
             }
             if (!values.appId || !values.clientSecret) {
@@ -1152,7 +1158,7 @@ async function init() {
             if (!configData.channels.qqbot.accounts) configData.channels.qqbot.accounts = {};
             
             if (configData.channels.qqbot.accounts[accountId]) {
-                showToast('账号标识已存在，请使用其他名称！');
+                showToast(t('comm.account.exists_err'));
                 return;
             }
             
@@ -3532,7 +3538,9 @@ function beautifyAllSelects() {
 
             const arrow = document.createElement('span');
             arrow.className = 'custom-select-arrow';
-            arrow.innerText = '🔽';
+            arrow.innerHTML = '<svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            arrow.style.display = 'flex';
+            arrow.style.alignItems = 'center';
 
             trigger.appendChild(textSpan);
             trigger.appendChild(arrow);
@@ -3969,12 +3977,20 @@ async function renderPluginsGrid() {
                 const badgeText = (() => { try { return badgeLabelForProbe(probe); } catch (e) { return '开箱可用'; } })();
                 const hintText = (() => {
                     if (!probe.hint) return '';
-                    const raw = String(probe.hint);
-                    // 主进程可能返回 locale key；按当前设置语言翻译
+                    let raw = String(probe.hint);
                     if (raw.startsWith('plugin.')) {
                         try { return t(raw); } catch (e) { return raw; }
                     }
-                    return raw;
+                    try {
+                        if (raw.startsWith('已找到 Codex: ')) {
+                            return t('plugin.hint.codex.found') + raw.substring(10);
+                        }
+                        if (raw.includes('；运行时未发现插件包')) {
+                            const p1 = raw.split('；')[0];
+                            return t(p1) + '；' + t('运行时未发现插件包，请使用完整安装包（已内置渠道插件，无需再联网下载）');
+                        }
+                        return t(raw);
+                    } catch (e) { return raw; }
                 })();
 
                 const card = document.createElement('div');
@@ -4965,6 +4981,7 @@ async function renderUsageCharts() {
             </table>
         `;
     };
+    globalRenderProvidersTable = renderProvidersTable;
 
     const renderModelsTable = () => {
         globalRenderModelsTable = renderModelsTable;
@@ -5008,6 +5025,7 @@ async function renderUsageCharts() {
             </table>
         `;
     };
+    globalRenderModelsTable = renderModelsTable;
 
     // 初始渲染默认的日志表格
     renderLogsTable();
@@ -7200,19 +7218,22 @@ async function updateWeChatStatusUI() {
                 
                 accountsContainer.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 16px; box-sizing: border-box; width: 100%;">
-                        <div>
-                            <div style="font-size: 13px; font-weight: bold; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
-                                <span style="font-size: 14px;">👤</span> 账号标识: <span style="font-family: var(--font-mono); color: var(--accent-color);">${accountId}</span>
-                                <span style="background: rgba(0, 230, 118, 0.1); color: #00e676; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold;">已绑定</span>
-                            </div>
-                            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; display: flex; flex-direction: column; gap: 3px;">
-                                <div>绑定时间: <span style="color: var(--text-primary);">${savedAtStr}</span></div>
-                                <div>通道协议: <span style="color: var(--text-primary);">WeChat / WA (iLink)</span></div>
+                        <div style="display: flex; gap: 8px;">
+                            <div style="font-size: 14px;">👤</div>
+                            <div>
+                                <div style="font-size: 13px; font-weight: bold; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+                                    ${t('comm.account.id')}<span style="font-family: var(--font-mono); color: var(--accent-color);">${accountId}</span>
+                                    <span style="background: rgba(0, 230, 118, 0.1); color: #00e676; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold;">${t('wechat.status.bound')}</span>
+                                </div>
+                                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; display: flex; flex-direction: column; gap: 3px;">
+                                    <div>${t('console.wechat_label.time')}<span style="color: var(--text-primary);">${savedAtStr}</span></div>
+                                    <div>${t('comm.wechat.protocol')}<span style="color: var(--text-primary);">WeChat / WA (iLink)</span></div>
+                                </div>
                             </div>
                         </div>
                         <div>
                             <button type="button" id="wechat-unbind-btn-dynamic" style="background: rgba(255, 82, 82, 0.1); border: 1px solid rgba(255, 82, 82, 0.3); color: #ff5252; padding: 6px 14px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; transition: all 0.2s;">
-                                💬 解绑微信
+                                💬 ${t('comm.wechat.unbind')}
                             </button>
                         </div>
                     </div>
@@ -7222,7 +7243,7 @@ async function updateWeChatStatusUI() {
                 
                 accountsContainer.innerHTML = `
                     <div style="text-align: center; padding: 24px; border: 1px dashed var(--border-color); border-radius: 8px; color: var(--text-secondary); font-size: 12px; background: rgba(255,255,255,0.01);">
-                        当前未绑定微信，点击下方“扫码绑定微信”生成登录二维码进行绑定。
+                        ${t('comm.wechat.empty')}
                     </div>
                 `;
             }
