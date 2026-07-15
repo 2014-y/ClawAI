@@ -1,0 +1,250 @@
+﻿            }
+            try { fs.writeFileSync(stampPath, appVersion, 'utf8'); } catch (e) {}
+            needsSave = true;
+            console.log(`[PluginSeed] Enabled ${BUNDLED_CUSTOM_PLUGINS.length} bundled plugins for v${appVersion}`);
+        } else {
+            // 鐗堟湰鍐? 缂哄け鏉＄洰浠嶉粯璁ゅ紑鍚? 宸叉湁鏉＄洰灏婇噸鐢ㄦ埛寮€鍏? 浣嗗惎鐢ㄦ€佸繀椤昏繘 allow
+            for (const name of BUNDLED_CUSTOM_PLUGINS) {
+                if (!config.plugins.entries[name]) {
+                    config.plugins.entries[name] = { enabled: true };
+                    needsSave = true;
+                }
+                if (config.plugins.entries[name].enabled === true && !config.plugins.allow.includes(name)) {
+                    config.plugins.allow.push(name);
+                    needsSave = true;
+                }
+            }
+            const catalogNext = ensureUiPluginCatalog(config, { forceDefaultOn: false });
+            if (catalogNext.changed) {
+                needsSave = true;
+                console.log('[PluginCatalog] Ensured:', catalogNext.changes.join(' | '));
+            }
+        }
+
+        // 鑻ョ敤鎴风洰褰曢噷娈嬬暀浜嗘崯鍧忕殑 matrix 鎷疯礉, 鍒犳帀浠ュ厤瑕嗙洊 OpenClaw 鑷甫鐨?bundled matrix
+        try {
+            const localMatrix = path.join(CONFIG_DIR, 'extensions', 'matrix');
+            if (fs.existsSync(localMatrix)) {
+                const pkgPath = path.join(localMatrix, 'package.json');
+                let broken = !fs.existsSync(path.join(localMatrix, 'index.js'));
+                if (fs.existsSync(pkgPath)) {
+                    try {
+                        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+                        const entries = pkg?.openclaw?.extensions || [];
+                        if (entries.some((e) => typeof e === 'string' && e.endsWith('.ts') && !fs.existsSync(path.join(localMatrix, e)))) {
+                            broken = true;
+                        }
+                    } catch (e) {}
+                }
+                if (broken) {
+                    fs.rmSync(localMatrix, { recursive: true, force: true });
+                    console.log('[PluginSeed] Removed broken local matrix extension copy');
+                    if (config.plugins.entries.matrix) {
+                        config.plugins.entries.matrix.enabled = false;
+                        needsSave = true;
+                    }
+                }
+            }
+        } catch (e) {}
+        
+        Object.keys(config.plugins.entries).forEach(pluginName => {
+            // UI 浼炲舰鍗′笉鑳借繘 OpenClaw allow 鍒楄〃
+            if (pluginName === LONG_TERM_MEMORY_UI_ID) return;
+            if (config.plugins.entries[pluginName].enabled === true) {
+                if (!config.plugins.allow.includes(pluginName)) {
+                    config.plugins.allow.push(pluginName);
+                    needsSave = true;
+                }
+            }
+        });
+
+        // 闀挎湡璁板繂寮€绠卞己淇濓細鍗充娇鐢ㄦ埛鏃ч厤缃叧鎺夎繃锛屼篃寮哄埗鍐欏洖鐪熷疄鎻掍欢鏍?        try {
+            const ltm = ensureLongTermMemoryStack(config);
+            if (ltm.changed) {
+                needsSave = true;
+                console.log('[LongTermMemory] Ensured:', ltm.changes.join(' | '));
+            }
+            seedDefaultMemoryFile(path.join(CONFIG_DIR, 'workspace', 'MEMORY.md'));
+        } catch (e) {}
+
+        // 鎶婂凡閮ㄧ讲鍒?~/.openclaw/extensions 鐨勮嚜瀹氫箟鎻掍欢涔熷姞鍏?allow (浠呭惎鐢ㄦ€佺殑 entries)
+        // 鍚屾椂鎶婅鐩綍娉ㄥ叆 load.paths, 鍙屼繚闄╃‘淇?openclaw 鑳藉彂鐜?        if (!config.plugins.load) { config.plugins.load = {}; needsSave = true; }
+        if (!config.plugins.load.paths) { config.plugins.load.paths = []; needsSave = true; }
+
+        const extensionsRoot = path.join(CONFIG_DIR, 'extensions');
+        if (fs.existsSync(extensionsRoot)) {
+            try {
+                for (const name of fs.readdirSync(extensionsRoot)) {
+                    const pluginDir = path.join(extensionsRoot, name);
+                    if (!fs.statSync(pluginDir).isDirectory()) continue;
+                    if (BUNDLED_CUSTOM_PLUGINS.includes(name)) continue; // 宸插湪涓婇潰澶勭悊
+                    if (!config.plugins.entries[name]) {
+                        config.plugins.entries[name] = { enabled: false };
+                        needsSave = true;
+                    }
+                }
+            } catch (e) {}
+        }
+        
+        // 澶氱敤鎴?浜戠數鑴戯細璇婚厤缃椂涔熸竻娲楅噹鎸囬拡锛岄伩鍏嶉暱鏈熶繚鐣欏埆浜烘満鍣ㄧ殑缁濆璺緞
+        try {
+            const sanitized = applyMachinePluginPathSanitize(config);
+            if (sanitized.changed) needsSave = true;
+        } catch (e) {}
+
+        const weixinPluginPath = path.join(__dirname, 'node_modules', '@tencent-weixin', 'openclaw-weixin');
+        // 褰撳墠瀹夎鐩綍涓嬨€屽厑璁歌繘 load.paths銆嶇殑娓犻亾鎻掍欢鏉冨▉璺緞锛堜粎寰俊绛夐潪瀹樻柟锛?        const bundledChannelAbsById = {};
+        for (const entry of BUNDLED_NPM_CHANNEL_PLUGINS) {
+            if (entry.viaLoadPaths === false) continue;
+            const abs = resolveBundledNpmPluginPath(entry);
+            if (abs) bundledChannelAbsById[entry.id] = path.resolve(abs);
+        }
+        const originalPaths = config.plugins.load.paths || [];
+        const filteredPaths = originalPaths.filter(p => {
+            if (typeof p !== 'string') return false;
+            // 鏃犲奖/鎹㈡満锛氬埆浜虹殑 Users\xxx 璺緞涓€寰嬩涪鎺?            if (isForeignUserPath(p) || pathLooksLikeOfficialOpenClawChannel(p)) {
+                needsSave = true;
+                return false;
+            }
+            // 杩佺Щ锛氬墧闄?load.paths 閲岀殑瀹樻柟 @openclaw 鍖呬笌 voice-call
+            if (/[\\/]@openclaw[\\/]voice-call(?:[\\/]|$)/i.test(p) || /[\\/]voice-call$/i.test(p)) {
+                needsSave = true;
+                return false;
+            }
+            // 杩囨护鎺夋墍鏈変笉涓€鑷寸殑寰俊鎻掍欢鏃ц矾寰?            if (/(?:^|[\\/])openclaw-weixin(?:[\\/]|$)/i.test(p) || p.endsWith('openclaw-weixin')) {
+                const want = bundledChannelAbsById['openclaw-weixin'] || path.resolve(weixinPluginPath);
+                if (path.resolve(p) !== want) {
+                    needsSave = true;
+                    return false;
+                }
+            }
+            // 涓㈠純鏄庢樉涓嶅彲鐢ㄧ殑姝昏矾寰勶紙鎹㈡満鍚庢渶甯歌锛?            try {
+                if (!fs.existsSync(p)) {
+                    needsSave = true;
+                    return false;
+                }
+            } catch (e) {
+                needsSave = true;
+                return false;
+            }
+            return true;
+        });
+
+        // 浠呭井淇＄瓑 viaLoadPaths=true 鍐欏叆 load.paths锛涢涔?QQ 绛夎蛋瀹樻柟 installs
+        for (const entry of BUNDLED_NPM_CHANNEL_PLUGINS) {
+            if (entry.viaLoadPaths === false) {
+                if (!config.plugins.entries[entry.id]) {
+                    config.plugins.entries[entry.id] = { enabled: true };
+                    needsSave = true;
+                }
+                if (config.plugins.entries[entry.id].enabled === true && !config.plugins.allow.includes(entry.id)) {
+                    config.plugins.allow.push(entry.id);
+                    needsSave = true;
+                }
+                continue;
+            }
+            const abs = resolveBundledNpmPluginPath(entry);
+            if (!abs || !pluginPathUsableOnThisMachine(abs)) {
+                console.warn(`[PluginSeed] Bundled npm plugin missing/unusable: ${entry.id}`);
+                continue;
+            }
+            const resolvedPath = path.resolve(abs);
+            const hasPath = filteredPaths.some(p => typeof p === 'string' && path.resolve(p) === resolvedPath);
+            if (!hasPath) {
+                filteredPaths.push(abs);
+                needsSave = true;
+            }
+            if (!config.plugins.entries[entry.id]) {
+                config.plugins.entries[entry.id] = { enabled: true };
+                needsSave = true;
+            }
+            if (config.plugins.entries[entry.id].enabled === true && !config.plugins.allow.includes(entry.id)) {
+                config.plugins.allow.push(entry.id);
+                needsSave = true;
+            }
+        }
+
+        // 瀹樻柟娓犻亾锛氱绾跨杩涙湰鏈?npm/projects锛堢籂姝ｆ棤褰变笂娈嬬暀鐨勬湰鏈?Yuan 璺緞锛?        for (const entry of BUNDLED_NPM_CHANNEL_PLUGINS) {
+            const packageName = entry.packageName
+                || (entry.id === 'openclaw-weixin' ? '@tencent-weixin/openclaw-weixin' : null);
+            if (!packageName) continue;
+            try {
+                if (!config.plugins.installs) config.plugins.installs = {};
+                const prev = config.plugins.installs[entry.id] || {};
+                if (prev.installPath && (isForeignUserPath(prev.installPath) || !fs.existsSync(prev.installPath))) {
+                    delete config.plugins.installs[entry.id];
+                    needsSave = true;
+                }
+                const seed = ensureOfficialExternalNpmPluginSeeded({
+                    pluginId: entry.id,
+                    packageName
+                });
+                if (!seed.seeded) {
+                    console.warn(`[PluginSeed] ${entry.id} official seed skipped:`, seed.reason);
+                    continue;
+                }
+                const ver = seed.version || '0.0.0';
+                const next = {
+                    ...(config.plugins.installs[entry.id] || {}),
+                    source: 'npm',
+                    spec: `${packageName}@${ver}`,
+                    installPath: seed.installPath,
+                    resolvedName: packageName,
+                    resolvedVersion: ver,
+                    resolvedSpec: `${packageName}@${ver}`,
+                    version: ver,
+                    installedAt: (config.plugins.installs[entry.id] && config.plugins.installs[entry.id].installedAt)
+                        || new Date().toISOString()
+                };
+                if (JSON.stringify(config.plugins.installs[entry.id] || {}) !== JSON.stringify(next)) {
+                    config.plugins.installs[entry.id] = next;
+                    needsSave = true;
+                }
+            } catch (e) {
+                console.warn(`[PluginSeed] ${entry.id} seed failed:`, e.message);
+            }
+        }
+        
+        if (JSON.stringify(config.plugins.load.paths) !== JSON.stringify(filteredPaths)) {
+            config.plugins.load.paths = filteredPaths;
+            needsSave = true;
+        }
+
+        // 鍥炲閫熷害锛氱籂姝ｅ父瑙佹參閰嶇疆锛坉ebounce / 澶稿紶 num_ctx / 瓒呭ぇ bootstrap锛?        try {
+            const tuned = ensureLatencySafeConfig(config);
+            if (tuned.changed) {
+                needsSave = true;
+                console.log('[LatencyTune] Applied:', tuned.changes.join(' | '));
+            }
+        } catch (e) {
+            console.warn('[LatencyTune] skipped:', e.message);
+        }
+
+        // 椋炰功娓犻亾鑷剤锛氭竻闄ゅ巻鍙插啓鍏ョ殑绌哄瓧绗︿覆鍙€夊嚟璇侊紙encryptKey/verificationToken/appSecret锛夛紝
+        // 骞跺湪宸查厤缃处鍙锋椂琛ラ綈娓犻亾鍚敤涓庡紑鏀剧瓥鐣ワ紝淇鈥滅粦瀹氬悗鏀跺埌涓嶅洖鈥濈殑闂銆?        try {
+            if (sanitizeFeishuConfig(config)) {
+                needsSave = true;
+                console.log('[FeishuFix] Normalized feishu channel config');
+            }
+        } catch (e) {}
+
+        if (needsSave) {
+            try { fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8'); } catch(e) {}
+        }
+        return config;
+    } catch (e) {
+        console.error('Failed to read config:', e);
+        return null;
+    }
+});
+
+ipcMain.handle('config-save', async (event, newConfig) => {
+    try {
+        const cleanConfig = JSON.parse(JSON.stringify(newConfig));
+        delete cleanConfig.videoGenerator;
+        delete cleanConfig.imageGenerator;
+
+        // 鍚敤鎻掍欢蹇呴』杩?allow锛屼繚璇佸埆浜虹數鑴戜笂寮€鍏崇湡鑳藉姞杞?        try {
+            if (cleanConfig.plugins && cleanConfig.plugins.entries) {
+                if (!Array.isArray(cleanConfig.plugins.allow)) cleanConfig.plugins.allow = [];
+                for (const [id, entry] of Object.entries(cleanConfig.plugins.entries)) {
