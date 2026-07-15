@@ -1562,6 +1562,11 @@ function setupIpcListeners() {
             return;
         }
 
+        // 🌟 拦截飞书 WebSocket 调试与长连接引导提示信息，防止刷屏影响首屏日志视觉
+        if (text.includes('persistent connection only available') || text.includes('Developer Console(开发者后台)') || text.includes('Events and Callbacks') || text.includes('开发者后台')) {
+            return;
+        }
+
         // 🌟 过滤冗余的未安装插件警告、框架表格线与垃圾说明，使终端日志框只保留核心关键步骤
         const filteredLines = text.split('\n').filter(line => {
             const cleanLine = line.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').trim();
