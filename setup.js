@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * AI-v24.13.0 Setup Script
+ * ClawAI Setup Script
  * Run: npm run setup
  */
 
@@ -8,7 +8,7 @@ const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-console.log("\nAI-v24.13.0 Setup\n");
+console.log("\nClawAI Setup\n");
 
 // Check Node.js version
 const nodeVersion = process.version;

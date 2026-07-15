@@ -1,5 +1,5 @@
 // start-gateway.js
-// AI-v24.13.0 - Node.js 启动入口
+// ClawAI - Node.js 启动入口
 // 用法: node start-gateway.js
 
 const { execSync } = require('child_process');
@@ -63,7 +63,7 @@ function checkPrerequisites() {
   }
   
   console.log('\n========================================');
-  console.log('  AI-v24.13.0 - 启动中...');
+  console.log('  ClawAI - 启动中...');
   console.log('========================================\n');
 }
 
