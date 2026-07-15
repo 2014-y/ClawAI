@@ -821,7 +821,7 @@ function drawSidebarChart() {
     }
     
     // 从 CSS 获取主题色
-    const computedAccentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#6366f1';
+    const computedAccentColor = getComputedStyle(document.body).getPropertyValue('--accent-color').trim() || '#6366f1';
     ctx.strokeStyle = computedAccentColor;
     ctx.lineWidth = 1.5;
     ctx.lineCap = 'round';
@@ -834,7 +834,7 @@ function drawSidebarChart() {
     ctx.closePath();
     
     const grad = ctx.createLinearGradient(0, 0, 0, height);
-    const computedAccentRgb = getComputedStyle(document.documentElement).getPropertyValue('--accent-rgb').trim() || '99, 102, 241';
+    const computedAccentRgb = getComputedStyle(document.body).getPropertyValue('--accent-rgb').trim() || '99, 102, 241';
     grad.addColorStop(0, `rgba(${computedAccentRgb}, 0.18)`);
     grad.addColorStop(1, `rgba(${computedAccentRgb}, 0.0)`);
     ctx.fillStyle = grad;
@@ -4615,6 +4615,7 @@ function setupThemeSwitching() {
         if (activeTheme === 'theme-dark' && pickerDark) pickerDark.classList.add('active');
         if (activeTheme === 'theme-aurora' && pickerAurora) pickerAurora.classList.add('active');
         if (activeTheme === 'theme-light' && pickerLight) pickerLight.classList.add('active');
+        if (typeof drawSidebarChart === 'function') drawSidebarChart();
     };
 
     if (pickerBlack) {
