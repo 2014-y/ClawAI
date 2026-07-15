@@ -1,4 +1,15 @@
 // renderer.js - 渲染进程交互逻辑
+window.addEventListener('error', (event) => {
+    const logEl = document.getElementById('log-terminal') || document.querySelector('.log-terminal');
+    if (logEl) {
+        logEl.innerText += `\n[Render Error] ${event.message} at ${event.filename}:${event.lineno}:${event.colno}\n`;
+    }
+});
+
+// 获取是否启用内置模型，默认关闭（即 localStorage 存储为 'true' 时才为 true）
+function getUseBuiltIn() {
+    return localStorage.getItem('setting_use_built_in_models') === 'true';
+}
 
 // 全局双模式翻译函数
 function t(keyOrZh, en, zhTw) {
@@ -881,7 +892,7 @@ async function init() {
     // 内置模型启用初始化与绑定
     const settingBuiltInModelsToggle = document.getElementById('setting-built-in-models-toggle');
     if (settingBuiltInModelsToggle) {
-        settingBuiltInModelsToggle.checked = localStorage.getItem('setting_use_built_in_models') !== 'false';
+        settingBuiltInModelsToggle.checked = getUseBuiltIn();
         settingBuiltInModelsToggle.addEventListener('change', (e) => {
             localStorage.setItem('setting_use_built_in_models', e.target.checked ? 'true' : 'false');
             toggleProviderInputsEditable();
@@ -2290,6 +2301,31 @@ function renderProvidersList() {
     const listZone = document.getElementById('providers-list-zone');
     listZone.innerHTML = '';
 
+    // 强制确保内置的 agnes-ai 与 ollama 永远存在于 localProviders 字典中
+    if (!localProviders) localProviders = {};
+    if (!localProviders['agnes-ai']) {
+        localProviders['agnes-ai'] = {
+            baseUrl: 'https://apihub.agnes-ai.com/v1',
+            apiKey: '',
+            api: 'openai-completions',
+            models: [
+                { id: 'agnes-2.0-flash', name: 'agnes-2.0-flash', contextWindow: 131072, maxTokens: 8192 },
+                { id: 'agnes-1.5-flash', name: 'agnes-1.5-flash', contextWindow: 131072, maxTokens: 8192 },
+                { id: 'agnes-video-v2.0', name: 'agnes-video-v2.0', contextWindow: 131072, maxTokens: 8192 },
+                { id: 'agnes-image-2.1-flash', name: 'agnes-image-2.1-flash', contextWindow: 131072, maxTokens: 8192 },
+                { id: 'agnes-image-2.0-flash', name: 'agnes-image-2.0-flash', contextWindow: 131072, maxTokens: 8192 }
+            ]
+        };
+    }
+    if (!localProviders['ollama']) {
+        localProviders['ollama'] = {
+            baseUrl: 'http://localhost:11434/v1',
+            apiKey: '',
+            api: 'openai-completions',
+            models: []
+        };
+    }
+
     const currentLang = localStorage.getItem('setting_language') || 'zh-CN';
     const isEn = currentLang === 'en-US';
     const isTw = currentLang === 'zh-TW';
@@ -2299,7 +2335,7 @@ function renderProvidersList() {
         return zhCn;
     };
 
-    const useBuiltIn = localStorage.getItem('setting_use_built_in_models') !== 'false';
+    const useBuiltIn = getUseBuiltIn();
 
     // 强制将 agnes-ai 放置于列表最顶层渲染
     const keys = Object.keys(localProviders);
@@ -2328,7 +2364,10 @@ function renderProvidersList() {
 
         card.innerHTML = `
             <div class="provider-card-header" style="cursor: pointer; user-select: none;">
-                <h3>🔌 ${key} <span id="agnes-built-in-tip" style="font-size: 11px; font-weight: normal; color: #b388ff; margin-left: 8px; display: none;">${t('(已启用内置免配置服务通道)', '(Built-in bypass configured)', '(已啟用內置免配置服務通道)')}</span></h3>
+                <h3>🔌 ${key}
+                    ${key === 'agnes-ai' ? `<span id="agnes-built-in-tip" style="font-size: 11px; font-weight: normal; color: #b388ff; margin-left: 8px; display: none;">${t('(已启用内置免配置服务通道)', '(Built-in bypass configured)', '(已啟用內置免配置服務通道)')}</span>` : ''}
+                    ${key === 'ollama' ? `<span id="ollama-built-in-tip" style="font-size: 11px; font-weight: normal; color: #8cd8ff; margin-left: 8px;">${t('(内置本地服务通道)', '(Built-in local service channel)', '(內置本地服務通道)')}</span>` : ''}
+                </h3>
                 <div style="display: flex; align-items: center; gap: 8px;" class="provider-card-actions">
                     ${deleteButtonHtml}
                     ${foldButtonHtml}
@@ -2424,7 +2463,7 @@ function renderProvidersList() {
 
 // 控制内置模型配置项的启用与置灰
 function toggleProviderInputsEditable() {
-    const useBuiltIn = localStorage.getItem('setting_use_built_in_models') !== 'false';
+    const useBuiltIn = getUseBuiltIn();
     const urlInput = document.querySelector('input.provider-url-input[data-provider="agnes-ai"]');
     const keyInput = document.querySelector('input.provider-key-input[data-provider="agnes-ai"]');
     const tipSpan = document.getElementById('agnes-built-in-tip');
@@ -2522,7 +2561,6 @@ function toggleProviderInputsEditable() {
             imageKeyInput.disabled = false;
             imageKeyInput.removeAttribute('readonly');
             imageKeyInput.style.opacity = '1';
-            // 如果原本是内置密钥，则自动清空避嫌
             const storedImgConfigStr = localStorage.getItem('client_pref_image_generator');
             let storedImgKey = '';
             if (storedImgConfigStr) {
@@ -2539,7 +2577,6 @@ function toggleProviderInputsEditable() {
         if (imageModelInput) {
             imageModelInput.disabled = false;
             imageModelInput.style.opacity = '1';
-            // 从配置重填原值
             const storedImgModel = localStorage.getItem('client_pref_image_model');
             if (storedImgModel) {
                 imageModelInput.value = storedImgModel;
@@ -2558,7 +2595,6 @@ function toggleProviderInputsEditable() {
             videoKeyInput.disabled = false;
             videoKeyInput.removeAttribute('readonly');
             videoKeyInput.style.opacity = '1';
-            // 如果原本是内置密钥，则自动清空避嫌
             const storedVidConfigStr = localStorage.getItem('client_pref_video_generator');
             let storedVidKey = '';
             if (storedVidConfigStr) {
@@ -2575,7 +2611,6 @@ function toggleProviderInputsEditable() {
         if (videoModelInput) {
             videoModelInput.disabled = false;
             videoModelInput.style.opacity = '1';
-            // 从配置重填原值
             const storedVidModel = localStorage.getItem('client_pref_video_model');
             if (storedVidModel) {
                 videoModelInput.value = storedVidModel;
@@ -2584,6 +2619,106 @@ function toggleProviderInputsEditable() {
             }
         }
         if (videoToggleBtn) videoToggleBtn.style.display = 'flex';
+    }
+
+    // 默认模型选型只读与内置强控
+    const modelPrimary = document.getElementById('model-primary');
+    const modelFallback = document.getElementById('model-fallback');
+    const modelPrimaryProvider = document.getElementById('model-primary-provider');
+    const modelFallbackProvider = document.getElementById('model-fallback-provider');
+
+    if (useBuiltIn) {
+        if (modelPrimary) {
+            modelPrimary.value = 'agnes-2.0-flash';
+            modelPrimary.disabled = true;
+            modelPrimary.style.opacity = '0.5';
+        }
+        if (modelFallback) {
+            modelFallback.value = 'agnes-1.5-flash';
+            modelFallback.disabled = true;
+            modelFallback.style.opacity = '0.5';
+        }
+        if (modelPrimaryProvider) {
+            // 防御性添加 agnes-ai option 以防列表为空
+            const hasAgnes = Array.from(modelPrimaryProvider.options).some(opt => opt.value === 'agnes-ai');
+            if (!hasAgnes) {
+                const opt = document.createElement('option');
+                opt.value = 'agnes-ai';
+                opt.innerText = 'agnes-ai';
+                modelPrimaryProvider.appendChild(opt);
+            }
+            modelPrimaryProvider.value = 'agnes-ai';
+            modelPrimaryProvider.disabled = true;
+            modelPrimaryProvider.dispatchEvent(new Event('sync-beautified'));
+            const wrapper = modelPrimaryProvider.closest('.custom-select-wrapper');
+            if (wrapper) wrapper.classList.add('disabled');
+        }
+        if (modelFallbackProvider) {
+            // 防御性添加 agnes-ai option 以防列表为空
+            const hasAgnes = Array.from(modelFallbackProvider.options).some(opt => opt.value === 'agnes-ai');
+            if (!hasAgnes) {
+                const opt = document.createElement('option');
+                opt.value = 'agnes-ai';
+                opt.innerText = 'agnes-ai';
+                modelFallbackProvider.appendChild(opt);
+            }
+            modelFallbackProvider.value = 'agnes-ai';
+            modelFallbackProvider.disabled = true;
+            modelFallbackProvider.dispatchEvent(new Event('sync-beautified'));
+            const wrapper = modelFallbackProvider.closest('.custom-select-wrapper');
+            if (wrapper) wrapper.classList.add('disabled');
+        }
+    } else {
+        if (modelPrimary) {
+            modelPrimary.disabled = false;
+            modelPrimary.style.opacity = '1';
+        }
+        if (modelFallback) {
+            modelFallback.disabled = false;
+            modelFallback.style.opacity = '1';
+        }
+        if (modelPrimaryProvider) {
+            modelPrimaryProvider.disabled = false;
+            const wrapper = modelPrimaryProvider.closest('.custom-select-wrapper');
+            if (wrapper) wrapper.classList.remove('disabled');
+        }
+        if (modelFallbackProvider) {
+            modelFallbackProvider.disabled = false;
+            const wrapper = modelFallbackProvider.closest('.custom-select-wrapper');
+            if (wrapper) wrapper.classList.remove('disabled');
+        }
+
+        // 重新填入用户自定义的原配置大模型数据
+        if (configData && configData.agents && configData.agents.defaults) {
+            const defaults = configData.agents.defaults;
+            if (defaults.model) {
+                const primary = defaults.model.primary || '';
+                let primaryModelId = primary;
+                let primaryProvider = '';
+                if (primary.includes('/')) {
+                    const parts = primary.split('/');
+                    primaryProvider = parts[0];
+                    primaryModelId = parts[1];
+                }
+                if (modelPrimary) modelPrimary.value = primaryModelId;
+
+                const fallback = (defaults.model.fallbacks && defaults.model.fallbacks[0]) || '';
+                let fallbackModelId = fallback;
+                let fallbackProvider = '';
+                if (fallback.includes('/')) {
+                    const parts = fallback.split('/');
+                    fallbackProvider = parts[0];
+                    fallbackModelId = parts[1];
+                }
+                if (modelFallback) modelFallback.value = fallbackModelId;
+                
+                updateAssignedProviderSelects(primaryModelId, fallbackModelId, primaryProvider, fallbackProvider);
+            }
+        }
+        
+        // 恢复后同步触发 UI 自定义下拉文字渲染
+        if (modelPrimaryProvider) modelPrimaryProvider.dispatchEvent(new Event('sync-beautified'));
+        if (modelFallbackProvider) modelFallbackProvider.dispatchEvent(new Event('sync-beautified'));
     }
 }
 
@@ -2728,7 +2863,7 @@ function bindProviderEvents() {
             const apiType = apiSelect ? apiSelect.value : '';
 
             // 如果是 agnes-ai 并且启用了内置模型
-            const useBuiltIn = localStorage.getItem('setting_use_built_in_models') !== 'false';
+            const useBuiltIn = getUseBuiltIn();
             if (provider === 'agnes-ai' && useBuiltIn) {
                 baseUrl = 'https://apihub.agnes-ai.com/v1';
                 apiKey = AGNES_BUILT_IN_KEY;
@@ -2876,7 +3011,7 @@ function bindProviderEvents() {
             const apiType = apiSelect ? apiSelect.value : '';
 
             // 如果是 agnes-ai 并且启用了内置模型
-            const useBuiltIn = localStorage.getItem('setting_use_built_in_models') !== 'false';
+            const useBuiltIn = getUseBuiltIn();
             if (provider === 'agnes-ai' && useBuiltIn) {
                 baseUrl = 'https://apihub.agnes-ai.com/v1';
                 apiKey = AGNES_BUILT_IN_KEY;
@@ -2982,7 +3117,7 @@ function bindProviderEvents() {
             const apiType = apiSelect ? apiSelect.value : '';
 
             // 如果是 agnes-ai 并且启用了内置模型
-            const useBuiltIn = localStorage.getItem('setting_use_built_in_models') !== 'false';
+            const useBuiltIn = getUseBuiltIn();
             if (provider === 'agnes-ai' && useBuiltIn) {
                 baseUrl = 'https://apihub.agnes-ai.com/v1';
                 apiKey = AGNES_BUILT_IN_KEY;
@@ -3010,32 +3145,44 @@ function bindProviderEvents() {
 
             btn.disabled = true;
 
+            // 校验大模型是否已配置
+            let hasModels = false;
+            let testModel = 'gpt-3.5-turbo';
+            if (provider === 'agnes-ai') {
+                hasModels = true;
+                testModel = 'agnes-2.0-flash';
+            } else {
+                const domModelInputs = document.querySelectorAll(`#model-list-container-${provider} .model-id-edit-input`);
+                for (const inp of domModelInputs) {
+                    if (inp.value.trim()) {
+                        hasModels = true;
+                        testModel = inp.value.trim();
+                        break;
+                    }
+                }
+                if (!hasModels && localProviders[provider] && localProviders[provider].models && localProviders[provider].models.length > 0) {
+                    const matchedModel = localProviders[provider].models.find(m => m.id);
+                    if (matchedModel) {
+                        hasModels = true;
+                        testModel = matchedModel.id;
+                    }
+                }
+            }
+
+            if (!hasModels) {
+                alert(t('请先在下方“模型白名单管理”中添加至少一个该厂商支持的模型，然后再进行密钥检验！', 'Please configure at least one model ID in the Whitelist below before verifying!', '請先在下方「模型白名單管理」中添加至少一個該廠商支持的模型，然後再進行金鑰檢驗！'));
+                if (resultSpan) {
+                    resultSpan.innerText = t('❌ 请先添加大模型', '❌ Please add a model first', '❌ 請先添加大模型');
+                    resultSpan.style.color = '#ff5252';
+                    resultSpan.style.display = 'inline-block';
+                }
+                btn.disabled = false;
+                return;
+            }
+
             try {
                 // 构建强鉴权测试端点
                 let testUrl = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
-                
-                let testModel = 'gpt-3.5-turbo';
-                if (provider === 'agnes-ai') {
-                    testModel = 'agnes-2.0-flash';
-                } else {
-                    // 优先从 DOM 读取当前的模型白名单列表第一项
-                    const domModelInputs = document.querySelectorAll(`#model-list-container-${provider} .model-id-edit-input`);
-                    let firstDomModel = '';
-                    for (const inp of domModelInputs) {
-                        if (inp.value.trim()) {
-                            firstDomModel = inp.value.trim();
-                            break;
-                        }
-                    }
-                    if (firstDomModel) {
-                        testModel = firstDomModel;
-                    } else if (localProviders[provider] && localProviders[provider].models && localProviders[provider].models.length > 0) {
-                        const matchedModel = localProviders[provider].models.find(m => m.id);
-                        if (matchedModel) {
-                            testModel = matchedModel.id;
-                        }
-                    }
-                }
 
                 const headers = {
                     'Content-Type': 'application/json'
@@ -3062,6 +3209,12 @@ function bindProviderEvents() {
 
                 clearTimeout(timeoutId);
 
+                let responseJson = null;
+                try {
+                    const text = await response.text();
+                    responseJson = JSON.parse(text);
+                } catch(e) {}
+
                 if (response.ok) {
                     showToast(t(`✅ ${provider} API Key 密钥验证有效！`, `✅ ${provider} API Key validation succeeded!`, `✅ ${provider} API Key 金鑰驗證有效！`));
                     if (resultSpan) {
@@ -3073,22 +3226,45 @@ function bindProviderEvents() {
                         bindDetailsClick(resultSpan);
                     }
                 } else {
+                    let errDetail = '';
+                    if (responseJson && responseJson.error) {
+                        errDetail = responseJson.error.message || JSON.stringify(responseJson.error);
+                    }
+                    const isModelError = errDetail.toLowerCase().includes('model') || 
+                                         errDetail.toLowerCase().includes('exist') || 
+                                         errDetail.toLowerCase().includes('not_found') ||
+                                         errDetail.toLowerCase().includes('not found') ||
+                                         errDetail.toLowerCase().includes('not support') ||
+                                         errDetail.toLowerCase().includes('unsupported');
+
                     const statusText = response.statusText || `Status: ${response.status}`;
                     let errTip = t(`验证失败 (${statusText})`, `Validation failed (${statusText})`, `驗證失敗 (${statusText})`);
-                    if (response.status === 401 || response.status === 403) {
+                    
+                    if (isModelError) {
+                        errTip = t('❌ 测试模型无效/未开通 (鉴权已通过)', '❌ Invalid Model (Auth Succeeded)', '❌ 測試模型無效/未開通 (鑑權已通過)');
+                        showToast(t(`⚠️ 密钥检验成功！鉴权已通过，但填写的测试模型 [${testModel}] 在该供应商处无效、未开通或不支持。`, `⚠️ Verification success! Auth passed, but the model [${testModel}] is invalid or unsupported by this provider.`, `⚠️ 金鑰檢驗成功！鑑權已通過，但填寫的測試模型 [${testModel}] 在該供應商處無效、未開通或不支持。`));
+                    } else if (response.status === 401 || response.status === 403) {
                         errTip = t('❌ 密钥无效 (401/403)', '❌ Invalid Key (401/403)', '❌ 金鑰無效 (401/403)');
+                        showToast(t(`❌ ${provider} 密钥验证失败：密钥无效 (401/403)`, `❌ ${provider} key validation failed: Invalid Key`, `❌ ${provider} 金鑰驗證失敗：金鑰無效`));
                     } else if (response.status === 429) {
                         errTip = t('⚠️ 额度不足或触发限频 (429)', '⚠️ Insufficient balance or rate limited (429)', '⚠️ 額度不足或觸發限頻 (429)');
-                    } else if (response.status === 404) {
-                        errTip = t('⚠️ 接口或模型名无效 (404)', '⚠️ Invalid endpoint or model (404)', '⚠️ 介面或模型名無效 (404)');
+                        showToast(t(`❌ ${provider} 密钥验证失败 (429)`, `❌ ${provider} key validation failed (429)`, `❌ ${provider} 金鑰驗證失敗 (429)`));
+                    } else {
+                        if (errDetail) {
+                            errTip = t(`❌ 接口报错 (${response.status})`, `❌ API Error (${response.status})`, `❌ 介面報錯 (${response.status})`);
+                            showToast(t(`❌ ${provider} 接口返回错误: ${errDetail}`, `❌ ${provider} API error: ${errDetail}`, `❌ ${provider} 介面返回錯誤: ${errDetail}`));
+                        } else {
+                            errTip = t(`❌ 验证失败 (${response.status})`, `❌ Validation failed (${response.status})`, `❌ 驗證失敗 (${response.status})`);
+                            showToast(t(`❌ ${provider} 密钥验证失败 (${response.status})`, `❌ ${provider} key validation failed (${response.status})`, `❌ ${provider} 金鑰驗證失敗 (${response.status})`));
+                        }
                     }
-                    showToast(response.status === 401 || response.status === 403 ? t(`❌ ${provider} 密钥验证失败：密钥无效`, `❌ ${provider} key validation failed: Invalid Key`, `❌ ${provider} 金鑰驗證失敗：金鑰無效`) : t(`❌ ${provider} 密钥验证失败 (${response.status})`, `❌ ${provider} key validation failed (${response.status})`, `❌ ${provider} 金鑰驗證失敗 (${response.status})`));
+
                     if (resultSpan) {
                         resultSpan.innerHTML = `
                             <span>${errTip}</span>
                             <span class="btn-view-request-details" data-url="${testUrl}" data-status="${response.status}" data-status-text="${statusText}" data-headers="${encodeURIComponent(JSON.stringify(headers))}" style="cursor: pointer; color: #b388ff; text-decoration: underline; font-size: 11px; margin-left: 8px; user-select: none;">${t('[查看请求详情]', '[View Request Details]', '[查看請求詳情]')}</span>
                         `;
-                        resultSpan.style.color = response.status === 429 ? '#ffd54f' : '#ff5252';
+                        resultSpan.style.color = '#ff5252';
                         bindDetailsClick(resultSpan);
                     }
                 }
@@ -3236,6 +3412,212 @@ function handleFallbackInput() {
     updateConfigJsonPreview();
 }
 
+// 自定义 Autocomplete 推荐下拉框实现
+function setupCustomAutocomplete() {
+    const inputIds = [
+        'model-primary',
+        'model-fallback',
+        'model-teacher',
+        'model-student',
+        'model-image',
+        'model-video'
+    ];
+
+    inputIds.forEach(id => {
+        const input = document.getElementById(id);
+        if (!input) return;
+
+        let dropdown = null;
+
+        const showDropdown = () => {
+            removeDropdown();
+
+            // 动态从 localProviders 获取当前所有可用模型
+            const allModels = [];
+            for (const providerKey of Object.keys(localProviders)) {
+                const provider = localProviders[providerKey];
+                const models = provider.models || [];
+                models.forEach(model => {
+                    allModels.push(`${providerKey}/${model.id}`);
+                });
+            }
+
+            // 根据用户当前输入进行模糊过滤
+            const query = input.value.trim().toLowerCase();
+            const filtered = allModels.filter(m => m.toLowerCase().includes(query));
+
+            if (filtered.length === 0) return;
+
+            dropdown = document.createElement('div');
+            dropdown.className = 'custom-autocomplete-dropdown';
+            
+            const parent = input.parentElement;
+            if (parent) {
+                if (window.getComputedStyle(parent).position === 'static') {
+                    parent.style.position = 'relative';
+                }
+                
+                dropdown.style.left = `${input.offsetLeft}px`;
+                dropdown.style.top = `${input.offsetTop + input.offsetHeight}px`;
+                dropdown.style.width = `${input.offsetWidth}px`;
+                
+                filtered.forEach(modelStr => {
+                    const item = document.createElement('div');
+                    item.className = 'custom-autocomplete-item';
+                    item.innerText = modelStr;
+                    item.addEventListener('mousedown', (e) => {
+                        e.preventDefault(); 
+                        input.value = modelStr;
+                        
+                        // 触发事件以调用原有逻辑
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                        
+                        removeDropdown();
+                    });
+                    dropdown.appendChild(item);
+                });
+
+                parent.appendChild(dropdown);
+            }
+        };
+
+        const removeDropdown = () => {
+            if (dropdown && dropdown.parentNode) {
+                dropdown.parentNode.removeChild(dropdown);
+            }
+            dropdown = null;
+        };
+
+        input.addEventListener('focus', showDropdown);
+        input.addEventListener('input', showDropdown);
+        
+        // 当用户点击其他地方时关闭
+        input.addEventListener('blur', () => {
+            setTimeout(removeDropdown, 200);
+        });
+    });
+}
+
+// 全自动下拉框美化与事件劫持
+let isBeautifying = false;
+function beautifyAllSelects() {
+    if (isBeautifying) return;
+    isBeautifying = true;
+    try {
+        const selects = document.querySelectorAll('select:not(.custom-beautified)');
+        selects.forEach(select => {
+            select.classList.add('custom-beautified');
+            select.style.display = 'none';
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'custom-select-wrapper';
+
+            const originalStyle = window.getComputedStyle(select);
+            wrapper.style.width = select.style.width || originalStyle.width;
+            wrapper.style.minWidth = select.style.minWidth || originalStyle.minWidth;
+            wrapper.style.margin = select.style.margin || originalStyle.margin;
+            wrapper.style.flex = select.style.flex || originalStyle.flex;
+
+            if (select.parentElement && select.parentElement.classList.contains('form-field')) {
+                wrapper.style.width = '100%';
+            }
+
+            const trigger = document.createElement('div');
+            trigger.className = 'custom-select-trigger';
+            trigger.style.height = originalStyle.height;
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'custom-select-text';
+
+            const arrow = document.createElement('span');
+            arrow.className = 'custom-select-arrow';
+            arrow.innerText = '🔽';
+
+            trigger.appendChild(textSpan);
+            trigger.appendChild(arrow);
+            wrapper.appendChild(trigger);
+
+            const optionsContainer = document.createElement('div');
+            optionsContainer.className = 'custom-select-options';
+            wrapper.appendChild(optionsContainer);
+
+            const syncOptions = () => {
+                optionsContainer.innerHTML = '';
+                const options = select.querySelectorAll('option');
+                let selectedText = '';
+
+                options.forEach(opt => {
+                    const optDiv = document.createElement('div');
+                    optDiv.className = 'custom-select-option';
+                    optDiv.innerText = opt.innerText;
+                    optDiv.dataset.value = opt.value;
+
+                    if (opt.value === select.value) {
+                        optDiv.classList.add('selected');
+                        selectedText = opt.innerText;
+                    }
+
+                    optDiv.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        select.value = opt.value;
+                        select.dispatchEvent(new Event('change', { bubbles: true }));
+                        select.dispatchEvent(new Event('input', { bubbles: true }));
+
+                        wrapper.classList.remove('active');
+                        syncOptions();
+                    });
+
+                    optionsContainer.appendChild(optDiv);
+                });
+
+                if (!selectedText && options.length > 0) {
+                    selectedText = options[0].innerText;
+                }
+                textSpan.innerText = selectedText || '-- 请选择 --';
+            };
+
+            syncOptions();
+
+            // 监听 DOM 子树节点变化
+            const observer = new MutationObserver(() => {
+                syncOptions();
+            });
+            observer.observe(select, { childList: true, subtree: true });
+
+            // 监听值变化（change事件）以保持同步
+            select.addEventListener('change', syncOptions);
+            select.addEventListener('sync-beautified', syncOptions);
+
+            trigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.querySelectorAll('.custom-select-wrapper.active').forEach(w => {
+                    if (w !== wrapper) w.classList.remove('active');
+                });
+                wrapper.classList.toggle('active');
+                syncOptions();
+            });
+
+            select.parentNode.insertBefore(wrapper, select);
+            wrapper.appendChild(select);
+        });
+    } catch (e) {
+        console.error('Failed to beautify selects:', e);
+    } finally {
+        isBeautifying = false;
+    }
+}
+
+function startSelectAutoBeautify() {
+    beautifyAllSelects();
+    const observer = new MutationObserver(() => {
+        beautifyAllSelects();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+}
+
 // 供应商下拉框发生改变
 function handleProviderChange() {
     updateConfigJsonPreview();
@@ -3260,6 +3642,19 @@ window.addEventListener('DOMContentLoaded', () => {
     if (fallbackSelect) {
         fallbackSelect.addEventListener('change', handleProviderChange);
     }
+    
+    // 初始化自定义下拉推荐菜单
+    setupCustomAutocomplete();
+
+    // 初始化自定义 Select 下拉框自动美化与劫持
+    startSelectAutoBeautify();
+
+    // 全局点击任意空白处收起所有自定义下拉框
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.custom-select-wrapper.active').forEach(w => {
+            w.classList.remove('active');
+        });
+    });
 });
 
 // 添加厂家模态弹窗交互
@@ -3370,7 +3765,7 @@ const handleSaveConfigAction = async () => {
     // 1. 同步保存提供商与模型白名单
     if (!configData.models) configData.models = {};
     
-    const useBuiltIn = localStorage.getItem('setting_use_built_in_models') !== 'false';
+    const useBuiltIn = getUseBuiltIn();
     const finalProviders = JSON.parse(JSON.stringify(localProviders));
     
     if (useBuiltIn && finalProviders['agnes-ai']) {
@@ -4146,6 +4541,11 @@ function setupTabSwitching() {
             // 切换到用量页重画图表防自适应显示错误
             if (currentTab === 'dashboard-view') {
                 renderUsageCharts();
+            }
+
+            // 切换到控制台状态页时，自动刷新通道绑定状态卡片
+            if (currentTab === 'console-view') {
+                try { updateConsoleChannelStatusUI(); } catch (err) { console.error(err); }
             }
 
             // 切换到内置终端时，初始化终端并适应大小
@@ -5309,7 +5709,7 @@ function applyLanguage(lang) {
     // 5. 对话欢迎语和特殊ClawAI连接状态的翻译
     const statusTextEl = document.getElementById('gateway-connection-status-text');
     if (statusTextEl) {
-        const useBuiltIn = localStorage.getItem('setting_use_built_in_models') !== 'false';
+        const useBuiltIn = getUseBuiltIn();
         if (gatewayStatus === 'running' || gatewayFullyReady) {
             statusTextEl.innerText = t('status.running');
             statusTextEl.style.color = '#00e676';
@@ -5541,7 +5941,7 @@ async function loadChatModels() {
     let hasModels = false;
 
     // 1. 如果启用了内置模型，强制将官方高速模型放于下拉菜单最顶端
-    const useBuiltIn = localStorage.getItem('setting_use_built_in_models') !== 'false';
+    const useBuiltIn = getUseBuiltIn();
     if (useBuiltIn) {
         const builtInOpts = [
             { id: 'agnes-2.0-flash', label: `agnes-ai / agnes-2.0-flash${t(' (内置默认)', ' (Built-in Default)', ' (內置默認)')}` },
@@ -5712,7 +6112,7 @@ function clearChatHistory() {
     const statusText = document.getElementById('gateway-connection-status-text');
     if (statusText) {
         const isEn = (localStorage.getItem('setting_language') || 'zh-CN') === 'en-US';
-        const useBuiltIn = localStorage.getItem('setting_use_built_in_models') !== 'false';
+        const useBuiltIn = getUseBuiltIn();
 
         if (gatewayStatus === 'running' || gatewayFullyReady) {
             statusText.style.color = '#00e676';
@@ -5772,7 +6172,7 @@ async function handleSendMessage() {
     let apiKey = providerConfig.apiKey || '';
     
     // 如果启用内置模型，且当前选的是 agnes-ai 厂家
-    const useBuiltIn = localStorage.getItem('setting_use_built_in_models') !== 'false';
+    const useBuiltIn = getUseBuiltIn();
     if (providerKey === 'agnes-ai' && useBuiltIn) {
         baseUrl = 'https://apihub.agnes-ai.com/v1';
         apiKey = AGNES_BUILT_IN_KEY;
@@ -5956,7 +6356,7 @@ async function handleActionGenerate(type) {
             apiKey = vidKeyEl ? vidKeyEl.value.trim() : '';
         }
 
-        const useBuiltIn = localStorage.getItem('setting_use_built_in_models') !== 'false';
+        const useBuiltIn = getUseBuiltIn();
         if (useBuiltIn || !apiKey || apiKey === KEY_MASK) {
             if (useBuiltIn) {
                 apiKey = AGNES_BUILT_IN_KEY;
@@ -6338,7 +6738,7 @@ async function performGeneratorTest(type) {
         apiKey = apiKey.split(',')[0].trim();
     }
 
-    const useBuiltIn = localStorage.getItem('setting_use_built_in_models') !== 'false';
+    const useBuiltIn = getUseBuiltIn();
     if (useBuiltIn && (!apiKey || apiKey === KEY_MASK)) {
         apiKey = AGNES_BUILT_IN_KEY;
     }
@@ -6446,7 +6846,7 @@ async function performGeneratorKeyTest(type) {
         apiKey = apiKey.split(',')[0].trim();
     }
 
-    const useBuiltIn = localStorage.getItem('setting_use_built_in_models') !== 'false';
+    const useBuiltIn = getUseBuiltIn();
     if (useBuiltIn && (!apiKey || apiKey === KEY_MASK)) {
         apiKey = AGNES_BUILT_IN_KEY;
     }
