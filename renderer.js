@@ -4048,17 +4048,26 @@ function updateGatewayStatusUI(status) {
 
         if (progressInterval) clearInterval(progressInterval);
         progressInterval = setInterval(() => {
-            if (currentProgress < 90) {
-                const nextProgress = currentProgress + (90 - currentProgress) * 0.05;
+            if (currentProgress < 99) {
+                let nextProgress = currentProgress;
+                if (currentProgress < 85) {
+                    nextProgress = currentProgress + (85 - currentProgress) * 0.04;
+                } else {
+                    // 85% ~ 99% 极慢速前行，保持进度条微动，绝不卡死
+                    nextProgress = currentProgress + (99 - currentProgress) * 0.015;
+                }
+
                 let currentText = '正在拉起子进程环境...';
-                if (nextProgress > 60) {
+                if (nextProgress > 88) {
+                    currentText = '核心服务已开启，正在加载业务插件与长连接服务...';
+                } else if (nextProgress > 60) {
                     currentText = '正在侦听ClawAI通信端口...';
                 } else if (nextProgress > 30) {
                     currentText = '正在装载核心插件驱动...';
                 }
                 updateProgressUI(nextProgress, currentText);
             }
-        }, 300);
+        }, 400);
     }
 }
 
