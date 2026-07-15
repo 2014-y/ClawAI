@@ -7025,7 +7025,10 @@ function setConsoleStatus(text, isGreen) {
     const color = isGreen ? '#00e676' : '#ff5252';
     
     if (statusTextEl) statusTextEl.innerText = text;
-    if (statusDotEl) statusDotEl.style.background = color;
+    if (statusDotEl) {
+        statusDotEl.style.background = color;
+        statusDotEl.style.display = text ? 'inline-block' : 'none';
+    }
     if (statusEl) {
         statusEl.style.color = color;
         if (!statusTextEl) statusEl.innerText = text;
