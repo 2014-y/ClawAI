@@ -36,7 +36,7 @@
 ## 第 1 步：下载并安装
 
 1. 用浏览器打开下载页：  
-   **https://github.com/2014-y/Nexora-Agent/releases**
+   **https://github.com/2014-y/ClawAI/releases**
 2. 找最新版本，下载名字类似这样的文件：  
    **`Nexora Agent Setup 2.0.1.exe`**
 3. 双击这个 `.exe` 文件。

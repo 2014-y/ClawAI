@@ -13,7 +13,7 @@
   <a href="docs/getting-started.md">新手入门</a> ·
   <a href="docs/install-guide.md">安装说明</a> ·
   <a href="docs/wechat-guide.md">微信接入</a> ·
-  <a href="https://github.com/2014-y/Nexora-Agent/releases">下载安装包</a>
+  <a href="https://github.com/2014-y/ClawAI/releases">下载安装包</a>
 </p>
 
 ---
@@ -57,7 +57,7 @@
 
 ### ① 下载并安装
 
-1. 打开 [Releases 下载页](https://github.com/2014-y/Nexora-Agent/releases)  
+1. 打开 [Releases 下载页](https://github.com/2014-y/ClawAI/releases)  
 2. 下载最新的 `Nexora Agent Setup x.x.x.exe`  
 3. 双击安装（若 Windows 提示“未知发布者”，点 **更多信息 → 仍要运行**）  
 4. 完成安装后，桌面会出现 **Nexora Agent** 图标  
@@ -127,7 +127,7 @@
 > 普通用户**不需要**看这一节。
 
 ```bash
-git clone https://github.com/2014-y/Nexora-Agent.git
+git clone https://github.com/2014-y/ClawAI.git
 cd Nexora-Agent
 npm install
 npm run app:start          # 本地调试桌面端

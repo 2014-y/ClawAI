@@ -1121,7 +1121,27 @@ function sanitizeFeishuConfig(config) {
             if (accounts[id] && accounts[id].appId && accounts[id].appSecret) hasConfiguredAccount = true;
         }
     }
-    if (feishu.appId && feishu.appSecret) hasConfiguredAccount = true;
+    // 顶层旧版单账号 → 迁入 accounts，让通讯管理列表能看见
+    if (feishu.appId && feishu.appSecret) {
+        hasConfiguredAccount = true;
+        if (!feishu.accounts || typeof feishu.accounts !== 'object') feishu.accounts = {};
+        if (Object.keys(feishu.accounts).length === 0) {
+            const legacyId = 'default';
+            feishu.accounts[legacyId] = {
+                appId: String(feishu.appId).trim(),
+                appSecret: String(feishu.appSecret).trim()
+            };
+            if (feishu.domain) feishu.accounts[legacyId].domain = feishu.domain;
+            if (feishu.encryptKey) feishu.accounts[legacyId].encryptKey = feishu.encryptKey;
+            if (feishu.verificationToken) feishu.accounts[legacyId].verificationToken = feishu.verificationToken;
+            if (!feishu.defaultAccount) feishu.defaultAccount = legacyId;
+            delete feishu.appId;
+            delete feishu.appSecret;
+            delete feishu.encryptKey;
+            delete feishu.verificationToken;
+            changed = true;
+        }
+    }
 
     // 已配置了有效账号时，补齐渠道启用与开放策略（不覆盖用户已有设置）。
     if (hasConfiguredAccount) {
@@ -2157,6 +2177,62 @@ function execAsync(cmd) {
     });
 }
 
+/** 渠道绑定/改配后热重载网关（防抖；先完整停再启，避免 setTimeout 竞态导致新凭证未加载） */
+let gatewayChannelReloadTimer = null;
+let gatewayChannelReloadInFlight = false;
+/**
+ * @param {string} reason
+ * @param {{ startIfStopped?: boolean }} [opts]
+ *   startIfStopped=true：网关未运行也会拉起（扫码/新增绑定后立刻能收消息）
+ *   startIfStopped=false：仅在网关已运行时重启（编辑/删除/切默认）
+ */
+function scheduleGatewayReloadAfterChannelChange(reason, opts = {}) {
+    const label = String(reason || 'channel-change');
+    const startIfStopped = opts.startIfStopped === true;
+    if (gatewayChannelReloadTimer) {
+        clearTimeout(gatewayChannelReloadTimer);
+        gatewayChannelReloadTimer = null;
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(
+            'gateway-log',
+            `\n[System] 渠道已更新（${label}），正在热重载网关以使配置立即生效...\n`
+        );
+        mainWindow.webContents.send('channel-gateway-reloading', { reason: label });
+    }
+    gatewayChannelReloadTimer = setTimeout(async () => {
+        gatewayChannelReloadTimer = null;
+        if (gatewayChannelReloadInFlight) return;
+        const wasRunning = !!gatewayProcess;
+        if (!wasRunning && !startIfStopped) return;
+        gatewayChannelReloadInFlight = true;
+        try {
+            if (wasRunning) {
+                await stopGatewayProcess();
+                // Windows 杀进程/释放 18789 需要一点余量
+                await new Promise((r) => setTimeout(r, 1000));
+            }
+            await startGatewayProcess();
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send(
+                    'gateway-log',
+                    `[System] 渠道热重载完成（${label}），新绑定通道已就绪。\n`
+                );
+            }
+        } catch (e) {
+            console.warn('[Gateway] channel reload failed:', e && e.message);
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send(
+                    'gateway-log',
+                    `[System] 渠道热重载失败（${label}）: ${(e && e.message) || e}\n`
+                );
+            }
+        } finally {
+            gatewayChannelReloadInFlight = false;
+        }
+    }, 600);
+}
+
 // 停止后台Nexora Agent子进程
 async function stopGatewayProcess() {
     if (gatewayProcess) {
@@ -2538,6 +2614,15 @@ ipcMain.on('gateway-action', (event, action) => {
             mainWindow.webContents.send('gateway-status', gatewayProcess ? 'running' : 'stopped');
         }
     }
+});
+
+/** 通讯管理：微信/飞书/QQ 绑定或改配后，由渲染层或主进程统一触发热重载 */
+ipcMain.handle('gateway-reload-for-channel', async (event, payload) => {
+    const reason = (payload && typeof payload === 'object' && payload.reason)
+        || (typeof payload === 'string' ? payload : 'channel-change');
+    const startIfStopped = !!(payload && typeof payload === 'object' && payload.startIfStopped);
+    scheduleGatewayReloadAfterChannelChange(reason, { startIfStopped });
+    return { success: true };
 });
 
 ipcMain.on('open-sandbox-terminal', () => {
@@ -3768,6 +3853,8 @@ function startDirectWeixinChannelLogin(spec) {
                     } catch (cfgErr) {
                         console.warn('[WeChat Login] 更新 channels 配置失败:', cfgErr.message);
                     }
+                    // 凭证已落盘：立刻热重载网关，否则运行中的实例收不到微信消息
+                    scheduleGatewayReloadAfterChannelChange('wechat-bind', { startIfStopped: true });
                 };
                 setTimeout(verifyAndNotify, 500);
             } else if (msg.type === 'error') {
@@ -4340,6 +4427,7 @@ ipcMain.handle('feishu-qr-login', async (_event, opts = {}) => {
                         mainWindow.webContents.send('gateway-log',
                             `[Feishu QR] 扫码绑定成功：账号 ${saved.accountId} / AppId ${saved.appId}\n`);
                     }
+                    scheduleGatewayReloadAfterChannelChange('feishu-bind', { startIfStopped: true });
                 } else if (outcome.status !== 'cancelled') {
                     const msgMap = {
                         access_denied: '用户拒绝了授权',
@@ -4615,7 +4703,7 @@ ipcMain.handle('get-app-start-time', () => {
 });
 
 // ─── 软件更新：多通道探测 (直连 GitHub API → 镜像代理 → 页面重定向解析) ───
-const UPDATE_REPO = '2014-y/Nexora-Agent';
+const UPDATE_REPO = '2014-y/ClawAI';
 const UPDATE_RELEASES_PAGE = `https://github.com/${UPDATE_REPO}/releases`;
 const UPDATE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 

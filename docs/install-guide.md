@@ -21,7 +21,7 @@
 
 你**不要**去装 Node.js、也不用敲命令。直接用官方安装包：
 
-1. 打开：https://github.com/2014-y/Nexora-Agent/releases  
+1. 打开：https://github.com/2014-y/ClawAI/releases  
 2. 下载最新：`Nexora Agent Setup x.x.x.exe`  
 3. 双击安装  
 4. 从桌面启动 **Nexora Agent**
@@ -174,7 +174,7 @@ netstat -ano | findstr 18789
 ### 7.2 拉取与本地调试
 
 ```bash
-git clone https://github.com/2014-y/Nexora-Agent.git
+git clone https://github.com/2014-y/ClawAI.git
 cd Nexora-Agent
 npm install
 npm run app:start

@@ -11,6 +11,84 @@ function getUseBuiltIn() {
     return localStorage.getItem('setting_use_built_in_models') === 'true';
 }
 
+/** 内置开启时，默认模型选型 / 聊天模型仅允许这两个通道 */
+const BUILTIN_ALLOWED_PROVIDERS = ['agnes-ai', 'ollama'];
+const BUILTIN_DEFAULT_PRIMARY = 'agnes-ai/agnes-2.0-flash';
+const BUILTIN_DEFAULT_FALLBACK = 'agnes-ai/agnes-1.5-flash';
+
+function isBuiltinAllowedProvider(providerKey) {
+    return BUILTIN_ALLOWED_PROVIDERS.includes(String(providerKey || '').trim());
+}
+
+function parseModelRef(ref) {
+    const raw = String(ref || '').trim();
+    if (!raw) return { provider: '', model: '' };
+    if (!raw.includes('/')) return { provider: '', model: raw };
+    const idx = raw.indexOf('/');
+    return { provider: raw.slice(0, idx), model: raw.slice(idx + 1) };
+}
+
+function isBuiltinAllowedModelRef(ref) {
+    const { provider } = parseModelRef(ref);
+    return isBuiltinAllowedProvider(provider);
+}
+
+/** 聊天主流程不应出现的图像/视频模型 id */
+function isNonChatModelId(modelId) {
+    const id = String(modelId || '').toLowerCase();
+    return id.includes('image') || id.includes('video') || id.includes('embed');
+}
+
+/** 模型下拉可选厂家：学生永远仅 ollama；内置开时主/备/老师仅 agnes-ai + ollama；关则全部 */
+function getModelPickerProviderKeys(inputId) {
+    // 模仿学生模型：专属本地，仅 ollama
+    if (inputId === 'model-student') {
+        return ['ollama'];
+    }
+    if (!getUseBuiltIn()) return Object.keys(localProviders || {});
+    // 内置开启：默认模型选型 / 老师模型 只支持内置 agnes-ai 与本地 ollama
+    return BUILTIN_ALLOWED_PROVIDERS.slice();
+}
+
+/** 收集某输入框可用的模型推荐列表 */
+function collectModelPickerOptions(inputId) {
+    const allModels = [];
+    const providerKeys = getModelPickerProviderKeys(inputId);
+    for (const providerKey of providerKeys) {
+        const provider = localProviders[providerKey];
+        if (!provider) continue;
+        const models = provider.models || [];
+        models.forEach((model) => {
+            if (!model || !model.id) return;
+            // 学生模型：排除嵌入等非对话本地模型
+            if (inputId === 'model-student' && isNonChatModelId(model.id)) return;
+            // 主/备/老师：过滤掉图像、视频、嵌入模型
+            if ((inputId === 'model-primary' || inputId === 'model-fallback' || inputId === 'model-teacher')
+                && isNonChatModelId(model.id)) {
+                return;
+            }
+            allModels.push(`${providerKey}/${model.id}`);
+        });
+    }
+    return allModels;
+}
+
+/** 规范化学生模型：仅允许 ollama/…；裸模型名自动补前缀 */
+function normalizeStudentModelRef(raw) {
+    let val = String(raw || '').trim();
+    if (!val) return '';
+    if (!val.includes('/')) return `ollama/${val}`;
+    const { provider, model } = parseModelRef(val);
+    if (provider !== 'ollama' || !model) return '';
+    return `ollama/${model}`;
+}
+
+/** 当前接口服务商列表可见厂家：内置开 → 仅 agnes-ai / ollama；关 → 全部 */
+function getSelectableProviderKeys() {
+    if (!getUseBuiltIn()) return Object.keys(localProviders || {});
+    return BUILTIN_ALLOWED_PROVIDERS.slice();
+}
+
 // 全局双模式翻译函数
 function t(keyOrZh, en, zhTw) {
     const currentLang = localStorage.getItem('setting_language') || 'zh-CN';
@@ -82,20 +160,33 @@ function formatNumberWithUnit(num, isApprox = false) {
     }
 }
 
-// 标记配置文件有未保存的改动，高亮提示保存按钮
+// 标记顶部「保存配置」有未保存改动（左侧表单），并刷新 JSON 预览
 function markConfigDirty() {
-    const saveBtns = [
-        document.getElementById('config-save-btn'),
-        document.getElementById('config-save-btn-top')
-    ];
-    saveBtns.forEach(btn => {
-        if (btn) {
-            btn.innerText = '💾 保存配置 (有未保存修改*)';
-            btn.style.background = 'linear-gradient(135deg, #ff9800 0%, #ff5722 100%)';
-            btn.style.boxShadow = '0 0 15px rgba(255, 87, 34, 0.4)';
-        }
-    });
+    const topBtn = document.getElementById('config-save-btn-top');
+    if (topBtn) {
+        topBtn.innerText = '💾 保存配置 (有未保存修改*)';
+        topBtn.style.background = 'linear-gradient(135deg, #ff9800 0%, #ff5722 100%)';
+        topBtn.style.boxShadow = '0 0 15px rgba(255, 87, 34, 0.4)';
+    }
     updateConfigJsonPreview();
+}
+
+// 仅标记 JSON 预览区「保存配置」有手写改动（不影响顶部按钮）
+function markJsonPanelDirty() {
+    const jsonSaveBtn = document.getElementById('config-save-btn');
+    if (jsonSaveBtn) {
+        jsonSaveBtn.innerText = '💾 保存配置 (有未保存修改*)';
+        jsonSaveBtn.style.background = 'linear-gradient(135deg, #ff9800 0%, #ff5722 100%)';
+        jsonSaveBtn.style.boxShadow = '0 0 15px rgba(255, 87, 34, 0.4)';
+    }
+}
+
+function clearSaveBtnDirtyState(btn, label) {
+    if (!btn) return;
+    btn.innerText = label || '保存配置';
+    btn.style.background = '';
+    btn.style.boxShadow = '';
+    btn.removeAttribute('disabled');
 }
 
 // 自定义精美弹窗重写
@@ -365,6 +456,27 @@ function renderFeishuAccounts() {
     if (!configData.channels.feishu) configData.channels.feishu = { accounts: {} };
     if (!configData.channels.feishu.accounts) configData.channels.feishu.accounts = {};
 
+    // 自愈：顶层旧版单账号（appId/appSecret）迁移进 accounts，避免通讯管理显示「暂无」但拓扑却「已就绪」
+    const feishuCh = configData.channels.feishu;
+    if (feishuCh.appId && feishuCh.appSecret && Object.keys(feishuCh.accounts).length === 0) {
+        const legacyId = 'default';
+        feishuCh.accounts[legacyId] = {
+            appId: String(feishuCh.appId).trim(),
+            appSecret: String(feishuCh.appSecret).trim(),
+            domain: feishuCh.domain || 'feishu'
+        };
+        if (feishuCh.encryptKey) feishuCh.accounts[legacyId].encryptKey = feishuCh.encryptKey;
+        if (feishuCh.verificationToken) feishuCh.accounts[legacyId].verificationToken = feishuCh.verificationToken;
+        feishuCh.defaultAccount = legacyId;
+        feishuCh.enabled = true;
+        delete feishuCh.appId;
+        delete feishuCh.appSecret;
+        delete feishuCh.encryptKey;
+        delete feishuCh.verificationToken;
+        window.api.saveConfig(configData).catch(() => {});
+        if (typeof updateTopologyUI === 'function') updateTopologyUI();
+    }
+
     const accounts = configData.channels.feishu.accounts;
     const defaultAccount = configData.channels.feishu.defaultAccount || '';
 
@@ -421,10 +533,7 @@ function renderFeishuAccounts() {
                 await window.api.saveConfig(configData);
                 renderFeishuAccounts();
                 showToast('已成功切换默认飞书账号！');
-                if (gatewayStatus === 'running') {
-                    window.api.gatewayAction('stop');
-                    setTimeout(() => window.api.gatewayAction('start'), 1200);
-                }
+                reloadGatewayAfterChannelChange('feishu-default');
             } catch(err) {
                 showToast('保存切换失败: ' + err.message);
             }
@@ -444,10 +553,7 @@ function renderFeishuAccounts() {
                     await window.api.saveConfig(configData);
                     renderFeishuAccounts();
                     showToast('飞书账号已删除！');
-                    if (gatewayStatus === 'running') {
-                        window.api.gatewayAction('stop');
-                        setTimeout(() => window.api.gatewayAction('start'), 1200);
-                    }
+                    reloadGatewayAfterChannelChange('feishu-delete');
                 } catch(err) {
                     showToast('删除保存失败: ' + err.message);
                 }
@@ -475,10 +581,7 @@ function renderFeishuAccounts() {
                 await window.api.saveConfig(configData);
                 renderFeishuAccounts();
                 showToast('飞书账号编辑保存成功！');
-                if (gatewayStatus === 'running') {
-                    window.api.gatewayAction('stop');
-                    setTimeout(() => window.api.gatewayAction('start'), 1200);
-                }
+                reloadGatewayAfterChannelChange('feishu-edit');
             } catch(err) {
                 showToast('保存编辑失败: ' + err.message);
             }
@@ -571,10 +674,7 @@ function renderQqbotAccounts() {
                 await window.api.saveConfig(configData);
                 renderQqbotAccounts();
                 showToast('已成功切换默认 QQ 机器人！');
-                if (gatewayStatus === 'running') {
-                    window.api.gatewayAction('stop');
-                    setTimeout(() => window.api.gatewayAction('start'), 1200);
-                }
+                reloadGatewayAfterChannelChange('qqbot-default');
             } catch(err) {
                 showToast('保存切换失败: ' + err.message);
             }
@@ -594,10 +694,7 @@ function renderQqbotAccounts() {
                     await window.api.saveConfig(configData);
                     renderQqbotAccounts();
                     showToast('QQ 机器人已删除！');
-                    if (gatewayStatus === 'running') {
-                        window.api.gatewayAction('stop');
-                        setTimeout(() => window.api.gatewayAction('start'), 1200);
-                    }
+                    reloadGatewayAfterChannelChange('qqbot-delete');
                 } catch(err) {
                     showToast('删除保存失败: ' + err.message);
                 }
@@ -626,10 +723,7 @@ function renderQqbotAccounts() {
                 await window.api.saveConfig(configData);
                 renderQqbotAccounts();
                 showToast('QQ 机器人编辑保存成功！');
-                if (gatewayStatus === 'running') {
-                    window.api.gatewayAction('stop');
-                    setTimeout(() => window.api.gatewayAction('start'), 1200);
-                }
+                reloadGatewayAfterChannelChange('qqbot-edit');
             } catch(err) {
                 showToast('保存编辑失败: ' + err.message);
             }
@@ -641,6 +735,24 @@ function renderQqbotAccounts() {
 let configData = null;
 let currentTab = 'console-view';
 let gatewayStatus = 'stopped';
+
+/** 通讯渠道变更后热重载网关（走主进程 await stop→start，带防抖） */
+function reloadGatewayAfterChannelChange(reason, opts = {}) {
+    const startIfStopped = opts.startIfStopped === true;
+    if (window.api && typeof window.api.reloadGatewayForChannel === 'function') {
+        window.api.reloadGatewayForChannel(reason || 'channel-change', { startIfStopped }).catch(() => {});
+        return;
+    }
+    // 兼容旧 preload：仅在运行中时 stop→start
+    if (gatewayStatus === 'running' || gatewayStatus === 'starting' || startIfStopped) {
+        if (gatewayStatus === 'running' || gatewayStatus === 'starting') {
+            window.api.gatewayAction('stop');
+            setTimeout(() => window.api.gatewayAction('start'), 1500);
+        } else if (startIfStopped) {
+            window.api.gatewayAction('start');
+        }
+    }
+}
 let gatewayFullyReady = false;
 
 let topoNodeStates = {
@@ -653,11 +765,46 @@ let topoNodeStates = {
 };
 
 function updateTopologyUI() {
+    const statusLabel = (state) => {
+        if (state === 'completed') return t('console.topology.status.completed');
+        if (state === 'active') return t('console.topology.status.active');
+        return t('console.topology.status.pending');
+    };
+
+    const channelBound = {
+        wechat: false,
+        qq: false,
+        feishu: false
+    };
+    try {
+        if (configData && configData.channels) {
+            // 微信：以真实扫码落盘为准（liveBound），不只看插件开关
+            const wx = configData.channels['openclaw-weixin'] || configData.channels.wechat;
+            channelBound.wechat = !!(wx && wx.enabled === true);
+            channelBound.qq = !!(configData.channels.qqbot && (
+                (configData.channels.qqbot.accounts && Object.keys(configData.channels.qqbot.accounts).length > 0)
+                || (configData.channels.qqbot.appId && configData.channels.qqbot.clientSecret)
+            ));
+            const f = configData.channels.feishu;
+            channelBound.feishu = !!(f && (
+                (f.appId && f.appSecret)
+                || (f.accounts && Object.values(f.accounts).some((a) => a && a.appId && a.appSecret))
+            ));
+        }
+    } catch (e) {}
+
+    // 若微信状态 UI 已探测到绑定，优先信它
+    try {
+        const wxCard = document.getElementById('node-wechat');
+        if (wxCard && wxCard.dataset.liveBound === '1') channelBound.wechat = true;
+        if (wxCard && wxCard.dataset.liveBound === '0') channelBound.wechat = false;
+    } catch (e) {}
+
     function setTopoState(nodeId, lineId, state) {
         const nodeEl = document.getElementById(nodeId);
         const lineEl = document.getElementById(lineId);
         if (nodeEl) {
-            nodeEl.classList.remove('pending', 'active', 'completed');
+            nodeEl.classList.remove('pending', 'active', 'completed', 'unbound', 'bound-ready');
             nodeEl.classList.add(state);
         }
         if (lineEl) {
@@ -666,16 +813,116 @@ function updateTopologyUI() {
         }
     }
 
-    for (const [nodeId, state] of Object.entries(topoNodeStates)) {
+    const badgeMap = {
+        'node-wechat': 'badge-wechat',
+        'node-qq': 'badge-qq',
+        'node-feishu': 'badge-feishu',
+        'node-llm': 'badge-llm',
+        'node-client': 'badge-client',
+        'node-core': 'badge-core'
+    };
+    const hintMap = {
+        'node-wechat': 'hint-wechat',
+        'node-qq': 'hint-qq',
+        'node-feishu': 'hint-feishu',
+        'node-llm': 'hint-llm'
+    };
+
+    for (const [nodeId, rawState] of Object.entries(topoNodeStates)) {
         let lineId = null;
         if (nodeId === 'node-client') lineId = 'line-client';
         else if (nodeId === 'node-llm') lineId = 'line-llm';
         else if (nodeId === 'node-wechat') lineId = 'line-wechat';
         else if (nodeId === 'node-qq') lineId = 'line-qq';
         else if (nodeId === 'node-feishu') lineId = 'line-feishu';
+
+        let state = rawState;
+        const hintEl = document.getElementById(hintMap[nodeId]);
+        const nodeEl = document.getElementById(nodeId);
+        const badgeEl = document.getElementById(badgeMap[nodeId]);
+
+        // 渠道卡：未真正绑定账号时，一律显示「未连接」，避免插件加载误显示「连接中」
+        if (nodeId === 'node-wechat' || nodeId === 'node-qq' || nodeId === 'node-feishu') {
+            const key = nodeId === 'node-wechat' ? 'wechat' : (nodeId === 'node-qq' ? 'qq' : 'feishu');
+            const bound = !!channelBound[key];
+            if (!bound) {
+                state = 'pending';
+                topoNodeStates[nodeId] = 'pending';
+            } else if (topoNodeStates['node-core'] === 'completed' && state !== 'completed') {
+                // 已绑定且网关就绪 → 直接就绪
+                state = 'completed';
+                topoNodeStates[nodeId] = 'completed';
+            }
+
+            setTopoState(nodeId, lineId, state);
+            if (nodeEl) {
+                nodeEl.classList.toggle('unbound', !bound);
+                nodeEl.classList.toggle('bound-ready', bound && state === 'completed');
+            }
+            if (badgeEl) {
+                badgeEl.textContent = !bound
+                    ? t('console.topology.status.unbound')
+                    : statusLabel(state);
+            }
+            if (hintEl) {
+                if (!bound) {
+                    hintEl.textContent = key === 'wechat'
+                        ? t('console.topology.hint.unbound_wechat')
+                        : (key === 'qq' ? t('console.topology.hint.unbound_qq') : t('console.topology.hint.unbound_feishu'));
+                } else if (state === 'completed') {
+                    hintEl.textContent = t('console.topology.hint.ready');
+                } else if (state === 'active') {
+                    hintEl.textContent = t('console.topology.hint.connecting');
+                } else {
+                    hintEl.textContent = t('console.topology.hint.bound_waiting');
+                }
+            }
+            continue;
+        }
+
         setTopoState(nodeId, lineId, state);
+        if (badgeEl) badgeEl.textContent = statusLabel(state);
+
+        if (nodeId === 'node-llm' && hintEl) {
+            if (state === 'completed') hintEl.textContent = t('console.topology.hint.llm_ready');
+            else if (state === 'active') hintEl.textContent = t('console.topology.hint.llm_loading');
+            else hintEl.textContent = t('console.topology.hint.llm');
+        }
+    }
+
+    const coreStatus = document.getElementById('topo-core-status');
+    if (coreStatus) {
+        const st = topoNodeStates['node-core'] || 'pending';
+        if (st === 'completed') coreStatus.textContent = t('console.topology.core.ready');
+        else if (st === 'active') coreStatus.textContent = t('console.topology.core.starting');
+        else coreStatus.textContent = t('console.topology.core.stopped');
+    }
+
+    const footer = document.getElementById('topology-footer-tip');
+    if (footer) {
+        const gwOk = topoNodeStates['node-core'] === 'completed';
+        const anyChannel = channelBound.wechat || channelBound.qq || channelBound.feishu;
+        if (!gwOk) footer.textContent = t('console.topology.footer');
+        else if (!anyChannel) footer.textContent = t('console.topology.footer.need_bind');
+        else footer.textContent = t('console.topology.footer.ready');
     }
 }
+
+/** 拓扑渠道卡片点击 → 跳转通讯管理 */
+(function wireTopologyChannelClicks() {
+    const goComm = () => {
+        const tab = document.getElementById('nav-communication-mgmt');
+        if (tab) tab.click();
+    };
+    ['node-wechat', 'node-qq', 'node-feishu'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el || el.dataset.topoClickBound === '1') return;
+        el.dataset.topoClickBound = '1';
+        el.style.cursor = 'pointer';
+        el.title = '点击前往通讯管理绑定';
+        el.addEventListener('click', goComm);
+    });
+})();
 
 // 常见插件元数据（用于生成美观的插件网格）
 // 顺序即 UI 卡片顺序；自动摘要主卡映射自研 auto-summary（llm-task 仍会进 allow）
@@ -1024,8 +1271,10 @@ async function init() {
         settingBuiltInModelsToggle.checked = getUseBuiltIn();
         settingBuiltInModelsToggle.addEventListener('change', async (e) => {
             localStorage.setItem('setting_use_built_in_models', e.target.checked ? 'true' : 'false');
-            toggleProviderInputsEditable();
-            loadChatModels(); // 开关状态改变时，立刻重新载入并选中默认内置模型
+            // 内置开：厂家列表 / 主备下拉仅留 agnes-ai、ollama；关：全部放开
+            renderProvidersList();
+            updateModelsDatalist();
+            loadChatModels();
 
             // 开启内置时立刻把默认模型写入沙箱 OpenClaw（否则只改了 UI，网关会话仍粘旧模型）
             if (e.target.checked && configData && window.api && window.api.saveConfig) {
@@ -1250,11 +1499,8 @@ async function init() {
             try {
                 await window.api.saveConfig(configData);
                 renderFeishuAccounts();
-                showToast('飞书绑定账号添加成功！');
-                if (gatewayStatus === 'running') {
-                    window.api.gatewayAction('stop');
-                    setTimeout(() => window.api.gatewayAction('start'), 1200);
-                }
+                showToast('飞书绑定账号添加成功，正在热重载网关...');
+                reloadGatewayAfterChannelChange('feishu-add', { startIfStopped: true });
             } catch(err) {
                 showToast('添加配置失败: ' + err.message);
             }
@@ -1336,11 +1582,8 @@ async function init() {
             try {
                 await window.api.saveConfig(configData);
                 renderQqbotAccounts();
-                showToast('QQ 机器人绑定账号添加成功！');
-                if (gatewayStatus === 'running') {
-                    window.api.gatewayAction('stop');
-                    setTimeout(() => window.api.gatewayAction('start'), 1200);
-                }
+                showToast('QQ 机器人绑定成功，正在热重载网关...');
+                reloadGatewayAfterChannelChange('qqbot-add', { startIfStopped: true });
             } catch(err) {
                 showToast('添加配置失败: ' + err.message);
             }
@@ -1402,10 +1645,7 @@ async function init() {
                     if (result.success) {
                         showToast('微信解绑成功！');
                         updateWeChatStatusUI();
-                        if (gatewayStatus === 'running') {
-                            window.api.gatewayAction('stop');
-                            setTimeout(() => window.api.gatewayAction('start'), 1200);
-                        }
+                        reloadGatewayAfterChannelChange('wechat-unbind');
                     } else {
                         showToast('解绑失败: ' + result.message);
                     }
@@ -1490,21 +1730,23 @@ async function init() {
         });
     }
 
-    // 监听 JSON 实时预览框的手写编辑输入
+    // 监听 JSON 实时预览框的手写编辑输入（报错 / dirty 仅作用于预览区按钮）
     const jsonPreviewEl = document.getElementById('config-json-preview');
     const jsonErrorEl = document.getElementById('json-format-error');
-    const saveBtn = document.getElementById('config-save-btn');
+    const jsonSaveBtn = document.getElementById('config-save-btn');
     if (jsonPreviewEl) {
         jsonPreviewEl.addEventListener('input', (e) => {
-            markConfigDirty();
+            markJsonPanelDirty();
             try {
                 const parsed = JSON.parse(e.target.value);
                 if (jsonErrorEl) jsonErrorEl.style.display = 'none';
-                if (saveBtn) saveBtn.removeAttribute('disabled');
-                
-                // 更新当前内存中的 configData，点击保存时直接写入
+                if (jsonSaveBtn) jsonSaveBtn.removeAttribute('disabled');
+
+                // 预览里是脱敏值：还原后再写入内存，避免把 ******** 保存进 openclaw.json
+                const previous = configData ? JSON.parse(JSON.stringify(configData)) : null;
+                restoreMaskedSecretsFromPrevious(parsed, previous);
                 configData = parsed;
-                
+
                 // 同步刷新 localProviders 变量，确保保存时不被旧数据覆盖
                 if (parsed.models && parsed.models.providers) {
                     localProviders = JSON.parse(JSON.stringify(parsed.models.providers));
@@ -1512,7 +1754,7 @@ async function init() {
                 syncJsonToFormFields(parsed);
             } catch (err) {
                 if (jsonErrorEl) jsonErrorEl.style.display = 'block';
-                if (saveBtn) saveBtn.setAttribute('disabled', 'true');
+                if (jsonSaveBtn) jsonSaveBtn.setAttribute('disabled', 'true');
             }
         });
     }
@@ -2131,12 +2373,14 @@ function setupIpcListeners() {
 
     // 主进程探测到微信扫码绑定成功后的即时刷新（进行中的飞书等会话绝不能被关掉）
     window.api.onWeChatLoginSuccess(() => {
-        if (typeof showToast === 'function') showToast('✅ 微信绑定成功！');
+        if (typeof showToast === 'function') showToast('✅ 微信绑定成功！正在热重载网关...');
         updateWeChatStatusUI();
         const ch = (__commBindingSession && __commBindingSession.active) ? __commBindingSession.channel : null;
         if (!ch || ch === 'wechat' || ch === 'openclaw-weixin') {
             completeCommBinding();
         }
+        // 主进程也会 schedule 热重载；此处再调一次会被防抖合并，作为 UI 兜底
+        reloadGatewayAfterChannelChange('wechat-bind', { startIfStopped: true });
     });
 
     if (window.api.onWeChatLoginFailed) {
@@ -2178,13 +2422,11 @@ function setupIpcListeners() {
             } catch (e) {}
             renderFeishuAccounts();
             if (typeof showToast === 'function') {
-                showToast(`✅ 飞书扫码绑定成功！账号：${(status && status.accountId) || 'feishu-scan'}`);
+                showToast(`✅ 飞书扫码绑定成功！账号：${(status && status.accountId) || 'feishu-scan'}，正在热重载网关...`);
             }
             completeCommBinding();
-            if (gatewayStatus === 'running') {
-                window.api.gatewayAction('stop');
-                setTimeout(() => window.api.gatewayAction('start'), 1200);
-            }
+            // 主进程已 schedule；此处防抖合并，避免漏掉
+            reloadGatewayAfterChannelChange('feishu-bind', { startIfStopped: true });
         });
     }
     if (window.api.onFeishuLoginFailed) {
@@ -2236,9 +2478,78 @@ function setupIpcListeners() {
 let localProviders = {};
 const AGNES_BUILT_IN_KEY = 'sk-95sX8HnNOhh8FFfAm3ccOgGFg6MA8yf7zU5PEEQdGxSuKhQY';
 const KEY_MASK = '••••••••••••••••••••••••••••••••••••••••••••••••';
+/** JSON 预览里展示的脱敏占位（勿写入真实 configData） */
+const JSON_PREVIEW_SECRET_MASK = '********';
+
+function isSecretFieldName(key) {
+    const k = String(key || '');
+    return /^(apiKey|api_key|appSecret|app_secret|clientSecret|client_secret|token|accessToken|refreshToken|password|secret|authorization)$/i.test(k)
+        || /(_API_KEY|_SECRET|_TOKEN|_PASSWORD)$/i.test(k)
+        || /API_KEY/i.test(k);
+}
+
+function isPlaceholderSecretValue(val) {
+    const s = String(val || '').trim();
+    if (!s) return true;
+    return /^YOUR_[A-Z0-9_]+$/i.test(s) || /YOUR_.*_HERE/i.test(s);
+}
+
+function isMaskedSecretValue(val) {
+    if (typeof val !== 'string') return false;
+    const s = val.trim();
+    if (!s) return false;
+    return s === KEY_MASK || s === JSON_PREVIEW_SECRET_MASK || /^[•*]+$/.test(s);
+}
+
+/** 深拷贝配置并将密钥字段替换为掩码，仅用于预览展示 */
+function maskSecretsForJsonPreview(config) {
+    const clone = JSON.parse(JSON.stringify(config || {}));
+    const walk = (node) => {
+        if (!node || typeof node !== 'object') return;
+        if (Array.isArray(node)) {
+            node.forEach(walk);
+            return;
+        }
+        for (const [k, v] of Object.entries(node)) {
+            if (typeof v === 'string' && isSecretFieldName(k) && v.trim() && !isPlaceholderSecretValue(v)) {
+                node[k] = JSON_PREVIEW_SECRET_MASK;
+            } else if (v && typeof v === 'object') {
+                walk(v);
+            }
+        }
+    };
+    walk(clone);
+    return clone;
+}
+
+/** 手改预览 JSON 时：掩码值还原为上一份真实密钥，避免把 ******** 写进配置 */
+function restoreMaskedSecretsFromPrevious(next, prev) {
+    if (!next || !prev || typeof next !== 'object' || typeof prev !== 'object') return next;
+    const walk = (n, p) => {
+        if (!n || !p || typeof n !== 'object' || typeof p !== 'object') return;
+        if (Array.isArray(n) && Array.isArray(p)) {
+            const len = Math.min(n.length, p.length);
+            for (let i = 0; i < len; i++) walk(n[i], p[i]);
+            return;
+        }
+        if (Array.isArray(n) || Array.isArray(p)) return;
+        for (const k of Object.keys(n)) {
+            const nv = n[k];
+            const pv = p[k];
+            if (typeof nv === 'string' && isSecretFieldName(k) && isMaskedSecretValue(nv) && typeof pv === 'string') {
+                n[k] = pv;
+            } else if (nv && typeof nv === 'object' && pv && typeof pv === 'object') {
+                walk(nv, pv);
+            }
+        }
+    };
+    walk(next, prev);
+    return next;
+}
+
 const expandedProviders = new Set();
 
-/** 内置模型开启时，强制 config / providers / env 与 UI 锁定态一致，避免表单显示 Agnes 而 openclaw.json 仍是其它模型 */
+/** 内置开启时：主/备仅允许 agnes-ai / ollama，非法则回落到内置默认；并锁定 Agnes 通道凭证 */
 function applyBuiltInModelPolicy(cfg) {
     if (!cfg || typeof cfg !== 'object') return false;
     if (!getUseBuiltIn()) return false;
@@ -2248,15 +2559,14 @@ function applyBuiltInModelPolicy(cfg) {
     if (!cfg.agents.defaults) cfg.agents.defaults = {};
     if (!cfg.agents.defaults.model) cfg.agents.defaults.model = {};
 
-    const wantPrimary = 'agnes-ai/agnes-2.0-flash';
-    const wantFallback = 'agnes-ai/agnes-1.5-flash';
-    if (cfg.agents.defaults.model.primary !== wantPrimary) {
-        cfg.agents.defaults.model.primary = wantPrimary;
+    const primary = cfg.agents.defaults.model.primary || '';
+    if (!isBuiltinAllowedModelRef(primary)) {
+        cfg.agents.defaults.model.primary = BUILTIN_DEFAULT_PRIMARY;
         changed = true;
     }
     const fb = Array.isArray(cfg.agents.defaults.model.fallbacks) ? cfg.agents.defaults.model.fallbacks[0] : '';
-    if (fb !== wantFallback) {
-        cfg.agents.defaults.model.fallbacks = [wantFallback];
+    if (!isBuiltinAllowedModelRef(fb)) {
+        cfg.agents.defaults.model.fallbacks = [BUILTIN_DEFAULT_FALLBACK];
         changed = true;
     }
 
@@ -2371,7 +2681,7 @@ async function loadAndRenderConfig() {
             && configData.plugins.entries['dual-model-trainer']
             && configData.plugins.entries['dual-model-trainer'].config) || {};
         if (teacherEl) teacherEl.value = dmtCfg.teacherModel || '';
-        if (studentEl) studentEl.value = dmtCfg.studentModel || '';
+        if (studentEl) studentEl.value = normalizeStudentModelRef(dmtCfg.studentModel || '');
     }
 
     // 优先从本地 localStorage 加载自定义的视频/图片生成配置（不写盘入 openclaw.json 以免损坏Nexora Agent配置格式）
@@ -2431,7 +2741,7 @@ async function loadAndRenderConfig() {
 }
 
 // 🌐 配置文件 JSON 右侧实时预览更新函数
-function updateConfigJsonPreview() {
+function updateConfigJsonPreview(force = false) {
     if (!configData) return;
 
     // 1. 同步保存提供商与模型白名单
@@ -2502,7 +2812,7 @@ function updateConfigJsonPreview() {
     const gatewayPortEl = document.getElementById('gateway-port');
     if (gatewayPortEl) configData.gateway.port = parseInt(gatewayPortEl.value, 10) || 18789;
 
-    // 内置开启时，预览/内存必须与锁定表单一致（禁止仍显示 ollama 等旧主模型）
+    // 内置开启时：主/备若落在非 agnes-ai/ollama，钳制回默认；允许在二者间切换
     if (getUseBuiltIn()) {
         applyBuiltInModelPolicy(configData);
         if (configData.models && configData.models.providers) {
@@ -2512,7 +2822,7 @@ function updateConfigJsonPreview() {
 
     const previewEl = document.getElementById('config-json-preview');
     // 只有当用户当前没有聚焦在 JSON 编辑框输入时，才自动用表单最新状态覆盖内容，防止打字时光标位移
-    if (previewEl && document.activeElement !== previewEl) {
+    if (previewEl && (force || document.activeElement !== previewEl)) {
         const previewConfig = JSON.parse(JSON.stringify(configData));
         delete previewConfig.videoGenerator;
         delete previewConfig.imageGenerator;
@@ -2520,7 +2830,8 @@ function updateConfigJsonPreview() {
             delete previewConfig.agents.defaults.imageGenerationModel;
             delete previewConfig.agents.defaults.videoGenerationModel;
         }
-        previewEl.value = JSON.stringify(previewConfig, null, 2);
+        // 预览脱敏：真实密钥仍留在 configData / 磁盘，此处仅展示掩码
+        previewEl.value = JSON.stringify(maskSecretsForJsonPreview(previewConfig), null, 2);
     }
 }
 
@@ -2618,13 +2929,14 @@ function syncJsonToFormFields(parsed) {
         updateModelsDatalist();
     }
 
-    // 内置开启时：JSON 手改不得压过锁定态（表单强制 Agnes，configData 同步写回）
+    // 内置开启时：JSON 手改不得突破 agnes-ai/ollama 限制，并刷新厂家列表可见范围
     if (getUseBuiltIn()) {
-        toggleProviderInputsEditable();
         applyBuiltInModelPolicy(configData);
         if (configData.models && configData.models.providers) {
             localProviders = JSON.parse(JSON.stringify(configData.models.providers));
         }
+        renderProvidersList();
+        updateModelsDatalist();
         updateConfigJsonPreview();
     }
 }
@@ -2670,12 +2982,21 @@ function renderProvidersList() {
 
     const useBuiltIn = getUseBuiltIn();
 
-    // 强制将 agnes-ai 放置于列表最顶层渲染
-    const keys = Object.keys(localProviders);
-    const agnesIndex = keys.indexOf('agnes-ai');
-    if (agnesIndex > -1) {
-        keys.splice(agnesIndex, 1);
-        keys.unshift('agnes-ai');
+    // 内置开启：厂家列表只展示 agnes-ai / ollama；关闭则全部展示
+    let keys = Object.keys(localProviders);
+    if (useBuiltIn) {
+        keys = BUILTIN_ALLOWED_PROVIDERS.filter((k) => !!localProviders[k]);
+    } else {
+        const agnesIndex = keys.indexOf('agnes-ai');
+        if (agnesIndex > -1) {
+            keys.splice(agnesIndex, 1);
+            keys.unshift('agnes-ai');
+        }
+    }
+
+    const addProviderBtn = document.getElementById('btn-add-provider');
+    if (addProviderBtn) {
+        addProviderBtn.style.display = useBuiltIn ? 'none' : '';
     }
 
     for (const key of keys) {
@@ -2954,62 +3275,54 @@ function toggleProviderInputsEditable() {
         if (videoToggleBtn) videoToggleBtn.style.display = 'flex';
     }
 
-    // 默认模型选型只读与内置强控
+    // 默认模型选型：内置开 → 可改，但供应商仅 agnes-ai / ollama；关 → 全部放开
     const modelPrimary = document.getElementById('model-primary');
     const modelFallback = document.getElementById('model-fallback');
     const modelPrimaryProvider = document.getElementById('model-primary-provider');
     const modelFallbackProvider = document.getElementById('model-fallback-provider');
 
+    const unlockModelField = (el) => {
+        if (!el) return;
+        el.disabled = false;
+        el.readOnly = false;
+        el.style.opacity = '1';
+        el.style.pointerEvents = '';
+    };
+
     if (useBuiltIn) {
-        if (modelPrimary) {
-            modelPrimary.value = 'agnes-2.0-flash';
-            modelPrimary.disabled = true;
-            modelPrimary.style.opacity = '0.5';
-        }
-        if (modelFallback) {
-            modelFallback.value = 'agnes-1.5-flash';
-            modelFallback.disabled = true;
-            modelFallback.style.opacity = '0.5';
-        }
-        if (modelPrimaryProvider) {
-            // 防御性添加 agnes-ai option 以防列表为空
-            const hasAgnes = Array.from(modelPrimaryProvider.options).some(opt => opt.value === 'agnes-ai');
-            if (!hasAgnes) {
-                const opt = document.createElement('option');
-                opt.value = 'agnes-ai';
-                opt.innerText = 'agnes-ai';
-                modelPrimaryProvider.appendChild(opt);
+        unlockModelField(modelPrimary);
+        unlockModelField(modelFallback);
+
+        const clampPair = (modelEl, providerEl, defaultRef) => {
+            const def = parseModelRef(defaultRef);
+            let provider = providerEl ? providerEl.value : '';
+            let modelId = modelEl ? modelEl.value.trim() : '';
+            if (modelId.includes('/')) {
+                const parsed = parseModelRef(modelId);
+                provider = parsed.provider || provider;
+                modelId = parsed.model || modelId;
             }
-            modelPrimaryProvider.value = 'agnes-ai';
-            modelPrimaryProvider.disabled = true;
-            modelPrimaryProvider.dispatchEvent(new Event('sync-beautified'));
-            const wrapper = modelPrimaryProvider.closest('.custom-select-wrapper');
-            if (wrapper) wrapper.classList.add('disabled');
-        }
-        if (modelFallbackProvider) {
-            // 防御性添加 agnes-ai option 以防列表为空
-            const hasAgnes = Array.from(modelFallbackProvider.options).some(opt => opt.value === 'agnes-ai');
-            if (!hasAgnes) {
-                const opt = document.createElement('option');
-                opt.value = 'agnes-ai';
-                opt.innerText = 'agnes-ai';
-                modelFallbackProvider.appendChild(opt);
+            if (!isBuiltinAllowedProvider(provider)) {
+                provider = def.provider;
+                modelId = def.model;
             }
-            modelFallbackProvider.value = 'agnes-ai';
-            modelFallbackProvider.disabled = true;
-            modelFallbackProvider.dispatchEvent(new Event('sync-beautified'));
-            const wrapper = modelFallbackProvider.closest('.custom-select-wrapper');
-            if (wrapper) wrapper.classList.add('disabled');
-        }
+            if (modelEl) modelEl.value = modelId;
+            if (providerEl) {
+                providerEl.disabled = false;
+                const wrapper = providerEl.closest('.custom-select-wrapper');
+                if (wrapper) wrapper.classList.remove('disabled');
+            }
+            return { provider, modelId };
+        };
+
+        const primary = clampPair(modelPrimary, modelPrimaryProvider, BUILTIN_DEFAULT_PRIMARY);
+        const fallback = clampPair(modelFallback, modelFallbackProvider, BUILTIN_DEFAULT_FALLBACK);
+        updateAssignedProviderSelects(primary.modelId, fallback.modelId, primary.provider, fallback.provider);
+        if (modelPrimaryProvider) modelPrimaryProvider.dispatchEvent(new Event('sync-beautified'));
+        if (modelFallbackProvider) modelFallbackProvider.dispatchEvent(new Event('sync-beautified'));
     } else {
-        if (modelPrimary) {
-            modelPrimary.disabled = false;
-            modelPrimary.style.opacity = '1';
-        }
-        if (modelFallback) {
-            modelFallback.disabled = false;
-            modelFallback.style.opacity = '1';
-        }
+        unlockModelField(modelPrimary);
+        unlockModelField(modelFallback);
         if (modelPrimaryProvider) {
             modelPrimaryProvider.disabled = false;
             const wrapper = modelPrimaryProvider.closest('.custom-select-wrapper');
@@ -3044,12 +3357,15 @@ function toggleProviderInputsEditable() {
                     fallbackModelId = parts[1];
                 }
                 if (modelFallback) modelFallback.value = fallbackModelId;
-                
+
                 updateAssignedProviderSelects(primaryModelId, fallbackModelId, primaryProvider, fallbackProvider);
+            } else {
+                updateAssignedProviderSelects();
             }
+        } else {
+            updateAssignedProviderSelects();
         }
-        
-        // 恢复后同步触发 UI 自定义下拉文字渲染
+
         if (modelPrimaryProvider) modelPrimaryProvider.dispatchEvent(new Event('sync-beautified'));
         if (modelFallbackProvider) modelFallbackProvider.dispatchEvent(new Event('sync-beautified'));
     }
@@ -3628,7 +3944,9 @@ function updateModelsDatalist() {
     if (!datalist) return;
     datalist.innerHTML = '';
 
-    for (const providerKey of Object.keys(localProviders)) {
+    // datalist：与主用模型同一套过滤（内置开 → agnes-ai + ollama）
+    const providerKeys = getModelPickerProviderKeys('model-primary').filter((k) => localProviders[k]);
+    for (const providerKey of providerKeys) {
         const provider = localProviders[providerKey];
         const models = provider.models || [];
         models.forEach(model => {
@@ -3656,13 +3974,14 @@ function updateAssignedProviderSelects(primaryModelId, fallbackModelId, selected
     const pSelVal = (selectedPrimaryProvider !== undefined) ? selectedPrimaryProvider : primarySelect.value;
     const fSelVal = (selectedFallbackProvider !== undefined) ? selectedFallbackProvider : fallbackSelect.value;
 
-    const allProviderKeys = Object.keys(localProviders);
+    const allProviderKeys = getSelectableProviderKeys();
 
     // 1. 处理主用模型供应商
     let matchedPrimary = [];
     if (pmId) {
         matchedPrimary = allProviderKeys.filter(key => {
             const provider = localProviders[key];
+            if (!provider) return false;
             const models = provider.models || [];
             return models.some(m => m.id === pmId);
         });
@@ -3681,6 +4000,8 @@ function updateAssignedProviderSelects(primaryModelId, fallbackModelId, selected
         primarySelect.value = pSelVal;
     } else if (matchedPrimary.length === 1) {
         primarySelect.value = matchedPrimary[0];
+    } else if (getUseBuiltIn() && primaryOptions.includes('agnes-ai')) {
+        primarySelect.value = 'agnes-ai';
     } else {
         primarySelect.value = '';
     }
@@ -3690,6 +4011,7 @@ function updateAssignedProviderSelects(primaryModelId, fallbackModelId, selected
     if (fmId) {
         matchedFallback = allProviderKeys.filter(key => {
             const provider = localProviders[key];
+            if (!provider) return false;
             const models = provider.models || [];
             return models.some(m => m.id === fmId);
         });
@@ -3708,9 +4030,14 @@ function updateAssignedProviderSelects(primaryModelId, fallbackModelId, selected
         fallbackSelect.value = fSelVal;
     } else if (matchedFallback.length === 1) {
         fallbackSelect.value = matchedFallback[0];
+    } else if (getUseBuiltIn() && fallbackOptions.includes('agnes-ai')) {
+        fallbackSelect.value = 'agnes-ai';
     } else {
         fallbackSelect.value = '';
     }
+
+    primarySelect.dispatchEvent(new Event('sync-beautified'));
+    fallbackSelect.dispatchEvent(new Event('sync-beautified'));
 }
 
 // 主模型输入框变动事件处理器
@@ -3764,16 +4091,10 @@ function setupCustomAutocomplete() {
 
         const showDropdown = () => {
             removeDropdown();
+            // 置灰锁定时不弹出下拉（内置主/备）
+            if (input.disabled || input.readOnly) return;
 
-            // 动态从 localProviders 获取当前所有可用模型
-            const allModels = [];
-            for (const providerKey of Object.keys(localProviders)) {
-                const provider = localProviders[providerKey];
-                const models = provider.models || [];
-                models.forEach(model => {
-                    allModels.push(`${providerKey}/${model.id}`);
-                });
-            }
+            const allModels = collectModelPickerOptions(id);
 
             // 根据用户当前输入进行模糊过滤
             const query = input.value.trim().toLowerCase();
@@ -3827,6 +4148,18 @@ function setupCustomAutocomplete() {
         
         // 当用户点击其他地方时关闭
         input.addEventListener('blur', () => {
+            if (id === 'model-student') {
+                const raw = input.value.trim();
+                if (raw) {
+                    const normalized = normalizeStudentModelRef(raw);
+                    if (!normalized) {
+                        showToast(t('模仿学生模型仅支持本地 ollama 模型', 'Student model only supports local ollama models', '模仿學生模型僅支援本地 ollama 模型'));
+                        input.value = '';
+                    } else if (normalized !== raw) {
+                        input.value = normalized;
+                    }
+                }
+            }
             setTimeout(removeDropdown, 200);
         });
     });
@@ -4018,6 +4351,10 @@ const newProviderUrlInput = document.getElementById('new-provider-url');
 const newProviderKeyInput = document.getElementById('new-provider-key');
 
 document.getElementById('btn-add-provider').addEventListener('click', () => {
+    if (getUseBuiltIn()) {
+        showToast(t('内置模型开启时仅可使用 agnes-ai 与 ollama', 'With built-in models on, only agnes-ai and ollama are available.', '內置模型開啟時僅可使用 agnes-ai 與 ollama'));
+        return;
+    }
     newProviderIdInput.value = '';
     newProviderUrlInput.value = 'https://api.example.com/v1';
     newProviderKeyInput.value = '';
@@ -4071,8 +4408,8 @@ document.getElementById('modal-confirm-btn').addEventListener('click', () => {
     markConfigDirty();
 });
 
-// 放弃修改并还原配置
-document.getElementById('config-reset-btn').addEventListener('click', async () => {
+// 顶部：放弃整页未保存修改并还原
+async function handleResetConfigAction() {
     const currentLang = localStorage.getItem('setting_language') || 'zh-CN';
     const isEn = currentLang === 'en-US';
     const isTw = currentLang === 'zh-TW';
@@ -4085,23 +4422,59 @@ document.getElementById('config-reset-btn').addEventListener('click', async () =
     const confirmReset = await confirm(t('确定要放弃当前所有未保存的修改，并还原到上一次成功保存的配置吗？', 'Are you sure you want to discard all unsaved changes and revert to the last successfully saved configuration?', '確定要放棄當前所有未保存的修改，並還原到上一次成功保存的配置嗎？'));
     if (confirmReset) {
         await loadAndRenderConfig();
-        const saveBtns = [
+        clearSaveBtnDirtyState(
+            document.getElementById('config-save-btn-top'),
+            t('保存配置', 'Save Configuration', '保存配置')
+        );
+        clearSaveBtnDirtyState(
             document.getElementById('config-save-btn'),
-            document.getElementById('config-save-btn-top')
-        ];
-        saveBtns.forEach(btn => {
-            if (btn) {
-                btn.innerText = t('保存配置', 'Save Configuration', '保存配置');
-                btn.style.background = '';
-                btn.style.boxShadow = '';
-                btn.removeAttribute('disabled');
-            }
-        });
+            t('保存配置', 'Save Configuration', '保存配置')
+        );
         const jsonErrorEl = document.getElementById('json-format-error');
         if (jsonErrorEl) jsonErrorEl.style.display = 'none';
         showToast('🔄 已成功放弃修改，已还原回上一次保存的配置');
     }
-});
+}
+
+// JSON 预览区：仅放弃手写 JSON，按左侧表单重新生成预览（不影响顶部整页状态）
+async function handleJsonPreviewResetAction() {
+    const currentLang = localStorage.getItem('setting_language') || 'zh-CN';
+    const isEn = currentLang === 'en-US';
+    const isTw = currentLang === 'zh-TW';
+    const t = (zhCn, en, zhTw) => {
+        if (isEn) return en;
+        if (isTw) return zhTw;
+        return zhCn;
+    };
+
+    const confirmReset = await confirm(t(
+        '确定要放弃 JSON 预览区的手写修改，并按左侧表单重新生成预览吗？',
+        'Discard handwritten changes in the JSON preview and regenerate it from the left form?',
+        '確定要放棄 JSON 預覽區的手寫修改，並按左側表單重新生成預覽嗎？'
+    ));
+    if (!confirmReset) return;
+
+    const previewEl = document.getElementById('config-json-preview');
+    if (previewEl && document.activeElement === previewEl) previewEl.blur();
+    updateConfigJsonPreview(true);
+
+    const jsonErrorEl = document.getElementById('json-format-error');
+    if (jsonErrorEl) jsonErrorEl.style.display = 'none';
+    clearSaveBtnDirtyState(
+        document.getElementById('config-save-btn'),
+        t('保存配置', 'Save Configuration', '保存配置')
+    );
+    showToast(t('🔄 已还原 JSON 预览', 'JSON preview restored', '🔄 已還原 JSON 預覽'));
+}
+
+const jsonResetBtn = document.getElementById('config-reset-btn');
+if (jsonResetBtn) {
+    jsonResetBtn.addEventListener('click', handleJsonPreviewResetAction);
+}
+const topResetBtn = document.getElementById('config-reset-btn-top');
+if (topResetBtn) {
+    topResetBtn.addEventListener('click', handleResetConfigAction);
+}
 
 // 通用的统一保存配置处理器
 const handleSaveConfigAction = async () => {
@@ -4166,7 +4539,7 @@ const handleSaveConfigAction = async () => {
     }
     configData.agents.defaults.model.fallbacks = [finalFallback];
 
-    // 内置开启：最终再强制一次，防止 JSON 手改 / 脏表单写回非 Agnes
+    // 内置开启：最终钳制一次，防止写回非 agnes-ai/ollama 的主备模型
     if (useBuiltIn) {
         applyBuiltInModelPolicy(configData);
         if (configData.models && configData.models.providers) {
@@ -4185,7 +4558,16 @@ const handleSaveConfigAction = async () => {
     const teacherInput = document.getElementById('model-teacher');
     const studentInput = document.getElementById('model-student');
     if (teacherInput) dmtEntry.config.teacherModel = teacherInput.value.trim();
-    if (studentInput) dmtEntry.config.studentModel = studentInput.value.trim();
+    if (studentInput) {
+        const normalizedStudent = normalizeStudentModelRef(studentInput.value);
+        if (studentInput.value.trim() && !normalizedStudent) {
+            showToast(t('模仿学生模型仅支持本地 ollama 模型（例如 ollama/qwen2.5:7b）', 'Student model only supports local ollama models (e.g. ollama/qwen2.5:7b).', '模仿學生模型僅支援本地 ollama 模型（例如 ollama/qwen2.5:7b）'));
+            studentInput.focus();
+            return;
+        }
+        studentInput.value = normalizedStudent;
+        dmtEntry.config.studentModel = normalizedStudent;
+    }
 
     if (!configData.videoGenerator) configData.videoGenerator = {};
     if (!configData.imageGenerator) configData.imageGenerator = {};
@@ -4233,18 +4615,11 @@ const handleSaveConfigAction = async () => {
     if (result.success) {
         alert(t('配置已成功保存！', 'Configuration saved successfully!', '配置已成功保存！'));
         await loadAndRenderConfig();
-        const saveBtns = [
-            document.getElementById('config-save-btn'),
-            document.getElementById('config-save-btn-top')
-        ];
-        saveBtns.forEach(btn => {
-            if (btn) {
-                btn.innerText = t('保存配置', 'Save Configuration', '保存配置');
-                btn.style.background = '';
-                btn.style.boxShadow = '';
-                btn.removeAttribute('disabled');
-            }
-        });
+        const saveLabel = t('保存配置', 'Save Configuration', '保存配置');
+        clearSaveBtnDirtyState(document.getElementById('config-save-btn-top'), saveLabel);
+        clearSaveBtnDirtyState(document.getElementById('config-save-btn'), saveLabel);
+        const jsonErrorEl = document.getElementById('json-format-error');
+        if (jsonErrorEl) jsonErrorEl.style.display = 'none';
         statPort.innerText = configData.gateway.port;
         if (gatewayStatus === 'running') {
             const restart = await confirm(t('Nexora Agent正在运行中，是否立即重启Nexora Agent以使新配置生效？', 'Gateway is running. Do you want to restart it now to apply the new configuration?', 'Nexora Agent正在運行中，是否立即重啟Nexora Agent以使新配置生效？'));
@@ -4728,30 +5103,32 @@ function updateStepperUI(progressVal) {
         topoNodeStates['node-core'] = 'completed';
         topoNodeStates['node-llm'] = 'completed';
         
-        // Configured channels start lighting up
+        // Configured channels start lighting up（仅已绑定的渠道）
         if (configData && configData.channels) {
-            const hasWechat = configData.channels.wechat?.enabled || (configData.plugins?.entries?.['weixin']?.enabled === true);
-            const hasQq = configData.channels.qqbot?.enabled;
-            const hasFeishu = configData.channels.feishu?.enabled;
+            const hasWechat = !!(document.getElementById('node-wechat')?.dataset?.liveBound === '1')
+                || configData.channels['openclaw-weixin']?.enabled === true;
+            const hasQq = !!(configData.channels.qqbot?.accounts && Object.keys(configData.channels.qqbot.accounts).length > 0)
+                || !!(configData.channels.qqbot?.appId && configData.channels.qqbot?.clientSecret);
+            const hasFeishu = !!(configData.channels.feishu?.appId && configData.channels.feishu?.appSecret)
+                || !!(configData.channels.feishu?.accounts && Object.values(configData.channels.feishu.accounts).some((a) => a && a.appId && a.appSecret));
 
             if (hasWechat && topoNodeStates['node-wechat'] === 'pending') topoNodeStates['node-wechat'] = 'active';
             if (hasQq && topoNodeStates['node-qq'] === 'pending') topoNodeStates['node-qq'] = 'active';
             if (hasFeishu && topoNodeStates['node-feishu'] === 'pending') topoNodeStates['node-feishu'] = 'active';
-        } else {
-            // Default fallback
-            if (topoNodeStates['node-wechat'] === 'pending') topoNodeStates['node-wechat'] = 'active';
-            if (topoNodeStates['node-qq'] === 'pending') topoNodeStates['node-qq'] = 'active';
-            if (topoNodeStates['node-feishu'] === 'pending') topoNodeStates['node-feishu'] = 'active';
         }
+        // 未绑定渠道保持 pending，不再误点亮「连接中」
     } else if (progressVal < 100) {
         topoNodeStates['node-client'] = 'completed';
         topoNodeStates['node-core'] = 'completed';
         topoNodeStates['node-llm'] = 'completed';
         
         if (configData && configData.channels) {
-            const hasWechat = configData.channels.wechat?.enabled || (configData.plugins?.entries?.['weixin']?.enabled === true);
-            const hasQq = configData.channels.qqbot?.enabled;
-            const hasFeishu = configData.channels.feishu?.enabled;
+            const hasWechat = !!(document.getElementById('node-wechat')?.dataset?.liveBound === '1')
+                || configData.channels['openclaw-weixin']?.enabled === true;
+            const hasQq = !!(configData.channels.qqbot?.accounts && Object.keys(configData.channels.qqbot.accounts).length > 0)
+                || !!(configData.channels.qqbot?.appId && configData.channels.qqbot?.clientSecret);
+            const hasFeishu = !!(configData.channels.feishu?.appId && configData.channels.feishu?.appSecret)
+                || !!(configData.channels.feishu?.accounts && Object.values(configData.channels.feishu.accounts).some((a) => a && a.appId && a.appSecret));
 
             if (hasWechat) topoNodeStates['node-wechat'] = 'completed';
             if (hasQq) topoNodeStates['node-qq'] = 'completed';
@@ -4763,19 +5140,22 @@ function updateStepperUI(progressVal) {
         topoNodeStates['node-core'] = 'completed';
         topoNodeStates['node-llm'] = 'completed';
 
-        // Check which channels are actually enabled and complete them
+        // Check which channels are actually bound
         if (configData && configData.channels) {
-            const hasWechat = configData.channels.wechat?.enabled || (configData.plugins?.entries?.['weixin']?.enabled === true);
-            const hasQq = configData.channels.qqbot?.enabled;
-            const hasFeishu = configData.channels.feishu?.enabled;
+            const hasWechat = !!(document.getElementById('node-wechat')?.dataset?.liveBound === '1')
+                || configData.channels['openclaw-weixin']?.enabled === true;
+            const hasQq = !!(configData.channels.qqbot?.accounts && Object.keys(configData.channels.qqbot.accounts).length > 0)
+                || !!(configData.channels.qqbot?.appId && configData.channels.qqbot?.clientSecret);
+            const hasFeishu = !!(configData.channels.feishu?.appId && configData.channels.feishu?.appSecret)
+                || !!(configData.channels.feishu?.accounts && Object.values(configData.channels.feishu.accounts).some((a) => a && a.appId && a.appSecret));
 
             topoNodeStates['node-wechat'] = hasWechat ? 'completed' : 'pending';
             topoNodeStates['node-qq'] = hasQq ? 'completed' : 'pending';
             topoNodeStates['node-feishu'] = hasFeishu ? 'completed' : 'pending';
         } else {
-            topoNodeStates['node-wechat'] = 'completed';
-            topoNodeStates['node-qq'] = 'completed';
-            topoNodeStates['node-feishu'] = 'completed';
+            topoNodeStates['node-wechat'] = 'pending';
+            topoNodeStates['node-qq'] = 'pending';
+            topoNodeStates['node-feishu'] = 'pending';
         }
     }
 
@@ -6540,14 +6920,15 @@ async function loadChatModels() {
         hasModels = true;
     }
 
-    // 2. 遍历其它所有已配置的提供商大模型
+    // 2. 遍历其它已配置提供商：内置开追加本地 ollama；关则全部
     for (const providerKey of Object.keys(localProviders)) {
-        // 开启内置时，跳过重复渲染自定义配置中的 agnes-ai 选项
+        if (useBuiltIn && !isBuiltinAllowedProvider(providerKey)) continue;
+        // 开启内置时，跳过重复渲染 agnes-ai（上方已注入）
         if (useBuiltIn && providerKey === 'agnes-ai') continue;
-        
+
         const provider = localProviders[providerKey];
         const models = provider.models || [];
-        
+
         models.forEach(model => {
             if (model.id) {
                 const opt = document.createElement('option');
@@ -7782,6 +8163,9 @@ async function updateWeChatStatusUI() {
         const result = await window.api.checkWeChatStatus();
         const accountsContainer = document.getElementById('wechat-accounts-container');
         const bindBtn = document.getElementById('wechat-bind-btn');
+        const topoWx = document.getElementById('node-wechat');
+        if (topoWx) topoWx.dataset.liveBound = (result && result.bound) ? '1' : '0';
+        if (typeof updateTopologyUI === 'function') updateTopologyUI();
         
         if (accountsContainer) {
             if (result.bound && result.details) {
@@ -8222,7 +8606,7 @@ async function triggerUpdateCheck(isManual = false) {
             if (isManual) {
                 showToast(result.message || '无法连接更新服务器，请稍后重试或手动前往 Releases 页面');
                 if (window.api && window.api.openExternal) {
-                    window.api.openExternal(result.downloadUrl || 'https://github.com/2014-y/Nexora-Agent/releases');
+                    window.api.openExternal(result.downloadUrl || 'https://github.com/2014-y/ClawAI/releases');
                 }
             } else {
                 showToast(t('toast.auto_update.failed'));
@@ -8325,7 +8709,7 @@ function setupUpdateModal() {
                 
                 // 自动打开浏览器到 GitHub Releases 页面
                 if (window.api && window.api.openExternal) {
-                    window.api.openExternal('https://github.com/2014-y/Nexora-Agent/releases');
+                    window.api.openExternal('https://github.com/2014-y/ClawAI/releases');
                 }
                 
                 // 恢复按钮状态

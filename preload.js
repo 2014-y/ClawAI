@@ -7,6 +7,12 @@ contextBridge.exposeInMainWorld('api', {
     
     // 网关控制
     gatewayAction: (action) => ipcRenderer.send('gateway-action', action),
+    /** 渠道绑定/改配后热重载网关；opts.startIfStopped=true 时未运行也会拉起 */
+    reloadGatewayForChannel: (reason, opts) => ipcRenderer.invoke('gateway-reload-for-channel', {
+        reason: reason || 'channel-change',
+        startIfStopped: !!(opts && opts.startIfStopped)
+    }),
+    onChannelGatewayReloading: (callback) => ipcRenderer.on('channel-gateway-reloading', (event, data) => callback(data)),
     
     // 配置读写
     readConfig: () => ipcRenderer.invoke('config-read'),

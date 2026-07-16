@@ -1,4 +1,4 @@
-=== C:\Users\Yuan\AppData\Local\ClawAI\.openclaw
+=== C:\Users\Yuan\AppData\Local\Nexora Agent\.openclaw
 agent:main:main => {"model":"agnes-2.0-flash","modelProvider":"agnes-ai"}
 === C:\Users\Yuan\.openclaw
 agent:main:main => {"authProfileOverride":"agnes-1","authProfileOverrideSource":"auto","authProfileOverrideCompactionCount":0,"modelProvider":"agnes-ai","model":"agnes-2.0-flash"}

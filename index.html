@@ -197,56 +197,157 @@
                   </div>
                 </div>
 
-                <!-- 步骤进度向导区域 -->
+                <!-- 消息流通路径（新手可读流程图） -->
                 <div class="step-progress-wrapper" id="step-progress-container">
-                  <div class="topology-container">
-                    <div class="topology-title" data-i18n="console.topology.title">网关服务通信拓扑</div>
-                    
-                    <div class="topology-map">
-                      <!-- SVG lines for connection paths -->
-                      <svg class="topo-lines" viewBox="0 0 432 324" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
-                        <path id="line-wechat" class="topo-line" d="M216,162 L86.4,58.32" />
-                        <path id="line-qq" class="topo-line" d="M216,162 L86.4,265.68" />
-                        <path id="line-feishu" class="topo-line" d="M216,162 L216,285.12" />
-                        <path id="line-llm" class="topo-line" d="M216,162 L345.6,58.32" />
-                        <path id="line-client" class="topo-line" d="M216,162 L345.6,265.68" />
-                      </svg>
-                      
-                      <!-- Center Node -->
-                      <div class="topo-node node-core" id="node-core">
-                        <div class="node-icon">🤖</div>
-                        <div class="node-label">Nexora Agent Core</div>
+                  <div class="topology-container" id="topology-container">
+                    <div class="topology-header">
+                      <div class="topology-header-text">
+                        <div class="topology-title" data-i18n="console.topology.title">消息怎么走的？</div>
+                        <div class="topology-subtitle" data-i18n="console.topology.subtitle">从聊天 App 发消息 → 本地网关处理 → AI 回复 → 再发回原渠道</div>
                       </div>
-                      
-                      <!-- WeChat Node -->
-                      <div class="topo-node node-wechat" id="node-wechat">
-                        <div class="node-icon">💬</div>
-                        <div class="node-label" data-i18n="console.node.wechat">微信网关</div>
+                      <div class="topology-legend" aria-label="状态图例">
+                        <span class="topo-legend-item pending"><i></i><span data-i18n="console.topology.legend.pending">未连接</span></span>
+                        <span class="topo-legend-item active"><i></i><span data-i18n="console.topology.legend.active">连接中</span></span>
+                        <span class="topo-legend-item completed"><i></i><span data-i18n="console.topology.legend.completed">已就绪</span></span>
                       </div>
-                      
-                      <!-- QQ Node -->
-                      <div class="topo-node node-qq" id="node-qq">
-                        <div class="node-icon">🐧</div>
-                        <div class="node-label" data-i18n="console.node.qq">QQ网关</div>
+                    </div>
+
+                    <div class="topology-flow" id="topology-flow">
+                      <!-- Step 1: Channels -->
+                      <section class="topo-stage topo-stage-channels" data-stage="channels">
+                        <div class="topo-stage-head">
+                          <span class="topo-stage-num">1</span>
+                          <div class="topo-stage-copy">
+                            <div class="topo-stage-title" data-i18n="console.topology.stage1.title">你从哪里发消息</div>
+                            <div class="topo-stage-desc" data-i18n="console.topology.stage1.desc">在「通讯管理」绑定后，这里会变绿；未绑定则收不到该渠道消息</div>
+                          </div>
+                        </div>
+                        <div class="topo-channel-grid">
+                          <div class="topo-node topo-channel-card node-wechat pending" id="node-wechat" data-channel="wechat">
+                            <div class="topo-card-top">
+                              <div class="node-icon topo-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8.5 10.5h.01M15.5 10.5h.01"/><path d="M4 11c0-3.3 3.6-6 8-6s8 2.7 8 6-3.6 6-8 6c-.7 0-1.4-.1-2-.2L6 19l.8-3.2C5.1 14.7 4 13 4 11z"/></svg>
+                              </div>
+                              <span class="topo-card-badge" id="badge-wechat" data-i18n="console.topology.status.pending">未连接</span>
+                            </div>
+                            <div class="node-label topo-card-name" data-i18n="console.node.wechat">微信</div>
+                            <div class="topo-card-hint" id="hint-wechat" data-i18n="console.topology.hint.unbound">去通讯管理扫码绑定</div>
+                          </div>
+                          <div class="topo-node topo-channel-card node-qq pending" id="node-qq" data-channel="qq">
+                            <div class="topo-card-top">
+                              <div class="node-icon topo-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="9" r="4"/><path d="M5 19c1.5-3 4-4.5 7-4.5S17.5 16 19 19"/><path d="M8 8.5c-.8-1.2.2-3 1.8-2.4M16 8.5c.8-1.2-.2-3-1.8-2.4"/></svg>
+                              </div>
+                              <span class="topo-card-badge" id="badge-qq" data-i18n="console.topology.status.pending">未连接</span>
+                            </div>
+                            <div class="node-label topo-card-name" data-i18n="console.node.qq">QQ 机器人</div>
+                            <div class="topo-card-hint" id="hint-qq" data-i18n="console.topology.hint.unbound">去通讯管理填写 AppID</div>
+                          </div>
+                          <div class="topo-node topo-channel-card node-feishu pending" id="node-feishu" data-channel="feishu">
+                            <div class="topo-card-top">
+                              <div class="node-icon topo-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12l7-8 2 5 7 1-6 3 2 7-5-4-7 2 4-6z"/></svg>
+                              </div>
+                              <span class="topo-card-badge" id="badge-feishu" data-i18n="console.topology.status.pending">未连接</span>
+                            </div>
+                            <div class="node-label topo-card-name" data-i18n="console.node.feishu">飞书</div>
+                            <div class="topo-card-hint" id="hint-feishu" data-i18n="console.topology.hint.unbound">去通讯管理扫码或填密钥</div>
+                          </div>
+                        </div>
+                        <!-- 兼容旧逻辑：隐藏连线节点仍可被 updateTopologyUI 打状态类 -->
+                        <svg class="topo-lines topo-lines-hidden" aria-hidden="true" focusable="false">
+                          <path id="line-wechat" class="topo-line" d="M0,0 L1,1" />
+                          <path id="line-qq" class="topo-line" d="M0,0 L1,1" />
+                          <path id="line-feishu" class="topo-line" d="M0,0 L1,1" />
+                          <path id="line-llm" class="topo-line" d="M0,0 L1,1" />
+                          <path id="line-client" class="topo-line" d="M0,0 L1,1" />
+                        </svg>
+                      </section>
+
+                      <div class="topo-connector" aria-hidden="true">
+                        <span class="topo-connector-line"></span>
+                        <span class="topo-connector-label" data-i18n="console.topology.flow.in">消息进入网关</span>
+                        <span class="topo-connector-line"></span>
                       </div>
-                      
-                      <!-- Feishu Node -->
-                      <div class="topo-node node-feishu" id="node-feishu">
-                        <div class="node-icon">🕊️</div>
-                        <div class="node-label" data-i18n="console.node.feishu">飞书网关</div>
+
+                      <!-- Step 2: Core -->
+                      <section class="topo-stage topo-stage-core" data-stage="core">
+                        <div class="topo-stage-head">
+                          <span class="topo-stage-num">2</span>
+                          <div class="topo-stage-copy">
+                            <div class="topo-stage-title" data-i18n="console.topology.stage2.title">本地网关核心处理</div>
+                            <div class="topo-stage-desc" data-i18n="console.topology.stage2.desc">点左上角「启动」后这里会亮起；绑定渠道后也会自动热重载</div>
+                          </div>
+                        </div>
+                        <div class="topo-node topo-core-card node-core pending" id="node-core">
+                          <div class="topo-core-glow" aria-hidden="true"></div>
+                          <div class="node-icon topo-core-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg>
+                          </div>
+                          <div class="topo-core-body">
+                            <div class="node-label topo-core-name">Nexora Agent</div>
+                            <div class="topo-core-status" id="topo-core-status" data-i18n="console.topology.status.pending">未连接</div>
+                          </div>
+                          <span class="topo-card-badge" id="badge-core" data-i18n="console.topology.status.pending">未连接</span>
+                        </div>
+                      </section>
+
+                      <div class="topo-connector" aria-hidden="true">
+                        <span class="topo-connector-line"></span>
+                        <span class="topo-connector-label" data-i18n="console.topology.flow.think">交给 AI 思考</span>
+                        <span class="topo-connector-line"></span>
                       </div>
-                      
-                      <!-- LLM Node -->
-                      <div class="topo-node node-llm" id="node-llm">
-                        <div class="node-icon">🧠</div>
-                        <div class="node-label" data-i18n="console.node.llm">模型引擎</div>
+
+                      <!-- Step 3 + 4 并排，节省纵向空间 -->
+                      <div class="topo-stage-pair">
+                        <section class="topo-stage topo-stage-llm" data-stage="llm">
+                          <div class="topo-stage-head">
+                            <span class="topo-stage-num">3</span>
+                            <div class="topo-stage-copy">
+                              <div class="topo-stage-title" data-i18n="console.topology.stage3.title">模型引擎生成回复</div>
+                              <div class="topo-stage-desc" data-i18n="console.topology.stage3.desc">使用你在「模型配置」里填好的 API Key 与默认模型</div>
+                            </div>
+                          </div>
+                          <div class="topo-node topo-engine-card node-llm pending" id="node-llm">
+                            <div class="node-icon topo-card-icon" aria-hidden="true">
+                              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="4"/><path d="M6.5 6.5l2 2M15.5 15.5l2 2M17.5 6.5l-2 2M8.5 15.5l-2 2"/></svg>
+                            </div>
+                            <div class="topo-engine-body">
+                              <div class="node-label topo-card-name" data-i18n="console.node.llm">模型引擎</div>
+                              <div class="topo-card-hint" id="hint-llm" data-i18n="console.topology.hint.llm">等待网关就绪</div>
+                            </div>
+                            <span class="topo-card-badge" id="badge-llm" data-i18n="console.topology.status.pending">未连接</span>
+                          </div>
+                        </section>
+
+                        <div class="topo-connector topo-connector-inline" aria-hidden="true">
+                          <span class="topo-connector-label" data-i18n="console.topology.flow.out">回复</span>
+                        </div>
+
+                        <section class="topo-stage topo-stage-reply" data-stage="reply">
+                          <div class="topo-stage-head">
+                            <span class="topo-stage-num">4</span>
+                            <div class="topo-stage-copy">
+                              <div class="topo-stage-title" data-i18n="console.topology.stage4.title">你在哪里看到回复</div>
+                              <div class="topo-stage-desc" data-i18n="console.topology.stage4.desc">渠道消息回原 App；本页「模型会话」也可直接对话</div>
+                            </div>
+                          </div>
+                          <div class="topo-reply-row">
+                            <div class="topo-reply-chip" data-i18n="console.topology.reply.channel">原微信 / QQ / 飞书聊天</div>
+                            <div class="topo-node topo-client-card node-client pending" id="node-client">
+                              <div class="node-icon topo-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+                              </div>
+                              <div class="node-label topo-card-name" data-i18n="console.node.client">本地客户端</div>
+                              <span class="topo-card-badge" id="badge-client" data-i18n="console.topology.status.pending">未连接</span>
+                            </div>
+                          </div>
+                        </section>
                       </div>
-                      
-                      <!-- Client Node -->
-                      <div class="topo-node node-client" id="node-client">
-                        <div class="node-icon">💻</div>
-                        <div class="node-label" data-i18n="console.node.client">本地客户端</div>
-                      </div>
+                    </div>
+
+                    <div class="topology-footer" id="topology-footer-tip" data-i18n="console.topology.footer">
+                      新手提示：先启动网关（左上角绿灯）→ 再去「通讯管理」绑定渠道 → 回来看本图变绿即可发消息测试
                     </div>
                   </div>
                 </div>
@@ -468,13 +569,14 @@
 
         <!-- Tab 2: 参数配置 -->
         <section class="tab-pane" id="config-view">
-          <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <div>
-              <h2 style="margin: 0;" data-i18n="config.title">网关模型配置</h2>
-              <p style="margin: 4px 0 0 0;" data-i18n="config.desc">可视化配置多提供商 API Key 与核心模型选型</p>
+          <div class="view-header config-view-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 20px;">
+            <div class="config-view-header-text" style="flex: 1; min-width: 0; padding-right: 8px;">
+              <h2 style="margin: 0; line-height: 1.35;" data-i18n="config.title">网关模型配置</h2>
+              <p style="margin: 10px 0 0 0; line-height: 1.5;" data-i18n="config.desc">可视化配置多提供商 API Key 与核心模型选型</p>
             </div>
-            <div>
-              <button type="button" class="btn-primary" id="config-save-btn-top" style="padding: 10px 28px; font-size: 14px; font-weight: 600; border-radius: 8px; box-shadow: var(--accent-glow); cursor: pointer;" data-i18n="config.btn.save">保存配置</button>
+            <div class="config-header-actions" style="display: flex; align-items: center; gap: 12px; flex-shrink: 0; padding-top: 2px;">
+              <button type="button" class="btn-cancel" id="config-reset-btn-top" style="padding: 10px 22px; font-size: 14px; font-weight: 500; border-radius: 8px; height: 42px; box-sizing: border-box; margin-top: 0; white-space: nowrap;" data-i18n="config.btn.reset">放弃修改</button>
+              <button type="button" class="btn-primary" id="config-save-btn-top" style="padding: 10px 28px; font-size: 14px; font-weight: 600; border-radius: 8px; height: 42px; box-sizing: border-box; box-shadow: var(--accent-glow); cursor: pointer; margin-top: 0; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;" data-i18n="config.btn.save">保存配置</button>
             </div>
           </div>
           
@@ -623,12 +725,12 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <h3 data-i18n="config.section.json_preview">📄 openclaw.json 实时预览</h3>
                   <div style="display: flex; gap: 8px; align-items: center;">
-                    <button type="button" class="btn-secondary" id="config-reset-btn" style="padding: 0 14px; font-size: 12px; font-weight: 500; border-radius: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); color: var(--text-primary); transition: all 0.3s ease; cursor: pointer; height: 28px; line-height: 28px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; margin-top: 0;" data-i18n="config.btn.reset">放弃修改</button>
+                    <button type="button" class="btn-secondary" id="config-reset-btn" style="padding: 0 14px; font-size: 12px; font-weight: 500; border-radius: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); color: var(--text-primary); transition: all 0.3s ease; cursor: pointer; height: 28px; line-height: 28px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; margin-top: 0;" data-i18n="config.btn.reset_json" title="仅还原 JSON 预览区手写内容">放弃修改</button>
                     <button type="button" class="btn-primary" id="config-save-btn" style="padding: 0 16px; font-size: 12px; font-weight: 600; border-radius: 6px; box-shadow: var(--accent-glow); cursor: pointer; height: 28px; line-height: 28px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; margin-top: 0;" data-i18n="config.btn.save">保存配置</button>
                     <span style="font-size: 11px; color: var(--text-secondary); background: rgba(255,255,255,0.06); padding: 0 8px; border-radius: 4px; font-weight: 500; height: 28px; display: inline-flex; align-items: center; box-sizing: border-box;" data-i18n="config.badge.manual_edit">支持手动直接修改</span>
                   </div>
                 </div>
-                <p style="font-size: 12px; color: var(--text-secondary); margin: 0; line-height: 1.5;" data-i18n="config.desc.json_preview">左侧表单项的改动会实时自动反映在此处；您也可以直接在下方框内手写 JSON 配置，点击保存后一并生效。</p>
+                <p style="font-size: 12px; color: var(--text-secondary); margin: 0; line-height: 1.5;" data-i18n="config.desc.json_preview">左侧表单项的改动会实时自动反映在此处；API 密钥等敏感字段已脱敏为 ********。您也可以直接手写 JSON，点击保存后一并生效。</p>
                 <textarea id="config-json-preview" class="config-json-textarea" spellcheck="false" placeholder="正在读取网关配置文件..." data-i18n-placeholder="config.placeholder.json_reading"></textarea>
                 <div id="json-format-error" class="json-error-msg" data-i18n="config.error.json_syntax">⚠️ JSON 语法格式有误，请检查大括号、逗号或双引号闭合状态。</div>
               </div>
