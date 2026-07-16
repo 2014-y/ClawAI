@@ -4300,7 +4300,7 @@ async function renderPluginsGrid() {
             let painted = 0;
             for (const key of UI_PLUGIN_ORDER) {
                 if (!pluginMetadata[key]) continue;
-                if (!entries[key] && key !== 'auto-start-codex') {
+                if (!entries[key] && key !== 'auto-start-codex' && key !== 'long-term-memory') {
                     entries[key] = { enabled: false };
                 }
 
@@ -4310,10 +4310,8 @@ async function renderPluginsGrid() {
                         ? configData.hooks.internal.entries['auto-start-codex'].enabled === true
                         : false;
                 } else if (key === 'long-term-memory') {
-                    // 伞形卡：真实栈三者全部开启才算“已启用”
+                    // 伞形卡：真实栈三者全部开启才算“已启用”（不落盘 UI id）
                     isEnabled = LONG_TERM_MEMORY_STACK.every((id) => entries[id] && entries[id].enabled === true);
-                    if (!entries[key]) entries[key] = { enabled: isEnabled };
-                    else entries[key].enabled = isEnabled;
                 } else {
                     isEnabled = entries[key] ? entries[key].enabled === true : false;
                 }
@@ -4515,7 +4513,7 @@ async function renderPluginsGrid() {
             configData.hooks.internal.entries['auto-start-codex'].enabled = checked;
             if (checked) configData.hooks.internal.enabled = true;
         } else if (pluginKey === 'long-term-memory') {
-            // 伞形开关：同步真实长期记忆栈（摘要 / 旋转 / 压缩护栏）
+            // 伞形开关：同步真实长期记忆栈（摘要 / 旋转 / 压缩护栏）；勿写入 long-term-memory 条目（OpenClaw 不认识）
             for (const id of LONG_TERM_MEMORY_STACK) {
                 if (!configData.plugins.entries[id]) configData.plugins.entries[id] = {};
                 configData.plugins.entries[id].enabled = checked;
@@ -4523,7 +4521,9 @@ async function renderPluginsGrid() {
                     configData.plugins.allow.push(id);
                 }
             }
-            configData.plugins.entries['long-term-memory'] = { enabled: checked };
+            if (configData.plugins.entries['long-term-memory']) {
+                delete configData.plugins.entries['long-term-memory'];
+            }
             configData.plugins.allow = configData.plugins.allow.filter((x) => x !== 'long-term-memory');
             if (checked && !configData.plugins.allow.includes('llm-task')) {
                 configData.plugins.allow.push('llm-task');
@@ -4592,16 +4592,16 @@ function updateProgressUI(val, textLabel = '') {
     if (sidebarPercent) {
         const roundedVal = val.toFixed(0);
         if (roundedVal === '100') {
-            sidebarPercent.innerText = t('正常', 'Active', '正常');
+            sidebarPercent.style.display = 'none';
         } else {
             sidebarPercent.innerText = `${roundedVal}%`;
+            sidebarPercent.style.display = 'block';
         }
         const sidebarIcon = document.getElementById('sidebar-status-icon');
         if (roundedVal === '0' && gatewayStatus === 'stopped') {
             sidebarPercent.style.display = 'none';
             if (sidebarIcon) sidebarIcon.style.display = 'block';
         } else {
-            sidebarPercent.style.display = 'block';
             if (sidebarIcon) sidebarIcon.style.display = 'none';
         }
     }
@@ -6285,10 +6285,10 @@ function applyLanguage(lang) {
         }
     }
 
-    // 5b. 翻译侧边栏“正常 / Active”微型状态字样
+    // 5b. 翻译侧边栏“正常 / Active”微型状态字样 (已改动为直接隐藏，避免干扰)
     const sidebarPercent = document.getElementById('sidebar-status-percentage');
     if (sidebarPercent && (sidebarPercent.innerText === '正常' || sidebarPercent.innerText === 'Active')) {
-        sidebarPercent.innerText = t('正常', 'Active', '正常');
+        sidebarPercent.style.display = 'none';
     }
 
     // 6. 重新执行动态生成的 UI 模块渲染
