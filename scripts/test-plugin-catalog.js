@@ -44,7 +44,7 @@ assert(empty.plugins.allow.includes('slack'), 'slack in allow');
 assert(empty.plugins.allow.includes('matrix'), 'matrix in allow');
 assert(empty.plugins.entries.duckduckgo.enabled === true, 'duckduckgo default enabled');
 assert(empty.plugins.entries['dual-model-trainer'].enabled === true, 'dual-model default enabled');
-assert(empty.plugins.entries.slack.enabled !== true, 'slack stays off by default');
+assert(!empty.plugins.entries.slack || empty.plugins.entries.slack.enabled !== true, 'slack stays off by default');
 assert(empty.hooks.internal.entries['auto-start-codex'], 'codex hook entry created');
 
 const again = ensureUiPluginCatalog(empty, { forceDefaultOn: false });
