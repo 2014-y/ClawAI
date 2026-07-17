@@ -6683,8 +6683,8 @@ function applyLanguage(lang) {
     document.body.className = document.body.className.replace(/\blang-\S+/g, '');
     document.body.classList.add(`lang-${lang}`);
 
-    // 2. 声明式遍历翻译所有带 data-i18n 属性的 DOM 文本（排除 option 元素防止引发异常）
-    document.querySelectorAll('[data-i18n]:not(option)').forEach(el => {
+    // 2. 声明式遍历翻译所有带 data-i18n 属性的 DOM 文本（现已有快照防御机制，无需排除 option）
+    document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
         const translation = t(key);
         if (translation !== key) {
@@ -11141,11 +11141,11 @@ function updateDashboardSpeedEmptyState(hasTraffic) {
         return;
     }
     empty.hidden = false;
-    if (title) title.textContent = enabled ? '等待网络流量' : '加速尚未启用';
+    if (title) title.textContent = enabled ? t('acc.dash.speed_empty_title') : t('acc.dash.speed_unenabled_title');
     if (desc) {
         desc.textContent = enabled
-            ? '浏览网页或下载时，这里会显示实时上下行速度曲线'
-            : '打开右上角开关启用加速后，网速与连接数据会显示在这里';
+            ? t('acc.dash.speed_empty_desc')
+            : t('acc.dash.speed_unenabled_desc');
     }
 }
 
