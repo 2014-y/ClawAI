@@ -12,10 +12,11 @@ const { spawn, execSync } = require('child_process');
 const { URL } = require('url');
 const crypto = require('crypto');
 const zlib = require('zlib');
+const net = require('net');
 
-const MIXED_PORT = 17890;
+let MIXED_PORT = 17890;
 const CONTROLLER_HOST = '127.0.0.1';
-const CONTROLLER_PORT = 19090;
+let CONTROLLER_PORT = 19090;
 const CONTROLLER_SECRET = 'nexora-acc-secret';
 const MIHOMO_VERSION = 'v1.19.28';
 
@@ -730,6 +731,32 @@ async function stopCore() {
     await new Promise((r) => setTimeout(r, 200));
 }
 
+function isPortAvailable(port) {
+    return new Promise((resolve) => {
+        const server = net.createServer();
+        server.once('error', () => {
+            resolve(false);
+        });
+        server.once('listening', () => {
+            server.close(() => {
+                resolve(true);
+            });
+        });
+        server.listen(port, '127.0.0.1');
+    });
+}
+
+async function getNextAvailablePort(startPort) {
+    let port = startPort;
+    while (port < 65535) {
+        if (await isPortAvailable(port)) {
+            return port;
+        }
+        port++;
+    }
+    return startPort;
+}
+
 async function startCore(profileId) {
     const id = profileId || state.activeProfileId;
     if (!id) throw new Error('请先添加加速厂商订阅');
@@ -740,6 +767,11 @@ async function startCore(profileId) {
     if (!ensured.success) throw new Error(ensured.error || '内核不可用');
 
     await stopCore();
+
+    // 自动检测并避让占用端口
+    MIXED_PORT = await getNextAvailablePort(17890);
+    CONTROLLER_PORT = await getNextAvailablePort(19090);
+    console.log(`[Acceleration] Auto allocated MIXED_PORT=${MIXED_PORT}, CONTROLLER_PORT=${CONTROLLER_PORT}`);
 
     const runtimeYaml = buildRuntimeYaml(content);
     fs.writeFileSync(getRuntimeConfigPath(), runtimeYaml, 'utf8');
@@ -1018,7 +1050,7 @@ async function closeConnection(id) {
 }
 
 module.exports = {
-    MIXED_PORT,
+    get MIXED_PORT() { return MIXED_PORT; },
     init,
     ensureCore,
     isCoreReady,
