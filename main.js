@@ -4790,9 +4790,13 @@ ipcMain.handle('acceleration-delay-test', async (event, names) => {
 });
 
 ipcMain.handle('acceleration-detect-ip', async () => {
+    console.log('[IPC] Received acceleration-detect-ip call');
     try {
-        return await acceleration.detectOutboundIp();
+        const res = await acceleration.detectOutboundIp();
+        console.log('[IPC] acceleration-detect-ip result:', res);
+        return res;
     } catch (e) {
+        console.error('[IPC] acceleration-detect-ip failed:', e);
         return { success: false, error: e.message || String(e) };
     }
 });

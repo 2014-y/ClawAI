@@ -5148,6 +5148,22 @@ input:focus, select:focus, textarea:focus {
   text-shadow: 0 0 6px rgba(0, 245, 255, 0.15);
 }
 
+#acc-dash-ip-detect-card {
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+#acc-dash-ip-detect-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(168, 85, 247, 0.4);
+  box-shadow: 0 4px 16px rgba(168, 85, 247, 0.1);
+  transform: translateY(-2px);
+}
+
+#acc-dash-ip-detect-card:active {
+  transform: translateY(0) scale(0.98);
+}
+
 .acc-dash-detect-btn {
   position: absolute;
   right: 12px;

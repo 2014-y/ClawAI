@@ -2317,8 +2317,7 @@ function httpGetAbsolute(url, options = {}) {
                     Host: parsed.host,
                     'User-Agent': 'NexoraAgent/1.0',
                     Accept: 'application/json,text/plain,*/*'
-                },
-                timeout: timeoutMs
+                }
             }
             : {
                 host: parsed.hostname,
@@ -2329,22 +2328,34 @@ function httpGetAbsolute(url, options = {}) {
                     Host: parsed.host,
                     'User-Agent': 'NexoraAgent/1.0',
                     Accept: 'application/json,text/plain,*/*'
-                },
-                timeout: timeoutMs
+                }
             };
+
+        let active = true;
+        const timer = setTimeout(() => {
+            if (!active) return;
+            active = false;
+            try { req.destroy(); } catch (e) {}
+            reject(new Error('timeout'));
+        }, timeoutMs);
+
         const req = http.request(reqOpts, (res) => {
             const chunks = [];
             res.on('data', (c) => chunks.push(c));
             res.on('end', () => {
+                if (!active) return;
+                active = false;
+                clearTimeout(timer);
                 const text = Buffer.concat(chunks).toString('utf8');
                 if (res.statusCode >= 200 && res.statusCode < 300) resolve(text);
                 else reject(new Error(`HTTP ${res.statusCode}`));
             });
         });
-        req.on('error', reject);
-        req.on('timeout', () => {
-            req.destroy();
-            reject(new Error('timeout'));
+        req.on('error', (err) => {
+            if (!active) return;
+            active = false;
+            clearTimeout(timer);
+            reject(err);
         });
         req.end();
     });

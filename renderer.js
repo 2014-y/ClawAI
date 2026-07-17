@@ -5554,6 +5554,16 @@ function setupTabSwitching() {
 
                 if (currentTab === 'settings-view') {
                     try { loadAndRenderSystemLogs(); } catch (err) { console.error(err); }
+                    const settingLangSel = document.getElementById('setting-language-select');
+                    if (settingLangSel) {
+                        const initLang = localStorage.getItem('setting_language') || 'zh-CN';
+                        settingLangSel.value = initLang;
+                        // 强制重绘
+                        const dummy = document.createElement('option');
+                        dummy.style.display = 'none';
+                        settingLangSel.appendChild(dummy);
+                        settingLangSel.removeChild(dummy);
+                    }
                 }
 
                 if (currentTab === 'chat-view') {
@@ -6662,12 +6672,19 @@ if (originalBindBtn) {
 
 // 多语言界面动态重载渲染
 function applyLanguage(lang) {
+    // 0. 通用型快照保存当前页面所有 <select> 的选中值
+    //    基于 DOM 元素引用 (Element) 进行存储，无需依赖 ID，完美适配未来任何新增的下拉框
+    const selectSnapshots = new Map();
+    document.querySelectorAll('select').forEach(sel => {
+        selectSnapshots.set(sel, sel.value);
+    });
+
     // 1. 给 body 挂载当前语言类名，以备未来 CSS 微调用
     document.body.className = document.body.className.replace(/\blang-\S+/g, '');
     document.body.classList.add(`lang-${lang}`);
 
-    // 2. 声明式遍历翻译所有带 data-i18n 属性的 DOM 文本
-    document.querySelectorAll('[data-i18n]').forEach(el => {
+    // 2. 声明式遍历翻译所有带 data-i18n 属性的 DOM 文本（排除 option 元素防止引发异常）
+    document.querySelectorAll('[data-i18n]:not(option)').forEach(el => {
         const key = el.getAttribute('data-i18n');
         const translation = t(key);
         if (translation !== key) {
@@ -6762,6 +6779,35 @@ function applyLanguage(lang) {
     if (typeof updateStepperUI === 'function') {
         try { updateStepperUI(currentProgress); } catch(e) { console.error(e); }
     }
+
+    // 7. 无差别还原所有 <select> 的选中值，强制触发 Chromium 界面显示重绘
+    const _restoreAllSelects = () => {
+        selectSnapshots.forEach((savedValue, sel) => {
+            // 元素如果已经脱离 DOM (例如在动态重绘中被销毁) 则跳过
+            if (!document.body.contains(sel)) return;
+            
+            // 如果是主界面的语言选择框，特殊强制为当前系统实际应用的语言值
+            const targetValue = (sel.id === 'setting-language-select') ? lang : savedValue;
+            if (!targetValue) return;
+
+            for (let i = 0; i < sel.options.length; i++) {
+                if (sel.options[i].value === targetValue) {
+                    sel.options[i].selected = true;
+                    sel.selectedIndex = i;
+                    break;
+                }
+            }
+            
+            // 强制 Chromium 重绘该下拉框的外观文本（视觉防重置技术）
+            const dummy = document.createElement('option');
+            dummy.style.display = 'none';
+            sel.appendChild(dummy);
+            sel.removeChild(dummy);
+        });
+    };
+    
+    _restoreAllSelects();
+    requestAnimationFrame(() => _restoreAllSelects());
 }
 
 // 发送系统桌面横幅通知

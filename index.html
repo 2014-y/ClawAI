@@ -609,15 +609,15 @@
                   
                   <div class="form-row">
                     <div class="form-field">
-                      <label for="model-primary-provider">主用模型供应商 (Primary Model Provider)</label>
+                      <label for="model-primary-provider" data-i18n="config.label.primary_provider">主用模型供应商 (Primary Model Provider)</label>
                       <select id="model-primary-provider">
-                        <option value="">-- 自动检测供应商 --</option>
+                        <option value="" data-i18n="config.option.auto_detect_provider">-- 自动检测供应商 --</option>
                       </select>
                     </div>
                     <div class="form-field">
-                      <label for="model-fallback-provider">备用模型供应商 (Fallback Model Provider)</label>
+                      <label for="model-fallback-provider" data-i18n="config.label.fallback_provider">备用模型供应商 (Fallback Model Provider)</label>
                       <select id="model-fallback-provider">
-                        <option value="">-- 自动检测供应商 --</option>
+                        <option value="" data-i18n="config.option.auto_detect_provider">-- 自动检测供应商 --</option>
                       </select>
                     </div>
                   </div>
@@ -643,14 +643,14 @@
                 
                 <!-- 图片生成设置 -->
                 <div class="form-group-section">
-                  <h3>🎨 图片生成服务配置 (Image Generator)</h3>
+                  <h3 data-i18n="config.section.image_generator">🎨 图片生成服务配置 (Image Generator)</h3>
                   <div class="form-row">
                     <div class="form-field">
-                      <label for="image-api-base">图片生成 API 地址 (Base URL)</label>
-                      <input type="text" id="image-api-base" autocomplete="off" placeholder="例如: https://apihub.agnes-ai.com/v1/images">
+                      <label for="image-api-base" data-i18n="config.label.image_api_base">图片生成 API 地址 (Base URL)</label>
+                      <input type="text" id="image-api-base" autocomplete="off" placeholder="例如: https://apihub.agnes-ai.com/v1/images" data-i18n-placeholder="config.placeholder.image_api_base">
                     </div>
                     <div class="form-field">
-                      <label for="image-api-key">图片生成 API 密钥 (API Key)</label>
+                      <label for="image-api-key" data-i18n="config.label.image_api_key">图片生成 API 密钥 (API Key)</label>
                       <div class="password-input-wrapper" style="position: relative; display: flex; align-items: center;">
                         <input type="password" id="image-api-key" autocomplete="off" placeholder="不填则使用默认内置密钥" style="padding-right: 36px; width: 100%;" data-i18n-placeholder="config.placeholder.key_default">
                         <span id="btn-toggle-image-key" style="position: absolute; right: 10px; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-size: 16px; user-select: none;">👁️</span>
@@ -697,7 +697,7 @@
 
                 <!-- 服务器网关设置 -->
                 <div class="form-group-section">
-                  <h3>🌐 网络网关设置</h3>
+                  <h3 data-i18n="config.section.network_settings">🌐 网络网关设置</h3>
                   <div class="form-row">
                     <div class="form-field">
                       <label for="gateway-port" data-i18n="config.label.gateway_port">网关运行端口</label>
@@ -966,9 +966,9 @@
               </div>
               <div style="flex-shrink: 0;">
                 <select id="setting-language-select" aria-label="Interface language" style="background: var(--bg-input) !important; color: var(--text-primary) !important; border: 1px solid var(--border-color); border-radius: 6px; padding: 4px 10px; font-size: 12px; outline: none; height: 32px; min-width: 128px; cursor: pointer;">
-                  <option value="zh-CN" data-i18n="settings.lang.zh_CN">简体中文</option>
-                  <option value="zh-TW" data-i18n="settings.lang.zh_TW">繁體中文</option>
-                  <option value="en-US" data-i18n="settings.lang.en_US">English</option>
+                  <option value="zh-CN">简体中文</option>
+                  <option value="zh-TW">繁體中文</option>
+                  <option value="en-US">English</option>
                 </select>
               </div>
             </div>
@@ -1286,13 +1286,12 @@
               </div>
 
               <!-- 网络检测 -->
-              <div class="acc-card acc-dash-stat-card" style="position: relative;">
+              <div id="acc-dash-ip-detect-card" class="acc-card acc-dash-stat-card" style="position: relative;">
                 <div class="stat-icon">🌐</div>
-                <div class="stat-main" style="padding-right: 32px;">
+                <div class="stat-main">
                   <div class="stat-label" data-i18n="acc.stat.net_detect">网络检测</div>
                   <div id="acc-dash-ip-detect-result" class="stat-value" style="font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="自动检测本机或代理出口 IP" data-i18n="acc.stat.detecting" data-i18n-title="acc.stat.net_detect_title">检测中...</div>
                 </div>
-                <button type="button" id="acc-dash-ip-detect-btn" class="acc-dash-detect-btn" title="检测网络出口 IP" data-i18n-title="acc.stat.detect_btn">⚡</button>
               </div>
 
               <!-- 流量统计 -->
@@ -1321,45 +1320,45 @@
           <!-- 配置页：添加厂商 + 已有配置列表 -->
           <div class="acc-panel" id="acc-panel-profiles" hidden>
             <div class="acc-card">
-              <div class="acc-card-title">添加加速厂商</div>
+              <div class="acc-card-title" data-i18n="acc.profile.title">添加加速配置</div>
               <div class="acc-import-grid">
                 <button type="button" class="acc-import-item" id="acc-add-qr-btn" data-import-mode="qr">
                   <span class="acc-import-icon">▦</span>
-                  <span><strong>二维码</strong><small>粘贴扫码结果或订阅链接</small></span>
+                  <span><strong data-i18n="acc.profile.qr">二维码</strong><small data-i18n="acc.profile.qr_sub">粘贴扫码结果或订阅链接</small></span>
                 </button>
                 <button type="button" class="acc-import-item" id="acc-add-file-btn" data-import-mode="file">
                   <span class="acc-import-icon">⇧</span>
-                  <span><strong>文件</strong><small>上传 Clash/Mihomo 配置</small></span>
+                  <span><strong data-i18n="acc.profile.file">文件</strong><small data-i18n="acc.profile.file_sub">上传 Clash/Mihomo 配置</small></span>
                 </button>
                 <button type="button" class="acc-import-item active" id="acc-add-url-btn" data-import-mode="url">
                   <span class="acc-import-icon">☁</span>
-                  <span><strong>URL</strong><small>通过订阅地址获取</small></span>
+                  <span><strong data-i18n="acc.profile.url">URL</strong><small data-i18n="acc.profile.url_sub">通过订阅地址获取</small></span>
                 </button>
               </div>
 
               <div class="acc-inline-import" id="acc-inline-import">
                 <div class="acc-inline-import-head">
-                  <strong id="acc-import-title">通过 URL 添加配置</strong>
-                  <span id="acc-import-help">填写加速厂商提供的 Clash/Mihomo 订阅地址。</span>
+                  <strong id="acc-import-title" data-i18n="acc.profile.import_url_title">通过 URL 添加配置</strong>
+                  <span id="acc-import-help" data-i18n="acc.profile.import_url_desc">填写加速厂商提供的 Clash/Mihomo 订阅地址。</span>
                 </div>
                 <div class="acc-import-fields" id="acc-url-fields">
-                  <input id="acc-import-name" class="acc-input" type="text" placeholder="配置名称（例如：我的加速服务）">
-                  <input id="acc-import-url" class="acc-input acc-input-grow" type="url" placeholder="https://example.com/clash/subscription">
-                  <button type="button" id="acc-import-url-submit" class="btn-primary acc-action-btn">添加配置</button>
+                  <input id="acc-import-name" class="acc-input" type="text" placeholder="配置名称（例如：我的加速服务）" data-i18n-placeholder="acc.profile.name_placeholder">
+                  <input id="acc-import-url" class="acc-input acc-input-grow" type="url" placeholder="https://example.com/clash/subscription" data-i18n-placeholder="acc.profile.url_placeholder">
+                  <button type="button" id="acc-import-url-submit" class="btn-primary acc-action-btn" data-i18n="acc.profile.submit">添加配置</button>
                 </div>
                 <div class="acc-import-fields-column" id="acc-qr-fields" hidden>
-                  <input id="acc-qr-name" class="acc-input" type="text" placeholder="配置名称（可选）" style="width: 100%;">
-                  <textarea id="acc-qr-content" class="acc-input" rows="3" placeholder="选择图片识别或粘贴二维码解析出的订阅链接/YAML配置" style="width: 100%; min-height: 80px;"></textarea>
+                  <input id="acc-qr-name" class="acc-input" type="text" placeholder="配置名称（可选）" data-i18n-placeholder="acc.profile.name_optional_placeholder" style="width: 100%;">
+                  <textarea id="acc-qr-content" class="acc-input" rows="3" placeholder="选择图片识别或粘贴二维码解析出的订阅链接/YAML配置" data-i18n-placeholder="acc.profile.qr_placeholder" style="width: 100%; min-height: 80px;"></textarea>
                   <div style="display: flex; justify-content: flex-end; gap: 8px; width: 100%;">
-                    <button type="button" id="acc-qr-upload-btn" class="btn-secondary acc-action-btn">识别图片</button>
+                    <button type="button" id="acc-qr-upload-btn" class="btn-secondary acc-action-btn" data-i18n="acc.profile.qr_scan_btn">识别图片</button>
                     <input type="file" id="acc-qr-file-input" accept="image/*" style="display: none;">
-                    <button type="button" id="acc-qr-image-btn" class="btn-secondary acc-action-btn">粘贴剪贴板</button>
-                    <button type="button" id="acc-import-qr-submit" class="btn-primary acc-action-btn">添加配置</button>
+                    <button type="button" id="acc-qr-image-btn" class="btn-secondary acc-action-btn" data-i18n="acc.profile.qr_paste_btn">粘贴剪贴板</button>
+                    <button type="button" id="acc-import-qr-submit" class="btn-primary acc-action-btn" data-i18n="acc.profile.submit">添加配置</button>
                   </div>
                 </div>
                 <div class="acc-import-fields" id="acc-file-fields" hidden>
-                  <div class="acc-file-hint">支持 .yaml / .yml / .txt / .conf，导入后可到「代理」页选择节点。</div>
-                  <button type="button" id="acc-import-file-submit" class="btn-primary acc-action-btn">选择配置文件</button>
+                  <div class="acc-file-hint" data-i18n="acc.profile.file_hint">支持 .yaml / .yml / .txt / .conf，导入后可到「代理」页选择节点。</div>
+                  <button type="button" id="acc-import-file-submit" class="btn-primary acc-action-btn" data-i18n="acc.profile.file_select_btn">选择配置文件</button>
                 </div>
                 <div id="acc-import-feedback" class="acc-import-feedback" aria-live="polite"></div>
               </div>
@@ -1368,18 +1367,18 @@
             <div class="acc-card">
               <div class="acc-card-head">
                 <div>
-                  <div class="acc-card-title" style="margin-bottom: 2px;">已添加配置</div>
-                  <div id="acc-profile-summary" class="acc-muted">请先添加加速厂商配置</div>
+                  <div class="acc-card-title" style="margin-bottom: 2px;" data-i18n="acc.profile.list_title">已添加配置</div>
+                  <div id="acc-profile-summary" class="acc-muted" data-i18n="acc.profile.list_empty_hint">请先添加加速厂商配置</div>
                 </div>
                 <div class="acc-card-actions">
                   <select id="acc-profile-select" class="acc-select"></select>
-                  <button type="button" id="acc-profile-rename-btn" class="btn-secondary">修改备注</button>
-                  <button type="button" id="acc-profile-update-btn" class="btn-secondary">更新订阅</button>
-                  <button type="button" id="acc-profile-delete-btn" class="btn-secondary acc-danger-btn">删除</button>
+                  <button type="button" id="acc-profile-rename-btn" class="btn-secondary" data-i18n="acc.profile.rename_btn">修改备注</button>
+                  <button type="button" id="acc-profile-update-btn" class="btn-secondary" data-i18n="acc.profile.update_btn">更新订阅</button>
+                  <button type="button" id="acc-profile-delete-btn" class="btn-secondary acc-danger-btn" data-i18n="acc.profile.delete_btn">删除</button>
                 </div>
               </div>
               <div id="acc-profile-list" class="acc-profile-list">
-                <div class="acc-empty">暂无配置。请用上方二维码、文件或 URL 添加。</div>
+                <div class="acc-empty" data-i18n="acc.profile.list_empty">暂无配置。请用上方二维码、文件或 URL 添加。</div>
               </div>
             </div>
           </div>
@@ -1391,38 +1390,38 @@
                 <div class="acc-proxy-now">
                   <div class="acc-proxy-now-flag" id="acc-proxy-now-flag" aria-hidden="true">🌐</div>
                   <div class="acc-proxy-now-body">
-                    <div class="acc-proxy-now-kicker">当前出站节点</div>
-                    <div class="acc-proxy-now-name" id="acc-proxy-now-name">未选择节点</div>
-                    <div id="acc-proxy-active-label" class="acc-proxy-now-sub">选择下方节点后，流量将经此节点出站</div>
+                    <div class="acc-proxy-now-kicker" data-i18n="acc.proxy.now_kicker">当前出站节点</div>
+                    <div class="acc-proxy-now-name" id="acc-proxy-now-name" data-i18n="acc.proxy.unselected">未选择节点</div>
+                    <div id="acc-proxy-active-label" class="acc-proxy-now-sub" data-i18n="acc.proxy.now_sub">选择下方节点后，流量将经此节点出站</div>
                   </div>
                   <div class="acc-proxy-now-delay" id="acc-proxy-now-delay">
-                    <span class="acc-proxy-delay-label">延迟</span>
+                    <span class="acc-proxy-delay-label" data-i18n="acc.proxy.latency">延迟</span>
                     <strong class="latency-none">--</strong>
                   </div>
                 </div>
                 <div class="acc-proxy-stats" aria-label="节点概况">
                   <div class="acc-proxy-stat">
-                    <span>当前配置</span>
+                    <span data-i18n="acc.proxy.stat_profile">当前配置</span>
                     <strong id="acc-proxy-stat-profile">--</strong>
                   </div>
                   <div class="acc-proxy-stat">
-                    <span>可用节点</span>
+                    <span data-i18n="acc.proxy.stat_ok">可用节点</span>
                     <strong id="acc-proxy-stat-ok" class="is-ok">0</strong>
                   </div>
                   <div class="acc-proxy-stat">
-                    <span>超时</span>
+                    <span data-i18n="acc.proxy.stat_bad">超时</span>
                     <strong id="acc-proxy-stat-bad" class="is-bad">0</strong>
                   </div>
                   <div class="acc-proxy-stat">
-                    <span>未测</span>
+                    <span data-i18n="acc.proxy.stat_pending">未测</span>
                     <strong id="acc-proxy-stat-pending">0</strong>
                   </div>
                 </div>
                 <div class="acc-proxy-actions">
-                  <button type="button" id="acc-delay-btn" class="btn-secondary acc-delay-btn">延迟测试</button>
-                  <button type="button" id="acc-auto-select-enable-btn" class="btn-secondary acc-proxy-auto-btn" title="开启后按右侧间隔自动测速，并在当前地区标签内选最低延迟">自动选择最低延迟</button>
-                  <div id="acc-auto-select-interval-container" class="acc-proxy-interval" style="display: none;" title="每次测速完成后，再等待该时长开始下一轮">
-                    <select id="acc-auto-select-interval" class="acc-select" autocomplete="off" aria-label="自动测速间隔">
+                  <button type="button" id="acc-delay-btn" class="btn-secondary acc-delay-btn" data-i18n="acc.proxy.delay_btn">延迟测试</button>
+                  <button type="button" id="acc-auto-select-enable-btn" class="btn-secondary acc-proxy-auto-btn" title="开启后按右侧间隔自动测速，并在当前地区标签内选最低延迟" data-i18n="acc.proxy.auto_btn" data-i18n-title="acc.proxy.auto_btn_title">自动选择最低延迟</button>
+                  <div id="acc-auto-select-interval-container" class="acc-proxy-interval" style="display: none;" title="每次测速完成后，再等待该时长开始下一轮" data-i18n-title="acc.proxy.interval_title">
+                    <select id="acc-auto-select-interval" class="acc-select" autocomplete="off" aria-label="自动测速间隔" data-i18n-placeholder="acc.proxy.interval_label">
                       <option value="5">5秒/次</option>
                       <option value="10">10秒/次</option>
                       <option value="15">15秒/次</option>
@@ -1439,50 +1438,50 @@
                       <option value="300">300秒/次</option>
                       <option value="600">600秒/次</option>
                     </select>
-                    <span id="acc-auto-select-status" class="acc-auto-select-status">等待中</span>
+                    <span id="acc-auto-select-status" class="acc-auto-select-status" data-i18n="acc.proxy.status_waiting">等待中</span>
                   </div>
                   <span id="acc-delay-progress" class="acc-delay-progress" hidden aria-live="polite"></span>
                 </div>
               </div>
               <div class="acc-view-tabs" style="margin-bottom: 12px; display: flex; gap: 8px; flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-                <button type="button" id="acc-view-tab-nodes" class="acc-subtab active" style="margin: 0; padding: 5px 12px; font-size: 12px; height: auto;">所有节点</button>
-                <button type="button" id="acc-view-tab-groups" class="acc-subtab" style="margin: 0; padding: 5px 12px; font-size: 12px; height: auto;">策略分流</button>
+                <button type="button" id="acc-view-tab-nodes" class="acc-subtab active" style="margin: 0; padding: 5px 12px; font-size: 12px; height: auto;" data-i18n="acc.proxy.tab_nodes">所有节点</button>
+                <button type="button" id="acc-view-tab-groups" class="acc-subtab" style="margin: 0; padding: 5px 12px; font-size: 12px; height: auto;" data-i18n="acc.proxy.tab_groups">策略分流</button>
               </div>
               <div id="acc-node-toolbar" class="acc-node-toolbar" style="flex-shrink: 0;">
-                <input id="acc-node-search" class="acc-input acc-input-grow" type="search" placeholder="搜索节点名称、地区或协议">
+                <input id="acc-node-search" class="acc-input acc-input-grow" type="search" placeholder="搜索节点名称、地区或协议" data-i18n-placeholder="acc.proxy.search_placeholder">
                 <select id="acc-node-protocol-filter" class="acc-select">
-                  <option value="">全部协议</option>
+                  <option value="" data-i18n="acc.proxy.filter_all_protocols">全部协议</option>
                 </select>
                 <select id="acc-node-sort" class="acc-select">
-                  <option value="default">默认排序</option>
-                  <option value="latency" selected>延迟从低到高</option>
-                  <option value="name">按名称排序</option>
+                  <option value="default" data-i18n="acc.proxy.sort_default">默认排序</option>
+                  <option value="latency" selected data-i18n="acc.proxy.sort_latency">延迟从低到高</option>
+                  <option value="name" data-i18n="acc.proxy.sort_name">按名称排序</option>
                 </select>
                 <span id="acc-node-count" class="acc-muted">0 个节点</span>
               </div>
               <div id="acc-node-country-filters" class="acc-country-filters" style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; flex-shrink: 0; padding: 0 4px;">
-                <button type="button" class="acc-country-pill active" data-country="all">全部</button>
-                <button type="button" class="acc-country-pill" data-country="hk">🇭🇰 香港</button>
-                <button type="button" class="acc-country-pill" data-country="jp">🇯🇵 日本</button>
-                <button type="button" class="acc-country-pill" data-country="sg">🇸🇬 新加坡</button>
-                <button type="button" class="acc-country-pill" data-country="us">🇺🇸 美国</button>
-                <button type="button" class="acc-country-pill" data-country="tw">🇹🇼 台湾</button>
-                <button type="button" class="acc-country-pill" data-country="other">其他</button>
+                <button type="button" class="acc-country-pill active" data-country="all" data-i18n="acc.proxy.country_all">全部</button>
+                <button type="button" class="acc-country-pill" data-country="hk" data-i18n="acc.proxy.country_hk">🇭🇰 香港</button>
+                <button type="button" class="acc-country-pill" data-country="jp" data-i18n="acc.proxy.country_jp">🇯🇵 日本</button>
+                <button type="button" class="acc-country-pill" data-country="sg" data-i18n="acc.proxy.country_sg">🇸🇬 新加坡</button>
+                <button type="button" class="acc-country-pill" data-country="us" data-i18n="acc.proxy.country_us">🇺🇸 美国</button>
+                <button type="button" class="acc-country-pill" data-country="tw" data-i18n="acc.proxy.country_tw">🇹🇼 台湾</button>
+                <button type="button" class="acc-country-pill" data-country="other" data-i18n="acc.proxy.country_other">其他</button>
               </div>
               <div class="acc-node-grid-wrap">
                 <div id="acc-node-grid" class="acc-node-grid">
-                  <div class="acc-empty">暂无节点。请先到「配置」页添加加速厂商。</div>
+                  <div class="acc-empty" data-i18n="acc.proxy.list_empty">暂无节点。请先到「配置」页添加加速厂商。</div>
                 </div>
                 <div id="acc-delay-overlay" class="acc-delay-overlay" hidden>
                   <div class="acc-delay-overlay-inner">
                     <span class="acc-btn-spinner acc-btn-spinner-lg" aria-hidden="true"></span>
-                    <div class="acc-delay-overlay-title">正在测速</div>
-                    <div class="acc-delay-overlay-desc">请稍候，正在检测节点延迟…</div>
+                    <div class="acc-delay-overlay-title" data-i18n="acc.proxy.testing_title">正在测速</div>
+                    <div class="acc-delay-overlay-desc" data-i18n="acc.proxy.testing_desc">请稍候，正在检测节点延迟…</div>
                   </div>
                 </div>
               </div>
               <div id="acc-groups-container" class="acc-groups-container" hidden>
-                <div class="acc-empty">暂无策略组。请先到「配置」页添加加速厂商并启用通道。</div>
+                <div class="acc-empty" data-i18n="acc.proxy.groups_empty">暂无策略组。请先到「配置」页添加加速厂商并启用通道。</div>
               </div>
             </div>
           </div>
@@ -1492,12 +1491,12 @@
             <div class="acc-controls-layout">
               <div class="acc-controls-grid">
                 <div class="acc-card acc-controls-card">
-                  <div class="acc-card-title">通道控制</div>
+                  <div class="acc-card-title" data-i18n="acc.control.title">通道控制</div>
                   <div class="acc-controls-card-body">
                     <div class="acc-control-row">
                       <div style="flex: 1; min-width: 0; padding-right: 12px;">
-                        <div>启用加速通道</div>
-                        <div id="acc-enabled-desc" class="acc-muted">开启后网关与客户端请求走本地加速代理</div>
+                        <div data-i18n="acc.control.enabled">启用加速通道</div>
+                        <div id="acc-enabled-desc" class="acc-muted" data-i18n="acc.control.enabled_desc">开启后网关与客户端请求走本地加速代理</div>
                       </div>
                       <label class="switch-slider-btn" for="acc-controls-enabled-toggle" style="margin-top: 2px; flex-shrink: 0;">
                         <input type="checkbox" id="acc-controls-enabled-toggle">
@@ -1506,8 +1505,8 @@
                     </div>
                     <div class="acc-control-row">
                       <div style="flex: 1; min-width: 0; padding-right: 12px;">
-                        <div>系统代理</div>
-                        <div class="acc-muted" title="把 Windows 系统代理指到本地 Clash 端口">写入 Windows 系统代理</div>
+                        <div data-i18n="acc.control.system_proxy">系统代理</div>
+                        <div class="acc-muted" title="把 Windows 系统代理指到本地 Clash 端口" data-i18n="acc.control.system_proxy_desc" data-i18n-title="acc.toggle.system_proxy_desc">写入 Windows 系统代理</div>
                       </div>
                       <label class="switch-slider-btn" for="acc-system-proxy-toggle" style="margin-top: 2px; flex-shrink: 0;">
                         <input type="checkbox" id="acc-system-proxy-toggle">
@@ -1516,8 +1515,8 @@
                     </div>
                     <div class="acc-control-row">
                       <div style="flex: 1; min-width: 0; padding-right: 12px;">
-                        <div>虚拟网卡 TUN</div>
-                        <div class="acc-muted" title="需管理员权限，并安装 wintun.dll">需管理员，否则开了也不生效</div>
+                        <div data-i18n="acc.control.tun">虚拟网卡 TUN</div>
+                        <div class="acc-muted" title="需管理员权限，并安装 wintun.dll" data-i18n="acc.control.tun_desc" data-i18n-title="acc.toggle.tun_desc">需管理员，否则开了也不生效</div>
                       </div>
                       <label class="switch-slider-btn" for="acc-tun-toggle" style="margin-top: 2px; flex-shrink: 0;">
                         <input type="checkbox" id="acc-tun-toggle">
@@ -1528,26 +1527,26 @@
                 </div>
 
                 <div class="acc-card acc-controls-card">
-                  <div class="acc-card-title">出站模式</div>
+                  <div class="acc-card-title" data-i18n="acc.control.mode_title">出站模式</div>
                   <div class="acc-controls-card-body">
-                    <label class="acc-radio-row"><input type="radio" name="acc-mode" value="rule" checked><span>规则 · 按订阅规则分流</span></label>
-                    <label class="acc-radio-row"><input type="radio" name="acc-mode" value="global"><span>全局 · 全部走代理</span></label>
-                    <label class="acc-radio-row"><input type="radio" name="acc-mode" value="direct"><span>直连 · 不走代理</span></label>
-                    <div id="acc-controls-mode-hint" class="acc-controls-mode-hint">日常上网推荐「规则」：国内直连、境外走节点。</div>
+                    <label class="acc-radio-row"><input type="radio" name="acc-mode" value="rule" checked><span data-i18n="acc.control.mode_rule">规则 · 按订阅规则分流</span></label>
+                    <label class="acc-radio-row"><input type="radio" name="acc-mode" value="global"><span data-i18n="acc.control.mode_global">全局 · 全部走代理</span></label>
+                    <label class="acc-radio-row"><input type="radio" name="acc-mode" value="direct"><span data-i18n="acc.control.mode_direct">直连 · 不走代理</span></label>
+                    <div id="acc-controls-mode-hint" class="acc-controls-mode-hint" data-i18n="acc.controls.mode_hint.rule">日常上网推荐「规则」：国内直连、境外走节点。</div>
                   </div>
                 </div>
 
                 <div class="acc-card acc-controls-card">
-                  <div class="acc-card-title">运行信息</div>
+                  <div class="acc-card-title" data-i18n="acc.control.info_title">运行信息</div>
                   <div class="acc-controls-card-body">
-                    <div class="acc-info-line"><span>本地代理</span><strong id="acc-mixed-port">--</strong></div>
-                    <div class="acc-info-line"><span>控制端口</span><strong id="acc-controller">--</strong></div>
-                    <div class="acc-info-line"><span>当前节点</span><strong id="acc-current-proxy">--</strong></div>
+                    <div class="acc-info-line"><span data-i18n="acc.control.info_mixed">本地代理</span><strong id="acc-mixed-port">--</strong></div>
+                    <div class="acc-info-line"><span data-i18n="acc.control.info_controller">控制端口</span><strong id="acc-controller">--</strong></div>
+                    <div class="acc-info-line"><span data-i18n="acc.control.info_current_node">当前节点</span><strong id="acc-current-proxy">--</strong></div>
                     <div class="acc-info-line" style="border-bottom: none;">
-                      <span>网络检测</span>
+                      <span data-i18n="acc.control.info_net_detect">网络检测</span>
                       <span style="display: flex; align-items: center; gap: 6px;">
                         <strong id="acc-ip-detect-result" style="font-size: 12px;">检测中...</strong>
-                        <button type="button" id="acc-ip-detect-btn" class="btn-secondary" style="height: 22px; padding: 0 8px; font-size: 10px; border-radius: 4px; white-space: nowrap;">检测</button>
+                        <button type="button" id="acc-ip-detect-btn" class="btn-secondary" style="height: 22px; padding: 0 8px; font-size: 10px; border-radius: 4px; white-space: nowrap;" data-i18n="acc.control.info_detect_btn">检测</button>
                       </span>
                     </div>
                   </div>
@@ -1557,29 +1556,29 @@
               <div class="acc-card acc-controls-guide">
                 <div class="acc-card-head" style="margin-bottom: 10px;">
                   <div>
-                    <div class="acc-card-title" style="margin-bottom: 2px;">使用提示与快捷操作</div>
-                    <div class="acc-muted">控制页负责开关与模式；实时网速看「仪表盘」，选节点看「代理」。</div>
+                    <div class="acc-card-title" style="margin-bottom: 2px;" data-i18n="acc.control.guide_title">使用提示与快捷操作</div>
+                    <div class="acc-muted" data-i18n="acc.control.guide_desc">控制页负责开关与模式；实时网速看「仪表盘」，选节点看「代理」。</div>
                   </div>
                 </div>
                 <div class="acc-controls-tips">
                   <div class="acc-tip-item">
-                    <strong>系统代理 vs TUN</strong>
-                    <span>一般开「系统代理」就够用；个别软件不走系统代理时再开 TUN。两者可同时开，但少数场景可能变慢。</span>
+                    <strong data-i18n="acc.control.tip_tun_title">系统代理 vs TUN</strong>
+                    <span data-i18n="acc.control.tip_tun_desc">一般开「系统代理」就够用；个别软件不走系统代理时再开 TUN。两者可同时开，但少数场景可能变慢。</span>
                   </div>
                   <div class="acc-tip-item">
-                    <strong>规则模式</strong>
-                    <span>推荐日常使用。订阅规则会分流：国内直连、需要加速的走当前节点。</span>
+                    <strong data-i18n="acc.control.tip_rule_title">规则模式</strong>
+                    <span data-i18n="acc.control.tip_rule_desc">推荐日常使用。订阅规则会分流：国内直连、需要加速的走当前节点。</span>
                   </div>
                   <div class="acc-tip-item">
-                    <strong>出口 IP</strong>
-                    <span>未启用时显示本机公网出口；启用后显示当前节点出口。也可点「检测」手动刷新。</span>
+                    <strong data-i18n="acc.control.tip_ip_title">出口 IP</strong>
+                    <span data-i18n="acc.control.tip_ip_desc">未启用时显示本机公网出口；启用后显示当前节点出口。也可点「检测」手动刷新。</span>
                   </div>
                 </div>
                 <div class="acc-controls-actions">
-                  <button type="button" id="acc-copy-proxy-btn" class="btn-secondary">复制本地代理</button>
-                  <button type="button" id="acc-controls-detect-btn" class="btn-secondary">检测出口 IP</button>
-                  <button type="button" id="acc-controls-goto-proxies" class="btn-secondary">去代理页测速</button>
-                  <button type="button" id="acc-controls-refresh-btn" class="btn-secondary">刷新状态</button>
+                  <button type="button" id="acc-copy-proxy-btn" class="btn-secondary" data-i18n="acc.control.action_copy">复制本地代理</button>
+                  <button type="button" id="acc-controls-detect-btn" class="btn-secondary" data-i18n="acc.control.action_detect">检测出口 IP</button>
+                  <button type="button" id="acc-controls-goto-proxies" class="btn-secondary" data-i18n="acc.control.action_goto_proxies">去代理页测速</button>
+                  <button type="button" id="acc-controls-refresh-btn" class="btn-secondary" data-i18n="acc.control.action_refresh">刷新状态</button>
                 </div>
               </div>
             </div>
@@ -1590,34 +1589,34 @@
             <div class="acc-card acc-panel-fill" style="display: flex; flex-direction: column;">
               <div class="acc-card-head" style="flex-shrink: 0;">
                 <div>
-                  <div class="acc-card-title" style="margin-bottom: 2px;">活跃连接</div>
-                  <div class="acc-muted">监控当前所有活动的网络连接，支持手动断开特定连接。</div>
+                  <div class="acc-card-title" style="margin-bottom: 2px;" data-i18n="acc.conn.title">活跃连接</div>
+                  <div class="acc-muted" data-i18n="acc.conn.desc">监控当前所有活动的网络连接，支持手动断开特定连接。</div>
                 </div>
                 <div class="acc-card-actions">
-                  <button type="button" id="acc-connections-close-all-btn" class="btn-secondary acc-danger-btn">断开全部</button>
+                  <button type="button" id="acc-connections-close-all-btn" class="btn-secondary acc-danger-btn" data-i18n="acc.conn.close_all">断开全部</button>
                 </div>
               </div>
               <div class="acc-node-toolbar" style="flex-shrink: 0;">
-                <input id="acc-conn-search" class="acc-input acc-input-grow" type="search" placeholder="搜索目标主机、IP 或规则">
+                <input id="acc-conn-search" class="acc-input acc-input-grow" type="search" placeholder="搜索目标主机、IP 或规则" data-i18n-placeholder="acc.conn.search_placeholder">
                 <span id="acc-conn-count" class="acc-muted">活跃连接: 0 个 · 上传: 0 B/s · 下载: 0 B/s</span>
               </div>
               <div class="acc-connections-table-container" style="flex: 1; overflow-y: auto; margin-top: 10px; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px;">
                 <table class="acc-connections-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 12px;">
                   <thead>
                     <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.05);">
-                      <th style="padding: 10px;">源地址</th>
-                      <th style="padding: 10px;">目标地址</th>
-                      <th style="padding: 10px;">网络类型</th>
-                      <th style="padding: 10px;">分流规则</th>
-                      <th style="padding: 10px;">出站节点</th>
-                      <th style="padding: 10px;">流量 (↑/↓)</th>
-                      <th style="padding: 10px;">时长</th>
-                      <th style="padding: 10px; text-align: center;">操作</th>
+                      <th style="padding: 10px;" data-i18n="acc.conn.th_source">源地址</th>
+                      <th style="padding: 10px;" data-i18n="acc.conn.th_destination">目标地址</th>
+                      <th style="padding: 10px;" data-i18n="acc.conn.th_type">网络类型</th>
+                      <th style="padding: 10px;" data-i18n="acc.conn.th_rule">分流规则</th>
+                      <th style="padding: 10px;" data-i18n="acc.conn.th_node">出站节点</th>
+                      <th style="padding: 10px;" data-i18n="acc.conn.th_traffic">流量 (↑/↓)</th>
+                      <th style="padding: 10px;" data-i18n="acc.conn.th_duration">时长</th>
+                      <th style="padding: 10px; text-align: center;" data-i18n="acc.conn.th_action">操作</th>
                     </tr>
                   </thead>
                   <tbody id="acc-connections-tbody">
                     <tr>
-                      <td colspan="8" class="acc-empty" style="text-align: center; padding: 20px; color: var(--text-secondary);">暂无活跃连接。</td>
+                      <td colspan="8" class="acc-empty" style="text-align: center; padding: 20px; color: var(--text-secondary);" data-i18n="acc.conn.empty">暂无活跃连接。</td>
                     </tr>
                   </tbody>
                 </table>
