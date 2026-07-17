@@ -364,7 +364,12 @@
                   </div>
                 </div>
 
-                <div class="log-terminal" id="log-terminal-output" style="display: none;"><div data-i18n="console.log.init">&gt;&gt;&gt; AI-Assistant Local Daemon Initialized.</div><div data-i18n="console.log.stopped">&gt;&gt;&gt; [系统状态] 核心进程检测完成，当前处于【已停止】闲置状态。</div><div data-i18n="console.log.guide">&gt;&gt;&gt; [操作指引] 请点击左上角“启动 Nexora Agent”按钮，拉起本地 AI 服务总线...</div></div>
+                <div class="log-terminal" id="log-terminal-output" style="display: none;">
+                  <div class="log-line-entry" data-i18n="console.log.init">&gt;&gt;&gt; AI-Assistant Local Daemon Initialized.</div>
+                  <div class="log-line-entry" data-i18n="console.log.stopped">&gt;&gt;&gt; [系统状态] 核心进程检测完成，当前处于【已停止】闲置状态。</div>
+                  <div class="log-line-entry" data-i18n="console.log.guide">&gt;&gt;&gt; [操作指引] 请点击左上角“启动 Nexora Agent”按钮，拉起本地 AI 服务总线...</div>
+                  <div class="terminal-cursor-line" id="terminal-active-cursor"><span class="terminal-cursor">▋</span></div>
+                </div>
                <div class="terminal-progress-container" id="terminal-progress-bar-container" style="display: none;">
                  <div class="terminal-progress-track">
                    <div class="terminal-progress-fill" id="terminal-progress-bar-fill"></div>
@@ -1785,6 +1790,6 @@
   <script src="node_modules/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
   <script src="jsQR.js"></script>
   <script src="locales.js"></script>
-  <script src="renderer.js?v=2.0.2"></script>
+  <script src="renderer.js"></script>
 </body>
 </html>

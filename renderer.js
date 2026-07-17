@@ -1843,7 +1843,12 @@ async function init() {
             if (gatewayStatus !== 'stopped') return;
             const terminalOutput = document.getElementById('log-terminal-output');
             if (terminalOutput) {
-                terminalOutput.innerHTML = `<div data-i18n="console.log.init">${t('console.log.init')}</div><div data-i18n="console.log.stopped">${t('console.log.stopped')}</div><div data-i18n="console.log.guide">${t('console.log.guide')}</div>`;
+                terminalOutput.innerHTML = `
+                    <div class="log-line-entry" data-i18n="console.log.init">${t('console.log.init')}</div>
+                    <div class="log-line-entry" data-i18n="console.log.stopped">${t('console.log.stopped')}</div>
+                    <div class="log-line-entry" data-i18n="console.log.guide">${t('console.log.guide')}</div>
+                    <div class="terminal-cursor-line" id="terminal-active-cursor"><span class="terminal-cursor">▋</span></div>
+                `;
             }
         });
     }
@@ -2452,9 +2457,15 @@ function setupIpcListeners() {
                     window.__deferredConsoleLogs = window.__deferredConsoleLogs.slice(-120);
                 }
             } else {
+                const cursorLine = document.getElementById('terminal-active-cursor');
                 const span = document.createElement('span');
-                span.innerHTML = lineHtml + '<br/>';
-                logTerminal.appendChild(span);
+                span.className = 'log-line-entry';
+                span.innerHTML = lineHtml;
+                if (cursorLine) {
+                    logTerminal.insertBefore(span, cursorLine);
+                } else {
+                    logTerminal.appendChild(span);
+                }
             }
         });
 

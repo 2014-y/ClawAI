@@ -2322,6 +2322,27 @@ textarea.acc-input {
   100% { opacity: 0.015; }
 }
 
+@keyframes terminalPulse {
+  0%, 100% { box-shadow: inset 0 0 16px rgba(var(--accent-rgb), 0.04); }
+  50% { box-shadow: inset 0 0 28px rgba(var(--accent-rgb), 0.09); }
+}
+
+@keyframes logFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
 .log-terminal {
   flex: 1;
   font-family: var(--font-mono);
@@ -2333,6 +2354,27 @@ textarea.acc-input {
   word-break: break-all; /* 强制无空格的长英文字符串（如绝对路径）折行，防止撑大窗口 */
   user-select: text;
   min-height: 0;
+  animation: terminalPulse 5s ease-in-out infinite;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.log-line-entry {
+  display: block;
+  animation: logFadeIn 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  will-change: transform, opacity;
+  margin-bottom: 4px;
+}
+
+.terminal-cursor-line {
+  display: block;
+  margin-top: 6px;
+}
+
+.terminal-cursor {
+  color: var(--accent-color);
+  animation: cursorBlink 1.2s step-end infinite;
+  font-weight: bold;
 }
 
 .theme-light .log-terminal {
