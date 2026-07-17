@@ -6686,6 +6686,12 @@ function applyLanguage(lang) {
     // 2. 声明式遍历翻译所有带 data-i18n 属性的 DOM 文本（现已有快照防御机制，无需排除 option）
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
+        
+        // 防御性保护：如果元素当前包含了检测出来的真实 IP 地址（通常带国旗图标或纯数字格式），切勿覆盖重置它
+        if (/\d{1,3}(?:\.\d{1,3}){3}/.test(el.textContent)) {
+            return;
+        }
+
         const translation = t(key);
         if (translation !== key) {
             // 如果有 html 渲染需求，使用 innerHTML，否则用 textContent 以免破坏内部子元素
@@ -9010,12 +9016,12 @@ async function runAccelerationIpDetect(options = {}) {
     };
     const shortenIpDetectError = (raw) => {
         const s = String(raw || '').trim();
-        if (!s) return '检测失败';
-        if (/ECONNREFUSED/i.test(s)) return '代理未就绪';
-        if (/ETIMEDOUT|ESOCKETTIMEDOUT|timeout|超时/i.test(s)) return '检测超时';
-        if (/ECONNRESET/i.test(s)) return '连接被重置';
-        if (/ENOTFOUND|getaddrinfo/i.test(s)) return 'DNS 失败';
-        if (s.length > 22) return '检测失败';
+        if (!s) return t('检测失败', 'Detection failed', '檢測失敗');
+        if (/ECONNREFUSED/i.test(s)) return t('代理未就绪', 'Proxy not ready', '代理未就緒');
+        if (/ETIMEDOUT|ESOCKETTIMEDOUT|timeout|超时/i.test(s)) return t('检测超时', 'Detection timeout', '檢測超時');
+        if (/ECONNRESET/i.test(s)) return t('连接被重置', 'Connection reset', '連線被重置');
+        if (/ENOTFOUND|getaddrinfo/i.test(s)) return t('DNS 失败', 'DNS failure', 'DNS 失敗');
+        if (s.length > 22) return t('检测失败', 'Detection failed', '檢測失敗');
         return s;
     };
     const paint = (text, color, title) => {
@@ -9028,14 +9034,14 @@ async function runAccelerationIpDetect(options = {}) {
     };
 
     if (!window.api || !window.api.detectAccelerationIp) {
-        paint('检测不可用', '#ef4444', '');
+        paint(t('检测不可用', 'Detection unavailable', '檢測不可用'), '#ef4444', '');
         return null;
     }
 
     const viaProxy = !!(accelerationState && accelerationState.enabled);
     accelerationIpDetectInFlight = true;
     accelerationIpDetectStartedAt = Date.now();
-    paint('检测中...', '', viaProxy ? '正在检测代理出口 IP' : '正在检测本机公网出口');
+    paint(t('检测中...', 'Detecting...', '檢測中...'), '', viaProxy ? t('正在检测代理出口 IP', 'Detecting proxy exit IP', '正在檢測代理出口 IP') : t('正在检测本机公网出口', 'Detecting local exit IP', '正在檢測本機公網出口'));
     if (ipDetectBtn) ipDetectBtn.disabled = true;
     if (dashIpDetectBtn) dashIpDetectBtn.disabled = true;
     try {
@@ -9049,7 +9055,7 @@ async function runAccelerationIpDetect(options = {}) {
             const isDirect = data.via === 'direct' || !viaProxy;
             const formatted = `${flag} ${data.ip}`;
             const tooltip = [
-                isDirect ? '本机直连出口' : '代理出口',
+                isDirect ? t('本机直连出口', 'Local direct exit', '本機直連出口') : t('代理出口', 'Proxy exit', '代理出口'),
                 data.country,
                 data.region,
                 data.city,
