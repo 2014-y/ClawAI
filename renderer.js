@@ -2412,7 +2412,6 @@ function setupIpcListeners() {
                 const styledTime = `<span style="color: #6a6f8a; font-size: 11.5px; font-family: var(--font-mono); margin-right: 6px;">${displayTime}</span>`;
                 processedLines.push(styledTime + coloredText);
             }
-            }
         });
 
         // --- 开始：前端终端下载进度注入 ---
