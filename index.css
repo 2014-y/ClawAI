@@ -2424,11 +2424,11 @@ textarea.acc-input {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 20px;
-  overflow-y: auto;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  overflow: hidden; /* 绝对禁止外层产生滚动条，避免阻断里层日志流滚动吸附 */
   min-height: 0;
   box-sizing: border-box;
 }
@@ -2549,7 +2549,7 @@ textarea.acc-input {
   border-radius: 8px;
   padding: 12px;
   flex: 1;
-  min-height: 260px;
+  min-height: 0; /* 允许高度收缩，在内部产生滚动条，避免顶破外层高度 */
   overflow-y: auto;
 }
 
