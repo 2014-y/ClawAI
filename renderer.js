@@ -9390,6 +9390,36 @@ function initAccelerationChannel() {
     if (pageToggle) pageToggle.addEventListener('change', syncEnable);
     if (controlsToggle) controlsToggle.addEventListener('change', syncEnable);
 
+    // 网络检测按钮
+    const ipDetectBtn = document.getElementById('acc-ip-detect-btn');
+    if (ipDetectBtn) {
+        const countryCodeToFlag = (cc) => {
+            if (!cc || cc.length !== 2) return '🌐';
+            const upper = cc.toUpperCase();
+            return String.fromCodePoint(...[...upper].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+        };
+        ipDetectBtn.addEventListener('click', async () => {
+            const resultEl = document.getElementById('acc-ip-detect-result');
+            if (!resultEl) return;
+            resultEl.textContent = '检测中...';
+            ipDetectBtn.disabled = true;
+            try {
+                const resp = await fetch('http://ip-api.com/json/?lang=zh-CN', { signal: AbortSignal.timeout(8000) });
+                const data = await resp.json();
+                if (data && data.query) {
+                    const flag = countryCodeToFlag(data.countryCode);
+                    resultEl.textContent = `${flag} ${data.query}`;
+                    resultEl.title = `${data.country || ''} ${data.regionName || ''} ${data.city || ''} | ${data.isp || ''}`;
+                } else {
+                    resultEl.textContent = '检测失败';
+                }
+            } catch (e) {
+                resultEl.textContent = '检测超时';
+            }
+            ipDetectBtn.disabled = false;
+        });
+    }
+
     document.querySelectorAll('.acc-import-item').forEach((btn) => {
         btn.addEventListener('click', () => {
             setAccelerationImportMode(btn.getAttribute('data-import-mode') || 'url');
