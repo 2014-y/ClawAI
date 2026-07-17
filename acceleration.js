@@ -38,7 +38,7 @@ const NO_PROXY_LIST = [
 
 let appRef = null;
 let mihomoProc = null;
-let lastMihomoMemoryText = '0.0 MB';
+let lastMihomoMemoryText = 'INACTIVE';
 let mihomoMemoryTimer = null;
 let tempMihomoProc = null;
 let tempCoreProfileId = null;
@@ -1504,7 +1504,7 @@ async function stopCore() {
         clearInterval(mihomoMemoryTimer);
         mihomoMemoryTimer = null;
     }
-    lastMihomoMemoryText = '0.0 MB';
+    lastMihomoMemoryText = 'INACTIVE';
     if (proc) {
         const pid = proc.pid;
         try {
@@ -1607,7 +1607,7 @@ async function startCore(profileId, onProgress) {
             clearInterval(mihomoMemoryTimer);
             mihomoMemoryTimer = null;
         }
-        lastMihomoMemoryText = '0.0 MB';
+        lastMihomoMemoryText = 'INACTIVE';
         if (state.enabled) {
             state.enabled = false;
             saveState();
@@ -2214,7 +2214,7 @@ async function setActiveProfileId(id) {
 
 function updateMihomoMemory() {
     if (!mihomoProc || mihomoProc.killed) {
-        lastMihomoMemoryText = '0.0 MB';
+        lastMihomoMemoryText = 'INACTIVE';
         return;
     }
     const pid = mihomoProc.pid;

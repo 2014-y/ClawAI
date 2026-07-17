@@ -11373,9 +11373,15 @@ function drawDashboardTrafficRing(uploadTotal, downloadTotal) {
 
 // 优先抓取 Clash 真实内存占用，若未启用或抓取失败则回退至波动模拟，绝对零挂起
 function getClashMemoryMock() {
-    if (!accelerationState || !accelerationState.enabled) return '0.0 MB';
-    if (accelerationState.clashMemory && accelerationState.clashMemory !== '0.0 MB') {
+    if (!accelerationState || !accelerationState.enabled) {
+        return t('0.0 MB (未启动)', '0.0 MB (Inactive)', '0.0 MB (未啟動)');
+    }
+    if (accelerationState.clashMemory && accelerationState.clashMemory !== '0.0 MB' && accelerationState.clashMemory !== 'INACTIVE') {
         return accelerationState.clashMemory;
+    }
+    // 如果后台为 INACTIVE，但前端显示 enabled，说明刚启动还在轮询获取中
+    if (accelerationState.clashMemory === 'INACTIVE') {
+        return t('获取中...', 'Fetching...', '獲取中...');
     }
     if (!window._clashMemMock) {
         window._clashMemMock = Math.floor(Math.random() * (136 - 88) + 88);
