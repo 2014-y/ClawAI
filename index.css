@@ -5182,6 +5182,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 .acc-dash-side-panel {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -5190,7 +5191,7 @@ input:focus, select:focus, textarea:focus {
   min-height: 0;
   min-width: 0;
   max-width: 100%;
-  height: auto;
+  height: 100%;
   overflow: hidden;
 }
 
@@ -5231,7 +5232,8 @@ input:focus, select:focus, textarea:focus {
 }
 
 .acc-dash-side-meta {
-  flex: none !important;
+  flex: 1 1 0 !important;
+  flex-shrink: 1 !important;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -5419,54 +5421,68 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 6px rgba(var(--accent-rgb), 0.04);
 }
 
-/* 遥测技术参数网格 */
-.acc-dash-telemetry-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
-  min-width: 0;
+/* 遥测技术参数 */
+.acc-dash-telemetry-flex-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+}
+
+.acc-dash-telemetry-row {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
 }
 
 .acc-dash-telemetry-item {
-  background: rgba(255, 255, 255, 0.01);
-  border: 1px solid rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: 8px;
-  padding: 6px 8px;
+  padding: 8px 12px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  min-width: 0;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  flex: 1;
+  min-height: 0;
+  box-sizing: border-box;
 }
 
 .acc-dash-telemetry-item-full {
-  grid-column: span 2;
-  flex-direction: row;
-  justify-content: space-between;
+  flex: 1.1;
+  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  padding: 6px 8px;
+  gap: 4px;
+  padding: 8px 12px;
 }
 
 .acc-dash-telemetry-label {
-  font-size: 8.5px;
+  font-size: 10px;
   color: var(--text-secondary);
-  opacity: 0.65;
+  opacity: 0.8;
   white-space: nowrap;
 }
 
 .acc-dash-telemetry-item strong {
-  font-size: 10.5px;
-  font-weight: 550;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
-  text-align: left;
+  text-align: center;
 }
 
 .acc-dash-telemetry-item .acc-dash-kv-mono {
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: 11px;
   color: var(--text-secondary);
   opacity: 0.85;
 }
