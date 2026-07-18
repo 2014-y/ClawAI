@@ -5123,7 +5123,8 @@ input:focus, select:focus, textarea:focus {
   gap: 12px;
   min-width: 0;
   max-width: 100%;
-  overflow: hidden !important; /* 覆盖 .acc-panel 的 overflow-y，避免启用后撑破横向 */
+  overflow-y: auto !important;
+  overflow-x: hidden !important; /* 避免横向撑破，同时纵向支持自适应高度滚动 */
 }
 
 #acc-panel-dashboard.active {
