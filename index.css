@@ -6285,11 +6285,16 @@ input:focus, select:focus, textarea:focus {
   font-size: 12px;
   color: var(--text-secondary);
   margin-top: 5px;
+  min-height: 32px;
 }
 
 .asr-model-label {
   font-weight: 500;
   color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  line-height: 1;
 }
 
 .asr-model-status {
@@ -6297,6 +6302,11 @@ input:focus, select:focus, textarea:focus {
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.05);
   font-family: monospace;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  box-sizing: border-box;
+  line-height: 1;
 }
 
 .asr-progress-container {
