@@ -10,24 +10,12 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/2014-y/NexoraAgent/releases">
-    <img src="https://img.shields.io/github/v/release/2014-y/NexoraAgent?style=flat-square&color=33cd56&label=最新版本" alt="Release" />
-  </a>
-  <a href="https://github.com/2014-y/NexoraAgent/releases">
-    <img src="https://img.shields.io/github/downloads/2014-y/NexoraAgent/total?style=flat-square&color=fcb32c&label=下载量" alt="Downloads" />
-  </a>
-  <a href="https://github.com/2014-y/NexoraAgent/stargazers">
-    <img src="https://img.shields.io/github/stars/2014-y/NexoraAgent?style=flat-square&color=0078d7&label=Stars" alt="Stars" />
-  </a>
-  <a href="https://github.com/2014-y/NexoraAgent/blob/master/LICENSE">
-    <img src="https://img.shields.io/github/license/2014-y/NexoraAgent?style=flat-square&color=ff69b4&label=开源协议" alt="License" />
-  </a>
-</p>
-
-<p align="center">
   <img src="https://img.shields.io/badge/Platform-Windows-0078d7?style=flat-square&logo=windows" alt="Windows" />
   <img src="https://img.shields.io/badge/Framework-Electron-47848f?style=flat-square&logo=electron" alt="Electron" />
   <img src="https://img.shields.io/badge/Language-JavaScript-f7df1e?style=flat-square&logo=javascript&logoColor=black" alt="JavaScript" />
+  <img src="https://img.shields.io/badge/License-MIT-ff69b4?style=flat-square" alt="License" />
+  <img src="https://img.shields.io/badge/Status-Active_Maint-33cd56?style=flat-square" alt="Status" />
+  <img src="https://img.shields.io/badge/Deployment-Local_Only-fcb32c?style=flat-square" alt="Deployment" />
 </p>
 
 <p align="center">
