@@ -2115,7 +2115,9 @@ function formatLogForUser(text) {
         lowerLine.includes('wechat bound') || 
         lowerLine.includes('ilink client ready') ||
         lowerLine.includes('bot already connected') ||
-        lowerLine.includes('bot already bound')
+        lowerLine.includes('bot already bound') ||
+        lowerLine.includes('weixin monitor started') ||
+        lowerLine.includes('monitor started: baseurl')
     ) {
         return `[💬 微信插件] 🟢 微信消息接收通道已成功连接！正在实时监听群聊与私聊消息...`;
     }
@@ -2158,7 +2160,13 @@ function formatLogForUser(text) {
     }
 
     // 处理接收的消息
-    if (lowerLine.includes('on message') || lowerLine.includes('received message') || lowerLine.includes('handle message')) {
+    if (
+        lowerLine.includes('on message') || 
+        lowerLine.includes('received message') || 
+        lowerLine.includes('handle message') ||
+        lowerLine.includes('inbound:') ||
+        lowerLine.includes('inbound message:')
+    ) {
         return `[⚙️ 系统核心] 📩 正在处理并分析接收到的即时聊天消息...`;
     }
 
