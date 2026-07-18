@@ -11,14 +11,23 @@ function download(url, dest, callback) {
     const file = fs.createWriteStream(dest);
     https.get(url, (res) => {
         if (res.statusCode === 302 || res.statusCode === 301) {
+            file.destroy();
+            try { fs.unlinkSync(dest); } catch (e) {}
             return download(res.headers.location, dest, callback);
+        }
+        if (res.statusCode !== 200) {
+            file.destroy();
+            try { fs.unlinkSync(dest); } catch (e) {}
+            console.error('Download failed, status code:', res.statusCode);
+            return;
         }
         res.pipe(file);
         file.on('finish', () => {
             file.close(callback);
         });
     }).on('error', (err) => {
-        fs.unlink(dest, () => {});
+        file.destroy();
+        try { fs.unlinkSync(dest); } catch (e) {}
         console.error('Download failed:', err);
     });
 }
