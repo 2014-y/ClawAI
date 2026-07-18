@@ -108,6 +108,10 @@
       {
         "from": "build-resources/acceleration-core",
         "to": "acceleration-core"
+      },
+      {
+        "from": "build-resources/voice-packs",
+        "to": "voice-packs"
       }
     ],
     "files": [

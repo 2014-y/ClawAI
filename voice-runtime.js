@@ -311,6 +311,14 @@ class VoiceRuntime extends EventEmitter {
     }
 
     packInstallDir(id) {
+        try {
+            if (process.resourcesPath) {
+                const resDir = path.join(process.resourcesPath, 'voice-packs', id);
+                if (fs.existsSync(resDir) && this._findOnnxModelInDir(resDir)) {
+                    return resDir;
+                }
+            }
+        } catch (e) {}
         return path.join(this.packsDir, id);
     }
 
@@ -671,9 +679,8 @@ class VoiceRuntime extends EventEmitter {
         return null;
     }
 
-    _findOnnxModel(packId) {
-        const dir = this.packInstallDir(packId);
-        if (!fs.existsSync(dir)) return null;
+    _findOnnxModelInDir(dir) {
+        if (!dir || !fs.existsSync(dir)) return null;
         const stack = [dir];
         while (stack.length) {
             const cur = stack.pop();
@@ -688,6 +695,11 @@ class VoiceRuntime extends EventEmitter {
             }
         }
         return null;
+    }
+
+    _findOnnxModel(packId) {
+        const dir = this.packInstallDir(packId);
+        return this._findOnnxModelInDir(dir);
     }
 
     _speakWithPiper(bin, model, text, volume, pack) {
