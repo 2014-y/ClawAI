@@ -10,6 +10,13 @@
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/Platform-Windows-0078d7?style=for-the-badge&logo=windows" alt="Windows" />
+  <img src="https://img.shields.io/badge/Framework-Electron-47848f?style=for-the-badge&logo=electron" alt="Electron" />
+  <img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="License" />
+  <img src="https://img.shields.io/badge/Status-Active-success.svg?style=for-the-badge" alt="Status" />
+</p>
+
+<p align="center">
   <a href="docs/getting-started.md">新手入门</a> ·
   <a href="docs/install-guide.md">安装说明</a> ·
   <a href="docs/wechat-guide.md">微信接入</a> ·
