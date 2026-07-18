@@ -112,7 +112,11 @@ function getSelectableProviderKeys() {
 
 // 全局双模式翻译函数
 function t(keyOrZh, en, zhTw) {
-    const currentLang = localStorage.getItem('setting_language') || 'zh-CN';
+    let currentLang = localStorage.getItem('setting_language') || 'zh-CN';
+    const select = document.getElementById('setting-language-select');
+    if (select && select.value) {
+        currentLang = select.value;
+    }
     
     // 如果传入了多个参数，说明是 inline 快速翻译：t(zhCn, en, zhTw)
     if (arguments.length > 1) {
@@ -7217,21 +7221,25 @@ function applyLanguage(lang) {
 
     // 2. 声明式遍历翻译所有带 data-i18n 属性的 DOM 文本（现已有快照防御机制，无需排除 option）
     document.querySelectorAll('[data-i18n]').forEach(el => {
-        const key = el.getAttribute('data-i18n');
-        
-        // 防御性保护：如果元素当前包含了检测出来的真实 IP 地址（通常带国旗图标或纯数字格式），切勿覆盖重置它
-        if (/\d{1,3}(?:\.\d{1,3}){3}/.test(el.textContent)) {
-            return;
-        }
-
-        const translation = t(key);
-        if (translation !== key) {
-            // 如果有 html 渲染需求，使用 innerHTML，否则用 textContent 以免破坏内部子元素
-            if (el.getAttribute('data-i18n-type') === 'html') {
-                el.innerHTML = translation;
-            } else {
-                el.textContent = translation;
+        try {
+            const key = el.getAttribute('data-i18n');
+            
+            // 防御性保护：如果元素当前包含了检测出来的真实 IP 地址（通常带国旗图标或纯数字格式），切勿覆盖重置它
+            if (el.textContent && /\d{1,3}(?:\.\d{1,3}){3}/.test(el.textContent)) {
+                return;
             }
+
+            const translation = t(key);
+            if (translation !== key) {
+                // 如果有 html 渲染需求，使用 innerHTML，否则用 textContent 以免破坏内部子元素
+                if (el.getAttribute('data-i18n-type') === 'html') {
+                    el.innerHTML = translation;
+                } else {
+                    el.textContent = translation;
+                }
+            }
+        } catch (err) {
+            console.warn('[i18n] Error translating element:', el, err);
         }
     });
 
