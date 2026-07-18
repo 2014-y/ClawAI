@@ -1852,9 +1852,9 @@ async function init() {
                 const tile = document.getElementById(`tile-${ch}`);
                 if (tile) {
                     tile.className = 'channel-status-tile offline';
-                    if (ch === 'weixin') tile.title = '微信消息通道: 未连接';
-                    if (ch === 'qqbot') tile.title = 'QQ机器人通道: 未配置';
-                    if (ch === 'feishu') tile.title = '飞书/Lark通道: 未连接';
+                    if (ch === 'weixin') tile.title = t('console.channel.wechat.disconnected') || '微信消息通道: 未连接';
+                    if (ch === 'qqbot') tile.title = t('console.channel.qq.disconnected') || 'QQ机器人通道: 未配置';
+                    if (ch === 'feishu') tile.title = t('console.channel.feishu.disconnected') || '飞书/Lark通道: 未连接';
                 }
             });
         });
@@ -2335,15 +2335,15 @@ function setupIpcListeners() {
             
             if (text.includes('loading configuration') || text.includes('Doctor') || text.includes('migration')) {
                 targetProgress = 25;
-                targetText = '正在校验Nexora Agent配置文件与诊断系统...';
+                targetText = t('console.progress.checking_config') || '正在校验Nexora Agent配置文件与诊断系统...';
                 updated = true;
             } else if (text.includes('Failed to install missing configured plugin')) {
                 targetProgress = 60;
-                targetText = '正在后台下载并安装缺失的扩展插件…';
+                targetText = t('console.progress.downloading_plugins') || '正在后台下载并安装缺失的扩展插件…';
                 updated = true;
             } else if (text.includes('[plugins]') || text.includes('plugin not installed') || text.includes('resolving authentication')) {
                 targetProgress = 55;
-                targetText = '正在装载核心插件驱动程序...';
+                targetText = t('console.progress.loading_drivers') || '正在装载核心插件驱动程序...';
                 updated = true;
             } else if (
                 /http server listening/i.test(text)
@@ -2353,19 +2353,19 @@ function setupIpcListeners() {
                 || text.includes('agent model:')
             ) {
                 targetProgress = 96;
-                targetText = 'HTTP 已监听，正在完成收尾…';
+                targetText = t('console.progress.http_listening') || 'HTTP 已监听，正在完成收尾…';
                 updated = true;
             } else if (text.includes('[gateway] ready') || text.includes('gateway] ready')) {
                 targetProgress = 100;
-                targetText = '本地 AI Nexora Agent服务就绪！';
+                targetText = t('console.progress.ready') || '本地 AI Nexora Agent服务就绪！';
                 updated = true;
             } else if (text.includes('agent runtime plugins pre-warmed')) {
                 targetProgress = 100;
-                targetText = '本地 AI Nexora Agent服务就绪！';
+                targetText = t('console.progress.ready') || '本地 AI Nexora Agent服务就绪！';
                 updated = true;
             } else if (text.includes('starting HTTP server') || text.includes('force: no listeners') || text.includes('started (interval:')) {
                 targetProgress = 78;
-                targetText = '正在绑定端口并装载渠道插件…';
+                targetText = t('console.progress.binding_port') || '正在绑定端口并装载渠道插件…';
                 updated = true;
                 startGatewayReadyProbe('http-starting');
             }
@@ -2464,13 +2464,13 @@ function setupIpcListeners() {
                 const tile = document.getElementById('tile-weixin');
                 if (tile) {
                     tile.className = 'channel-status-tile online';
-                    tile.title = '微信消息通道: 已连接';
+                    tile.title = t('console.channel.wechat.connected') || '微信消息通道: 已连接';
                 }
             } else if (lineHtml.includes('微信通道连接断开')) {
                 const tile = document.getElementById('tile-weixin');
                 if (tile) {
                     tile.className = 'channel-status-tile offline';
-                    tile.title = '微信消息通道: 未连接';
+                    tile.title = t('console.channel.wechat.disconnected') || '微信消息通道: 未连接';
                 }
             }
             
@@ -2479,7 +2479,7 @@ function setupIpcListeners() {
                 const tile = document.getElementById('tile-qqbot');
                 if (tile) {
                     tile.className = 'channel-status-tile online';
-                    tile.title = 'QQ机器人通道: 已连接';
+                    tile.title = t('console.channel.qq.connected') || 'QQ机器人通道: 已连接';
                 }
             }
             
@@ -2488,7 +2488,7 @@ function setupIpcListeners() {
                 const tile = document.getElementById('tile-feishu');
                 if (tile) {
                     tile.className = 'channel-status-tile online';
-                    tile.title = '飞书/Lark通道: 已连接';
+                    tile.title = t('console.channel.feishu.connected') || '飞书/Lark通道: 已连接';
                 }
             }
 
@@ -5530,9 +5530,15 @@ function updateGatewayStatusUI(status) {
         } else if (status === 'starting') {
             dashServiceStatus.textContent = getCleanText('console.dash.starting', '正在启动...');
             dashStatusDot.className = 'status-indicator-dot running';
+            
+            const activeModelEl = document.getElementById('dash-active-model');
+            if (activeModelEl) activeModelEl.textContent = t('console.dash.not_configured') || '未启动';
         } else {
             dashServiceStatus.textContent = getCleanText('console.dash.stopped', '已停止');
             dashStatusDot.className = 'status-indicator-dot stopped';
+            
+            const activeModelEl = document.getElementById('dash-active-model');
+            if (activeModelEl) activeModelEl.textContent = t('console.dash.not_configured') || '未启动';
         }
     }
 
@@ -5675,7 +5681,7 @@ function updateGatewayStatusUI(status) {
 
         // 假进度只爬到 80%，避免「97% 假死」观感；真正就绪靠端口探测 / listening 日志
         if (progressContainer) progressContainer.style.display = 'flex';
-        updateProgressUI(8, '正在拉起子进程环境...');
+        updateProgressUI(8, t('console.progress.starting_env') || '正在拉起子进程环境...');
         gatewayLogReadyTail = '';
         startGatewayReadyProbe('user-start');
 
@@ -5684,11 +5690,11 @@ function updateGatewayStatusUI(status) {
             if (currentProgress >= 80 || gatewayFullyReady) return;
             let nextProgress = Math.min(80, currentProgress + 3.5);
 
-            let currentText = '正在拉起子进程环境...';
+            let currentText = t('console.progress.starting_env') || '正在拉起子进程环境...';
             if (nextProgress > 65) {
-                currentText = '正在装载渠道插件与控制台…';
+                currentText = t('console.progress.loading_channels') || '正在装载渠道插件与控制台…';
             } else if (nextProgress > 35) {
-                currentText = '正在装载核心插件驱动...';
+                currentText = t('console.progress.loading_core_plugins') || '正在装载核心插件驱动...';
             }
             updateProgressUI(nextProgress, currentText);
         }, 200);

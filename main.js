@@ -1881,6 +1881,7 @@ function prepareChannelPluginsBeforeGateway() {
                 resolvedVersion: ver,
                 resolvedSpec: `${packageName}@${ver}`,
                 version: ver,
+                trustedOfficialInstall: true,
                 installedAt: (config.plugins.installs[entry.id] && config.plugins.installs[entry.id].installedAt)
                     || new Date().toISOString()
             };
@@ -3195,6 +3196,7 @@ function ensureOpenClawConfigInitialized() {
                     resolvedVersion: ver,
                     resolvedSpec: `${packageName}@${ver}`,
                     version: ver,
+                    trustedOfficialInstall: true,
                     installedAt: (config.plugins.installs[entry.id] && config.plugins.installs[entry.id].installedAt)
                         || new Date().toISOString()
                 };

@@ -651,7 +651,33 @@ window.LOCALES = {
     'toast.config_reset_success': '🔄 已成功放弃修改，已还原回上一次保存的配置',
     'status.running': '我已经与您本地的 OpenClaw Nexora Agent成功对接！',
     'status.stopped': '当前已启用模型直连服务，无需启动本地Nexora Agent即可直接对话。',
-    'status.starting': '正在连接本地的 OpenClaw Nexora Agent，请稍候...'
+    'status.starting': '正在连接本地的 OpenClaw Nexora Agent，请稍候...',
+
+    // 控制台大盘与进度条 (Dashboard & Progress Bar)
+    'console.dash.status_label': 'Nexora 服务状态',
+    'console.dash.model_label': '活跃推理引擎',
+    'console.dash.channels_title': '🔌 通道接口状态监测',
+    'console.dash.activity_title': '⏱️ 实时系统活动监测流',
+    'console.dash.empty_tips': '暂无系统活动，启动服务后将在此显示最新状态...',
+    'console.dash.running': '运行中',
+    'console.dash.starting': '正在启动...',
+    'console.dash.stopped': '已停止',
+    'console.dash.not_configured': '未启动',
+    'console.progress.starting_env': '正在拉起子进程环境...',
+    'console.progress.loading_channels': '正在装载渠道插件与控制台…',
+    'console.progress.loading_core_plugins': '正在装载核心插件驱动...',
+    'console.progress.checking_config': '正在校验Nexora Agent配置文件与诊断系统...',
+    'console.progress.downloading_plugins': '正在后台下载并安装缺失的扩展插件…',
+    'console.progress.loading_drivers': '正在装载核心插件驱动程序...',
+    'console.progress.http_listening': 'HTTP 已监听，正在完成收尾…',
+    'console.progress.ready': '本地 AI Nexora Agent服务就绪！',
+    'console.progress.binding_port': '正在绑定端口并装载渠道插件…',
+    'console.channel.wechat.connected': '微信消息通道: 已连接',
+    'console.channel.wechat.disconnected': '微信消息通道: 未连接',
+    'console.channel.qq.connected': 'QQ机器人通道: 已连接',
+    'console.channel.qq.disconnected': 'QQ机器人通道: 未配置',
+    'console.channel.feishu.connected': '飞书/Lark通道: 已连接',
+    'console.channel.feishu.disconnected': '飞书/Lark通道: 未连接'
   },
   
   'en-US': {
@@ -1304,7 +1330,33 @@ window.LOCALES = {
     'toast.config_reset_success': '🔄 Discarded unsaved changes and reverted to the last saved configuration.',
     'status.running': 'Successfully connected to your local OpenClaw gateway!',
     'status.stopped': 'Currently the direct model connection service is enabled, you can chat directly without starting the local gateway.',
-    'status.starting': 'Connecting to the local OpenClaw gateway, please wait...'
+    'status.starting': 'Connecting to the local OpenClaw gateway, please wait...',
+
+    // Dashboard & Progress Bar
+    'console.dash.status_label': 'Nexora Agent Status',
+    'console.dash.model_label': 'Active Inference Engine',
+    'console.dash.channels_title': '🔌 Channel Connections Monitor',
+    'console.dash.activity_title': '⏱️ System Activity Stream',
+    'console.dash.empty_tips': 'No system activity. Start service to view logs...',
+    'console.dash.running': 'Running',
+    'console.dash.starting': 'Starting...',
+    'console.dash.stopped': 'Stopped',
+    'console.dash.not_configured': 'Not Running',
+    'console.progress.starting_env': 'Launching process environment...',
+    'console.progress.loading_channels': 'Loading channel plugins and dashboard...',
+    'console.progress.loading_core_plugins': 'Loading core plugins...',
+    'console.progress.checking_config': 'Verifying configuration and diagnostics...',
+    'console.progress.downloading_plugins': 'Downloading and installing missing plugins...',
+    'console.progress.loading_drivers': 'Loading core plugin drivers...',
+    'console.progress.http_listening': 'HTTP listening, finalizing startup...',
+    'console.progress.ready': 'Local AI Nexora Agent service ready!',
+    'console.progress.binding_port': 'Binding ports and loading channel plugins...',
+    'console.channel.wechat.connected': 'WeChat Channel: Connected',
+    'console.channel.wechat.disconnected': 'WeChat Channel: Disconnected',
+    'console.channel.qq.connected': 'QQ Bot Channel: Connected',
+    'console.channel.qq.disconnected': 'QQ Bot Channel: Not Configured',
+    'console.channel.feishu.connected': 'Feishu/Lark Channel: Connected',
+    'console.channel.feishu.disconnected': 'Feishu/Lark Channel: Disconnected'
   },
 
   'zh-TW': {
@@ -1958,6 +2010,32 @@ window.LOCALES = {
     'toast.config_reset_success': '🔄 已成功放棄修改，已還原回上一次保存的配置',
     'status.running': '我已經與您本地的 OpenClaw Nexora Agent成功對接！',
     'status.stopped': '當前已啟用模型直連服務，無需啟動本地Nexora Agent即可直接對話。',
-    'status.starting': '正在連接本地的 OpenClaw Nexora Agent，請稍候...'
+    'status.starting': '正在連接本地的 OpenClaw Nexora Agent，請稍候...',
+
+    // 控制台大盤與進度條 (Dashboard & Progress Bar)
+    'console.dash.status_label': 'Nexora 服務狀態',
+    'console.dash.model_label': '活躍推理引擎',
+    'console.dash.channels_title': '🔌 通道接口狀態監測',
+    'console.dash.activity_title': '⏱️ 即時系統活動監測流',
+    'console.dash.empty_tips': '暫無系統活動，啟動服務後將在此顯示最新狀態...',
+    'console.dash.running': '運行中',
+    'console.dash.starting': '正在啟動...',
+    'console.dash.stopped': '已停止',
+    'console.dash.not_configured': '未啟動',
+    'console.progress.starting_env': '正在拉起子進程環境...',
+    'console.progress.loading_channels': '正在裝載渠道插件與控制台…',
+    'console.progress.loading_core_plugins': '正在裝载核心插件驅動...',
+    'console.progress.checking_config': '正在校驗Nexora Agent配置文件與診斷系統...',
+    'console.progress.downloading_plugins': '正在后台下載並安裝缺失的擴展插件…',
+    'console.progress.loading_drivers': '正在裝載核心插件驅動程序...',
+    'console.progress.http_listening': 'HTTP 已監聽，正在完成收尾…',
+    'console.progress.ready': '本地 AI Nexora Agent服務就緒！',
+    'console.progress.binding_port': '正在綁定端口並裝載渠道插件…',
+    'console.channel.wechat.connected': '微信消息通道: 已連接',
+    'console.channel.wechat.disconnected': '微信消息通道: 未連接',
+    'console.channel.qq.connected': 'QQ機器人通道: 已連接',
+    'console.channel.qq.disconnected': 'QQ機器人通道: 未配置',
+    'console.channel.feishu.connected': '飛書/Lark通道: 已連接',
+    'console.channel.feishu.disconnected': '飛書/Lark通道: 未連接'
   }
 };
