@@ -181,9 +181,8 @@ function resolveBundledChannelPackageDir(runtimeRoot, pluginId) {
   const pkgName = CHANNEL_PACKAGE_BY_ID[pluginId];
   if (!pkgName || !runtimeRoot) return null;
   const dir = path.join(runtimeRoot, 'node_modules', ...pkgName.split('/'));
-  // 由于主进程在执行硬修复时可能还未解压 ZIP，取消物理文件存在性检查
-  // 我们在打包时已经把这些内置包强行塞入，所以直接信任并返回绝对路径即可。
-  return dir;
+  if (exists(path.join(dir, 'package.json'))) return dir;
+  return null;
 }
 
 /**
@@ -220,17 +219,13 @@ function forceDisableUninstalledChannelPlugins(config, opts = {}) {
     const present = !!(bundled || installOk);
 
     if (!present) {
-      // 没包：为了实现“首次启动自动装好”，不再删除条目！
-      // 保留它们在配置中，使得底层的 Doctor 可以在首次启动时触发自动 npm install 下载插件
-      if (!config.plugins.entries[id]) {
-        config.plugins.entries[id] = { enabled: true };
-        changed = true;
-      } else if (config.plugins.entries[id].enabled !== true) {
-        config.plugins.entries[id].enabled = true;
+      // 没包：为了实现彻底根绝卡死，绝对不能在配置里留存！无条件物理删除。
+      if (config.plugins.entries[id]) {
+        delete config.plugins.entries[id];
         changed = true;
       }
-      if (!config.plugins.allow.includes(id)) {
-        config.plugins.allow.push(id);
+      if (config.plugins.installs[id]) {
+        delete config.plugins.installs[id];
         changed = true;
       }
       continue;
