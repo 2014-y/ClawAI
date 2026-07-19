@@ -149,9 +149,7 @@
       "memory-core": {
         "enabled": false
       },
-      "voice-call": {
-        "enabled": false
-      },
+
       "telegram": {
         "enabled": false
       },
