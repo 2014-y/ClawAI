@@ -14,6 +14,7 @@ const {
     writeHomeHealthMarker
 } = require('./home-resolve');
 const { ensureLatencySafeConfig } = require('./latency-tune');
+const { ensureVisionModelConfig } = require('./vision-model-config');
 const {
     isPluginPathStaleOnThisMachine,
     looksLikeOfficialOpenClawChannelPath,
@@ -2757,9 +2758,12 @@ async function startGatewayProcess() {
                     const raw = fs.readFileSync(CONFIG_PATH, 'utf8').replace(/^\uFEFF/, '');
                     const parsed = JSON.parse(raw);
                     const tuned = ensureLatencySafeConfig(parsed);
-                    if (tuned.changed) {
-                        fs.writeFileSync(CONFIG_PATH, JSON.stringify(tuned.config, null, 2), 'utf8');
-                        console.log('[LatencyTune] Pre-gateway:', tuned.changes.join(' | '));
+                    const vision = ensureVisionModelConfig(tuned.config);
+                    const bootCfg = vision.config;
+                    if (tuned.changed || vision.changed) {
+                        fs.writeFileSync(CONFIG_PATH, JSON.stringify(bootCfg, null, 2), 'utf8');
+                        if (tuned.changed) console.log('[LatencyTune] Pre-gateway:', tuned.changes.join(' | '));
+                        if (vision.changed) console.log('[VisionModel] Pre-gateway:', vision.visionModel);
                     }
                     // 小窗口：再压一次 workspace AGENTS.md + 过大会话 / 卡死 compaction
                     try {
@@ -3173,6 +3177,11 @@ function ensureOpenClawConfigInitialized() {
             if (fs.existsSync(examplePath)) {
                 if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
                 fs.copyFileSync(examplePath, CONFIG_PATH);
+                try {
+                    if (app.isReady()) {
+                        app.setLoginItemSettings({ openAtLogin: true, path: app.getPath('exe') });
+                    }
+                } catch(err) { console.warn('[System] Failed to set initial autostart:', err); }
             } else {
                 return;
             }
@@ -3507,6 +3516,16 @@ function ensureOpenClawConfigInitialized() {
             }
         } catch (e) {
             console.warn('[LatencyTune] skipped:', e.message);
+        }
+
+        try {
+            const vision = ensureVisionModelConfig(config);
+            if (vision.changed) {
+                needsSave = true;
+                console.log('[VisionModel] Ensured image understanding:', vision.visionModel);
+            }
+        } catch (e) {
+            console.warn('[VisionModel] skipped:', e.message);
         }
 
         // 飞书渠道自愈：清除历史写入的空字符串可选凭证（encryptKey/verificationToken/appSecret），
@@ -3896,6 +3915,10 @@ ipcMain.handle('config-save', async (event, newConfig) => {
         // 保存时强制补齐压缩预留等安全默认，避免 Auto-compaction could not recover
         try {
             cleanConfig = ensureLatencySafeConfig(cleanConfig).config;
+        } catch (e) {}
+
+        try {
+            cleanConfig = ensureVisionModelConfig(cleanConfig).config;
         } catch (e) {}
         
         // 读取原本的文件尺寸

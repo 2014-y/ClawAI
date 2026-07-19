@@ -46,7 +46,7 @@ let tempCoreIdleTimer = null;
 let lastDelayTestResults = null;
 let state = {
     enabled: false,
-    autoStart: false,
+    autoStart: true,
     activeProfileId: null,
     selectedProxy: null,
     selectedGroup: 'GLOBAL',

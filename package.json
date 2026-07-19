@@ -1,6 +1,6 @@
 {
   "name": "ai-assistant",
-  "version": "2.0.11",
+  "version": "1.0.0",
   "description": "Nexora Agent",
   "keywords": [
     "ai",
@@ -143,6 +143,7 @@
       "plugin-catalog.js",
       "gateway-boot-harden.js",
       "role-config.js",
+      "vision-model-config.js",
       "voice-runtime.js",
       "tts-worker.js",
       "runtime-pack-manifest.js",

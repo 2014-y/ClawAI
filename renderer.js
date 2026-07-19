@@ -29,7 +29,7 @@ window.addEventListener('error', (event) => {
 
 // 获取是否启用内置模型，默认关闭（即 localStorage 存储为 'true' 时才为 true）
 function getUseBuiltIn() {
-    return localStorage.getItem('setting_use_built_in_models') === 'true';
+    return localStorage.getItem('setting_use_built_in_models') !== 'false';
 }
 
 /** 内置开启时，默认模型选型 / 聊天模型仅允许这两个通道 */
@@ -1293,7 +1293,7 @@ async function init() {
     const btnCheckUpdate = document.getElementById('btn-check-update');
 
     if (settingAutoGateway) {
-        settingAutoGateway.checked = localStorage.getItem('setting_auto_launch_gateway') === 'true';
+        settingAutoGateway.checked = localStorage.getItem('setting_auto_launch_gateway') !== 'false';
         settingAutoGateway.addEventListener('change', (e) => {
             localStorage.setItem('setting_auto_launch_gateway', e.target.checked ? 'true' : 'false');
         });
@@ -3336,8 +3336,8 @@ function renderProvidersList() {
             apiKey: '',
             api: 'openai-completions',
             models: [
-                { id: 'agnes-2.0-flash', name: 'agnes-2.0-flash', contextWindow: 131072, maxTokens: 8192 },
-                { id: 'agnes-1.5-flash', name: 'agnes-1.5-flash', contextWindow: 131072, maxTokens: 8192 },
+                { id: 'agnes-2.0-flash', name: 'agnes-2.0-flash', input: ['text', 'image'], contextWindow: 131072, maxTokens: 8192 },
+                { id: 'agnes-1.5-flash', name: 'agnes-1.5-flash', input: ['text', 'image'], contextWindow: 131072, maxTokens: 8192 },
                 { id: 'agnes-video-v2.0', name: 'agnes-video-v2.0', contextWindow: 131072, maxTokens: 8192 },
                 { id: 'agnes-image-2.1-flash', name: 'agnes-image-2.1-flash', contextWindow: 131072, maxTokens: 8192 },
                 { id: 'agnes-image-2.0-flash', name: 'agnes-image-2.0-flash', contextWindow: 131072, maxTokens: 8192 }
@@ -7459,7 +7459,7 @@ function showToast(message) {
 
 // ==================== 模型对话舱核心逻辑 ====================
 let chatAttachmentBase64 = ''; // 存储识图图片的 base64 编码
-
+let chatSessionHistory = []; // 存储当前会话的历史记录
 // 自动初始化对话面板事件
 function initChatView() {
     const btnSend = document.getElementById('btn-chat-send');
@@ -7530,10 +7530,34 @@ function initChatView() {
         if (file) {
             const reader = new FileReader();
             reader.onload = function(event) {
-                chatAttachmentBase64 = event.target.result;
-                previewImg.src = chatAttachmentBase64;
-                previewBar.style.display = 'flex';
-                document.getElementById('attachment-name-label').innerText = `已加载: ${file.name} (大小: ${(file.size/1024).toFixed(1)} KB)`;
+                const img = new Image();
+                img.onload = function() {
+                    let width = img.width;
+                    let height = img.height;
+                    const maxDim = 1024;
+                    if (width > maxDim || height > maxDim) {
+                        if (width > height) {
+                            height = Math.round((height * maxDim) / width);
+                            width = maxDim;
+                        } else {
+                            width = Math.round((width * maxDim) / height);
+                            height = maxDim;
+                        }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    chatAttachmentBase64 = canvas.toDataURL('image/png');
+                    previewImg.src = chatAttachmentBase64;
+                    previewBar.style.display = 'flex';
+                    
+                    const compressedSizeKB = (chatAttachmentBase64.length * 0.75 / 1024).toFixed(1);
+                    document.getElementById('attachment-name-label').innerText = `已压缩加载: ${file.name} (大小: ${compressedSizeKB} KB)`;
+                };
+                img.src = event.target.result;
             };
             reader.readAsDataURL(file);
         }
@@ -7916,6 +7940,7 @@ function appendChatMessage(sender, content, attachment = null, isHTML = false) {
 
 // 清除会话缓存 (清空聊天记录并重置初始欢迎语)
 function clearChatHistory() {
+    chatSessionHistory = []; // 清空历史记录数组
     const container = document.getElementById('chat-messages-container');
     if (!container) return;
 
@@ -8126,20 +8151,27 @@ async function handleSendMessage() {
             role: 'system',
             content: systemPromptToUse + roleAddon
         });
+        
+        // 追加历史会话记录
+        messages.push(...chatSessionHistory);
+
+        let currentUserMsg;
         if (file) {
-            messages.push({
+            currentUserMsg = {
                 role: 'user',
                 content: [
                     { type: 'text', text: text || '分析这张图片' },
                     { type: 'image_url', image_url: { url: file } }
                 ]
-            });
+            };
         } else {
-            messages.push({
+            currentUserMsg = {
                 role: 'user',
                 content: text
-            });
+            };
         }
+        messages.push(currentUserMsg);
+        chatSessionHistory.push(currentUserMsg); // 存入历史记录
 
         // 直连上游接口
         let chatUrl = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
@@ -8165,6 +8197,28 @@ async function handleSendMessage() {
         // 兼容 ollama 原生 /api/chat 的参数格式
         if (providerConfig.api === 'ollama' && chatUrl.endsWith('/api/chat')) {
             reqBody.stream = false;
+            // 映射 OpenAI 格式的多模态数组内容 到 Ollama 原生格式
+            reqBody.messages = reqBody.messages.map(msg => {
+                if (Array.isArray(msg.content)) {
+                    const textItem = msg.content.find(item => item.type === 'text');
+                    const imgItem = msg.content.find(item => item.type === 'image_url');
+                    const mappedMsg = {
+                        role: msg.role,
+                        content: textItem ? textItem.text : ''
+                    };
+                    if (imgItem && imgItem.image_url && imgItem.image_url.url) {
+                        let b64 = imgItem.image_url.url;
+                        // Ollama 需要去除 `data:image/xxx;base64,` 前缀
+                        if (b64.startsWith('data:')) {
+                            const parts = b64.split(',');
+                            if (parts.length === 2) b64 = parts[1];
+                        }
+                        mappedMsg.images = [b64];
+                    }
+                    return mappedMsg;
+                }
+                return msg;
+            });
         }
 
         // 增加 120 秒超时机制，防范上游 API 挂死导致界面无限卡顿
@@ -8193,6 +8247,15 @@ async function handleSendMessage() {
             }
             
             aiBubble.innerText = reply;
+
+            chatSessionHistory.push({
+                role: 'assistant',
+                content: reply
+            });
+            // 限制历史记录长度，保留最近的20条（10轮）
+            if (chatSessionHistory.length > 20) {
+                chatSessionHistory = chatSessionHistory.slice(chatSessionHistory.length - 20);
+            }
 
             // 计入会话用量
             const usage = result.usage || { prompt_tokens: 1200, completion_tokens: 300, total_tokens: 1500 };
