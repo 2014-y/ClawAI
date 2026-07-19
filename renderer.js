@@ -11729,7 +11729,7 @@ function initAccelerationChannel() {
         if (kind === 'system') {
             payload = { systemProxy: on };
             okText = on ? '系统代理已开启' : '系统代理已关闭';
-        } else if (kind === 'virtualNic') {
+        } else if (kind === 'tun' || kind === 'virtualNic') {
             payload = { virtualNic: on };
             okText = on ? 'TUN 已开启' : '虚拟网卡已关闭';
         } else {
