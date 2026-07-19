@@ -2124,6 +2124,43 @@ function prepareChannelPluginsBeforeGateway() {
         }
     } catch (e) {}
 
+    // -------------------
+    // 终极清洗（最后防线）：防止任何已失效的、没装上的幽灵插件依然留在 entries 导致网关卡在 Doctor
+    // -------------------
+    if (config.plugins && config.plugins.entries) {
+        const deadOrUninstalled = [];
+        for (const pid of Object.keys(config.plugins.entries)) {
+            // 特殊系统/内置组件不删
+            if (pid === LONG_TERM_MEMORY_UI_ID || pid === 'system-control') continue;
+            
+            // 阶段遗留残留
+            if (pid.startsWith('.')) { deadOrUninstalled.push(pid); continue; }
+            if (pid === 'channel-router' || pid === 'key-rotator-proxy') { deadOrUninstalled.push(pid); continue; }
+            
+            const b = BUNDLED_NPM_CHANNEL_PLUGINS.find(x => x.id === pid);
+            if (b) {
+                if (b.viaLoadPaths === false) {
+                    const inst = config.plugins.installs && config.plugins.installs[pid];
+                    const ok = inst && inst.installPath && fs.existsSync(path.join(inst.installPath, 'package.json'));
+                    if (!ok) deadOrUninstalled.push(pid);
+                } else {
+                    const resolved = resolveBundledNpmPluginPath(b);
+                    if (!resolved || !fs.existsSync(resolved)) deadOrUninstalled.push(pid);
+                }
+            }
+        }
+        for (const badPid of deadOrUninstalled) {
+            delete config.plugins.entries[badPid];
+            if (config.plugins.installs) delete config.plugins.installs[badPid];
+            if (Array.isArray(config.plugins.allow)) {
+                config.plugins.allow = config.plugins.allow.filter(x => x !== badPid);
+            }
+            needsSave = true;
+            console.log(`[PluginSeed] Ultimate Reaper swept ghost plugin: ${badPid}`);
+        }
+    }
+
+
     if (needsSave) {
         fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
         console.log('[PluginSeed] Pre-gateway channel trust records synced');
