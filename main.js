@@ -769,6 +769,13 @@ function pruneStalePluginConfigEntries(config) {
         if (BUNDLED_CUSTOM_PLUGINS.includes(id)) return true;
         const bundled = BUNDLED_NPM_CHANNEL_PLUGINS.find((e) => e.id === id);
         if (bundled) {
+            if (bundled.viaLoadPaths === false) {
+                try {
+                    if (installs[id] && installs[id].installPath
+                        && fs.existsSync(path.join(installs[id].installPath, 'package.json'))) return true;
+                } catch (e) {}
+                return false;
+            }
             try {
                 if (resolveBundledNpmPluginPath(bundled)) return true;
             } catch (e) {}
@@ -2807,6 +2814,20 @@ async function startGatewayProcess() {
                 }
             } catch (e) {
                 console.warn('[Linkage] Clash startup linkage error before gateway fork:', e.message);
+            }
+
+            // 强行清除上一次异常退出的网关租期锁，防止第二次启动时卡死在 startup migrations running
+            try {
+                const sqlitePath = path.join(lockedAuth.stateDir, 'state', 'openclaw.sqlite');
+                if (fs.existsSync(sqlitePath)) {
+                    const { DatabaseSync } = require('node:sqlite');
+                    const db = new DatabaseSync(sqlitePath);
+                    db.exec("DELETE FROM state_leases WHERE scope = 'startup-migrations';");
+                    db.close();
+                    console.log('[TokenGuard] Automatically cleared stale startup-migrations lease lock in SQLite state db.');
+                }
+            } catch (e) {
+                console.warn('[TokenGuard] Failed to clear stale startup-migrations lease lock:', e.message);
             }
 
             console.log(`[TokenGuard] Fork gateway home=${lockedAuth.homePath} state=${lockedAuth.stateDir} token_len=${String(lockedAuth.token).length}`);
