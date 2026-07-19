@@ -6402,6 +6402,11 @@ app.whenReady().then(async () => {
     setImmediate(() => {
         try { seedBundledPlugins(); } catch (e) {}
         try { watchRoleConfigFile(); } catch (e) {}
+        
+        // 自动在后台静默初始化底层 Node 引擎沙箱，不必等用户手动点击
+        try {
+            checkAndHealSandboxNode().catch(e => console.warn('[SandboxAutoInit] background init failed:', e.message));
+        } catch (e) {}
     });
 
     app.on('activate', () => {
