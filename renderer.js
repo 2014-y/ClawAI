@@ -5766,8 +5766,8 @@ function updateGatewayStatusUI(status) {
         statusLabel.innerText = t('sidebar.status.starting');
         btnIconStart.style.display = 'block';
         btnIconStop.style.display = 'none';
-        btnLabelText.removeAttribute('data-i18n');
-        btnLabelText.innerHTML = '<span class="starting-pulse-text" data-i18n="sidebar.status.starting_deep">深度初始化加载中...</span>';
+        btnLabelText.setAttribute('data-i18n', 'sidebar.status.starting');
+        btnLabelText.innerText = t('sidebar.status.starting');
         gatewayToggleBtn.className = 'status-badge-container starting';
 
         const systemLogsArea = document.getElementById('system-raw-logs-area');
