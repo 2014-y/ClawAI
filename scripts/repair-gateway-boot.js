@@ -29,10 +29,10 @@ function findBases(explicit) {
   const la = process.env.LOCALAPPDATA || '';
   push(path.join(la, 'NexoraAgent'));
   push(path.join(la, 'ClawAI'));
-  push(ROOT);
-  push('C:\\Users\\Administrator\\AppData\\Local\\NexoraAgent');
-  push('C:\\Users\\Yuan\\AppData\\Local\\NexoraAgent');
-  push('C:\\Users\\Yuan\\AppData\\Local\\ClawAI');
+  if (process.env.USERPROFILE) {
+    push(path.join(process.env.USERPROFILE, 'AppData', 'Local', 'NexoraAgent'));
+    push(path.join(process.env.USERPROFILE, 'AppData', 'Local', 'ClawAI'));
+  }
   return out;
 }
 
