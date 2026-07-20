@@ -2038,6 +2038,88 @@ async function init() {
     }
 }
 
+// 🌟 平滑逐条放行日志队列管理器（避免批量日志瞬间推入，实现按顺序一条一条平滑递进）
+let __activityLogQueue = [];
+let __isProcessingLogQueue = false;
+let __seenPluginLogsThisStartup = new Set();
+
+function resetPluginLogDedupe() {
+    __seenPluginLogsThisStartup.clear();
+}
+
+function enqueueActivityLog(lineHtml) {
+    if (!lineHtml) return;
+    
+    // 对于重复装载相同通道插件的日志，同一阶段仅放行一次
+    if (lineHtml.includes('成功装载') && lineHtml.includes('消息通道插件')) {
+        const cleanTag = lineHtml.replace(/<\/?[^>]+(>|$)/g, "").trim();
+        if (__seenPluginLogsThisStartup.has(cleanTag)) {
+            return;
+        }
+        __seenPluginLogsThisStartup.add(cleanTag);
+    }
+
+    __activityLogQueue.push(lineHtml);
+    if (!__isProcessingLogQueue) {
+        processActivityLogQueue();
+    }
+}
+
+function processActivityLogQueue() {
+    if (__activityLogQueue.length === 0) {
+        __isProcessingLogQueue = false;
+        return;
+    }
+
+    __isProcessingLogQueue = true;
+    const lineHtml = __activityLogQueue.shift();
+
+    const streamList = document.getElementById('dash-activity-stream-list');
+    if (streamList) {
+        const emptyTips = streamList.querySelector('.activity-item-empty');
+        if (emptyTips) emptyTips.remove();
+
+        const item = document.createElement('div');
+        item.className = 'activity-log-line typing';
+        item.innerHTML = lineHtml;
+        streamList.appendChild(item);
+
+        // 最多保留最近 150 条
+        while (streamList.children.length > 150) {
+            streamList.removeChild(streamList.firstChild);
+        }
+
+        // 打字机渐显动画： clip-path 从左往右逐帧平滑揭开
+        const temp = document.createElement('span');
+        temp.innerHTML = lineHtml;
+        const textLen = (temp.textContent || '').length;
+        const totalSteps = Math.min(textLen, 35);
+        let step = 0;
+        item.style.clipPath = 'inset(0 100% 0 0)';
+
+        const typeTimer = setInterval(() => {
+            step++;
+            const pct = Math.min(100, (step / totalSteps) * 100);
+            item.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+            streamList.scrollTop = streamList.scrollHeight;
+
+            if (step >= totalSteps) {
+                clearInterval(typeTimer);
+                item.style.clipPath = 'none';
+                item.classList.remove('typing');
+            }
+        }, 10);
+    }
+
+    // 根据队列积压长度自适应决定下一条放行延迟 (积压多时 60ms，少量时 200ms 逐条流畅递进)
+    const queueLen = __activityLogQueue.length;
+    const nextDelay = queueLen > 12 ? 60 : (queueLen > 4 ? 120 : 200);
+
+    setTimeout(() => {
+        processActivityLogQueue();
+    }, nextDelay);
+}
+
 // 🔍 小白友好型日志汉化过滤与清洗转化器
 function formatLogForUser(text) {
     if (!text) return null;
@@ -2602,51 +2684,7 @@ function setupIpcListeners() {
                     window.__deferredConsoleLogs = window.__deferredConsoleLogs.slice(-180);
                 }
             } else {
-                const streamList = document.getElementById('dash-activity-stream-list');
-                if (streamList) {
-                    const emptyTips = streamList.querySelector('.activity-item-empty');
-                    if (emptyTips) {
-                        emptyTips.remove();
-                    }
-                    
-                    const item = document.createElement('div');
-                    item.className = 'activity-log-line typing';
-                    item.innerHTML = lineHtml;
-                    streamList.appendChild(item);
-                    
-                    // 最多保留最近 150 条
-                    while (streamList.children.length > 150) {
-                        streamList.removeChild(streamList.firstChild);
-                    }
-                    
-                    // 打字机动画：用 clip-path 从左到右逐步揭开内容
-                    const temp = document.createElement('span');
-                    temp.innerHTML = lineHtml;
-                    const textLen = (temp.textContent || '').length;
-                    const totalSteps = Math.min(textLen, 50);
-                    let step = 0;
-                    item.style.clipPath = 'inset(0 100% 0 0)';
-                    
-                    const typeTimer = setInterval(() => {
-                        step++;
-                        const pct = Math.min(100, (step / totalSteps) * 100);
-                        item.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
-                        
-                        // 每步都滚到底部
-                        streamList.scrollTop = streamList.scrollHeight;
-                        
-                        if (step >= totalSteps) {
-                            clearInterval(typeTimer);
-                            item.style.clipPath = 'none';
-                            item.classList.remove('typing');
-                        }
-                    }, 12);
-                    
-                    // 无条件自动滚到最底部
-                    requestAnimationFrame(() => {
-                        streamList.scrollTop = streamList.scrollHeight;
-                    });
-                }
+                enqueueActivityLog(lineHtml);
             }
         });
 
