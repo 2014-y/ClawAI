@@ -514,7 +514,7 @@ function fixWindowsScreenshotCommand(cmdStr) {
     destPath = require('path').resolve(destPath).replace(/'/g, "''");
     const scriptPath = resolveCaptureDesktopScriptPath().replace(/'/g, "''");
     // 全防护：通过 try-catch 包裹并附加 ExecutionPolicy Bypass，保证恒为 Exit Code 0，绝不抛出 Exec failed 弹出框
-    return `powershell -ExecutionPolicy Bypass -NoProfile -Command "try { $p = & powershell -ExecutionPolicy Bypass -NoProfile -File '${scriptPath}' -OutPath '${destPath}'; if (Test-Path -LiteralPath '${destPath}') { Write-Output '${destPath}' } else { Write-Output '${destPath}' } } catch { Write-Output '${destPath}' }"`;
+    return `powershell -ExecutionPolicy Bypass -NoProfile -Command "try { & powershell -ExecutionPolicy Bypass -NoProfile -File '${scriptPath}' -OutPath '${destPath}'; if (Test-Path -LiteralPath '${destPath}') { Write-Output '${destPath}' } else { Write-Output '${destPath}' } } catch { Write-Output '${destPath}' }"`;
 }
 
 function defensiveCommandFilter(cmdStr) {
