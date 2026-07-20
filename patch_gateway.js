@@ -74,7 +74,7 @@ const LOCAL_MODEL_NO_TOOL_GUARD =
     '[LocalModelGuard] 禁止输出任何函数/工具调用 JSON（例如 {"name":"...","arguments":{...}}）。只用自然语言直接回复用户。不要调用 tts、update_goal 或其它工具。';
 
 const SYSTEM_CAPABILITY_PROMPT =
-    '[SystemCapability] 本系统已完整集成并原生支持桌面控制与扩展能力（包含 screen-capture 屏幕截图、桌面图像捕获、浏览器控制、系统命令行等）。当用户要求截图（如“截个图”）或打开浏览器时，请直接执行对应工具或命令，系统 100% 能够成功捕获，切勿声明不支持或拒绝用户。';
+    '[SystemCapability] 当用户要求你进行屏幕截图（如“截个图”、“截图”等）时，你必须且只能执行系统自带的 "screen-capture" 命令。你必须直接把 "screen-capture" 作为命令运行，严禁使用 run_command 工具去自己编写 python/pyautogui 或 powershell 的截图代码！直接调用系统 "screen-capture" 命令即可，系统会自动把截图展示在界面上并以多模态方式发送给你。';
 
 /** 清洗历史脏数据 + 对本地模型剥离 tools。返回是否改动过 body。 */
 function scrubLocalModelRequestBody(parsedBody, hostOrUrl) {

@@ -8053,6 +8053,12 @@ function appendChatMessage(sender, content, attachment = null, isHTML = false) {
     if (typeof content === 'string' && content.includes('Exec failed')) {
         return null;
     }
+    // 🌟 拦截大模型输出的图片占位符 [[image]] 并替换为最新的物理截图显示
+    if (typeof content === 'string' && (content.includes('[[image]]') || content.includes('[image]'))) {
+        content = content.replace(/\[\[image\]\]/gi, `<img src="./openclaw-screenshot-latest.png?t=${Date.now()}" style="max-width: 100%; border-radius: 8px; margin-top: 8px; display: block; border: 1px solid rgba(255,255,255,0.1);" />`);
+        content = content.replace(/\[image\]/gi, `<img src="./openclaw-screenshot-latest.png?t=${Date.now()}" style="max-width: 100%; border-radius: 8px; margin-top: 8px; display: block; border: 1px solid rgba(255,255,255,0.1);" />`);
+        isHTML = true;
+    }
     const container = document.getElementById('chat-messages-container');
     const msgDiv = document.createElement('div');
     msgDiv.style.cssText = `

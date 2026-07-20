@@ -134,6 +134,10 @@ try {
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
     }
     $bitmap.Save($OutPath, [System.Drawing.Imaging.ImageFormat]::Png)
+    try {
+        $latestPath = Join-Path $PSScriptRoot 'openclaw-screenshot-latest.png'
+        $bitmap.Save($latestPath, [System.Drawing.Imaging.ImageFormat]::Png)
+    } catch {}
     Write-Output $OutPath
 }
 finally {
