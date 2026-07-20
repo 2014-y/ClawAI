@@ -500,6 +500,7 @@ function fixWindowsScreenshotCommand(cmdStr) {
     if (typeof cmdStr !== 'string') return cmdStr;
     const s = cmdStr.toLowerCase();
     const looksLikeCapture =
+        s.includes('screen-capture') ||
         s.includes('capture-desktop') ||
         s.includes('screenshot') ||
         s.includes('copyfromscreen') ||
