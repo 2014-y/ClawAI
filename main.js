@@ -3887,7 +3887,9 @@ ipcMain.handle('role-config-save', async (event, payload) => {
 ipcMain.handle('config-save', async (event, newConfig) => {
     try {
         let cleanConfig = JSON.parse(JSON.stringify(newConfig));
-        // 保留用户在界面配置的生图与生视频服务参数
+        // 关键防护：移除不在 OpenClaw 网关根 Schema 中的扩展顶层字段，防止网关启动抛出 Unrecognized keys
+        delete cleanConfig.videoGenerator;
+        delete cleanConfig.imageGenerator;
 
         // 启用插件必须进 allow，保证别人电脑上开关真能加载
         try {
