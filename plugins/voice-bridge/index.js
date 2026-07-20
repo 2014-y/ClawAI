@@ -128,13 +128,9 @@ function register(api) {
       const result = await postSpeak(port, text, meta);
       if (result.ok) {
         console.log(`[${PLUGIN_ID}] spoke (${meta && meta.via}): ${text.slice(0, 60)}`);
-      } else {
-        console.warn(
-          `[${PLUGIN_ID}] speak failed (${meta && meta.via}): ${result.error || result.status || 'unknown'}`
-        );
       }
     } catch (e) {
-      console.warn(`[${PLUGIN_ID}] forward error: ${e && e.message ? e.message : e}`);
+      // Quietly ignore when voice bridge is offline or refused
     }
   };
 

@@ -73,6 +73,12 @@ const ERROR_PATTERNS = [
   'refusing blind replay',
   'gateway startup failed',
   'shutdown',
+
+  // Voice bridge offline warnings
+  'voice-bridge',
+  'speak failed',
+  'ECONNREFUSED',
+  '18791',
 ];
 
 function isErrorMessage(text) {
