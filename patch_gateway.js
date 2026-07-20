@@ -83,9 +83,21 @@ function scrubLocalModelRequestBody(parsedBody, hostOrUrl) {
 
     if (Array.isArray(parsedBody.messages)) {
         const cleanedMessages = [];
-        for (const msg of parsedBody.messages) {
+        for (let i = 0; i < parsedBody.messages.length; i++) {
+            const msg = parsedBody.messages[i];
             if (!msg || typeof msg !== 'object') continue;
             let content = msg.content;
+            
+            // 毒性幻觉清洗：如果助手回复中包含了假装截图的 [[image]]，则这会严重污染上下文，导致大模型不再调用工具，必须跳过
+            if (msg.role === 'assistant' && typeof content === 'string' && content.includes('[[image]]')) {
+                // 如果发现毒性回复，不仅要删掉这条，还要把前一条 user 请求（比如“截个图”）也一并弹出去，保持对话连贯
+                if (cleanedMessages.length > 0 && cleanedMessages[cleanedMessages.length - 1].role === 'user') {
+                    cleanedMessages.pop();
+                }
+                hasModified = true;
+                continue;
+            }
+
             if (typeof content === 'string') {
                 if (
                     content.includes('None of the functions provided') ||
