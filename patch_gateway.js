@@ -472,13 +472,16 @@ function resolveCaptureDesktopScriptPath() {
 
 function fixWindowsScreenshotCommand(cmdStr) {
     if (typeof cmdStr !== 'string') return cmdStr;
+    const s = cmdStr.toLowerCase();
     const looksLikeCapture =
-        /capture-desktop\.ps1/i.test(cmdStr) ||
-        /openclaw-screenshot\.png/i.test(cmdStr) ||
-        /CopyFromScreen/i.test(cmdStr) ||
-        /ImageFormat/i.test(cmdStr) ||
-        /System\.Windows/i.test(cmdStr) ||
-        (cmdStr.includes('Add-Type') && (cmdStr.includes('Drawing') || cmdStr.includes('Graphics') || cmdStr.includes('Bitmap') || cmdStr.includes('Windows') || cmdStr.includes('Forms')));
+        s.includes('capture-desktop') ||
+        s.includes('screenshot') ||
+        s.includes('copyfromscreen') ||
+        s.includes('imageformat') ||
+        s.includes('system.windows') ||
+        s.includes('outputpath') ||
+        s.includes('dispose()') ||
+        (s.includes('add-type') && (s.includes('drawing') || s.includes('graphics') || s.includes('bitmap') || s.includes('windows') || s.includes('forms')));
     if (!looksLikeCapture) return cmdStr;
 
     let destPath = '';
