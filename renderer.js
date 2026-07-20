@@ -2089,12 +2089,13 @@ function processActivityLogQueue() {
             streamList.removeChild(streamList.firstChild);
         }
 
-        // 打字机渐显动画： clip-path 从左往右逐帧平滑揭开
+        // 打字机渐显动画： clip-path 从左往右逐帧优雅平滑揭开
         const temp = document.createElement('span');
         temp.innerHTML = lineHtml;
         const textLen = (temp.textContent || '').length;
-        const totalSteps = Math.min(textLen, 35);
+        const totalSteps = Math.min(textLen, 50);
         let step = 0;
+        item.style.transition = 'clip-path 0.15s ease-out, opacity 0.25s ease-out';
         item.style.clipPath = 'inset(0 100% 0 0)';
 
         const typeTimer = setInterval(() => {
@@ -2108,12 +2109,12 @@ function processActivityLogQueue() {
                 item.style.clipPath = 'none';
                 item.classList.remove('typing');
             }
-        }, 10);
+        }, 22);
     }
 
-    // 根据队列积压长度自适应决定下一条放行延迟 (积压多时 60ms，少量时 200ms 逐条流畅递进)
+    // 自适应优雅延时：正常推送时每条沉浸展示 550ms，积压多时微调放行
     const queueLen = __activityLogQueue.length;
-    const nextDelay = queueLen > 12 ? 60 : (queueLen > 4 ? 120 : 200);
+    const nextDelay = queueLen > 15 ? 120 : (queueLen > 5 ? 250 : 550);
 
     setTimeout(() => {
         processActivityLogQueue();
