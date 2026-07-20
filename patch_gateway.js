@@ -498,20 +498,8 @@ function fixWindowsScreenshotCommand(cmdStr) {
         (s.includes('add-type') && (s.includes('drawing') || s.includes('graphics') || s.includes('bitmap') || s.includes('windows') || s.includes('forms')));
     if (!looksLikeCapture) return cmdStr;
 
-    let destPath = '';
-    const saveMatch = cmdStr.match(/Save\s*\(\s*['"]([^'"]+)['"]/i);
-    if (saveMatch && saveMatch[1]) destPath = saveMatch[1].trim();
-    if (!destPath) {
-        const outMatch = cmdStr.match(/(?:OutPath|outPath|output|dest)\s*[=:]\s*['"]([^'"]+)['"]/i);
-        if (outMatch && outMatch[1]) destPath = outMatch[1].trim();
-    }
-    if (!destPath) destPath = require('path').join(process.env.TEMP || process.env.TMP || require('os').tmpdir(), 'openclaw-screenshot.png');
-
-    if (destPath.startsWith('~')) {
-        const homedir = process.env.REAL_USER_HOME || process.env.OPENCLAW_HOME || require('os').homedir();
-        destPath = destPath.replace(/^~/, homedir);
-    }
-    destPath = require('path').resolve(destPath).replace(/'/g, "''");
+    // 强行指定为项目根目录下的统一文件名，方便前端通过 `./openclaw-screenshot-latest.png` 相对路径直读渲染
+    const destPath = require('path').join(__dirname, 'openclaw-screenshot-latest.png').replace(/\\/g, '/').replace(/'/g, "''");
     const scriptPath = resolveCaptureDesktopScriptPath().replace(/'/g, "''");
     // 全防护：通过 try-catch 包裹并附加 ExecutionPolicy Bypass，保证恒为 Exit Code 0，绝不抛出 Exec failed 弹出框
     return `powershell -ExecutionPolicy Bypass -NoProfile -Command "try { & powershell -ExecutionPolicy Bypass -NoProfile -File '${scriptPath}' -OutPath '${destPath}'; if (Test-Path -LiteralPath '${destPath}') { Write-Output '${destPath}' } else { Write-Output '${destPath}' } } catch { Write-Output '${destPath}' }"`;
