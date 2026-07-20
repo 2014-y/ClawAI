@@ -131,6 +131,24 @@ function scrubLocalModelRequestBody(parsedBody, hostOrUrl) {
             delete parsedBody.tools;
             hasModified = true;
         }
+    } else {
+        // 云端模型截图劫持：如果用户说“截图”等，强行注入 tool_choice，迫使 Flash 等模型必须调 exec
+        if (Array.isArray(parsedBody.messages)) {
+            let lastUserMsg = null;
+            for (let i = parsedBody.messages.length - 1; i >= 0; i--) {
+                if (parsedBody.messages[i] && parsedBody.messages[i].role === 'user') {
+                    lastUserMsg = parsedBody.messages[i];
+                    break;
+                }
+            }
+            if (lastUserMsg && typeof lastUserMsg.content === 'string') {
+                const lowerText = lastUserMsg.content.toLowerCase();
+                if (lowerText.includes('截图') || lowerText.includes('截个图') || lowerText.includes('截张图')) {
+                    parsedBody.tool_choice = { type: 'function', function: { name: 'exec' } };
+                    hasModified = true;
+                }
+            }
+        }
     }
         // 系统提示处理：仅对真正端侧小模型添加禁用工具警示；给正常云端模型添加截图与浏览器能力支持提示
         if (Array.isArray(parsedBody.messages)) {
