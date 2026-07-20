@@ -1725,11 +1725,34 @@ async function init() {
     // 系统运行日志 复制与清空操作绑定
     const btnCopySystemLogs = document.getElementById('btn-copy-system-logs');
     if (btnCopySystemLogs) {
-        btnCopySystemLogs.addEventListener('click', () => {
+        btnCopySystemLogs.addEventListener('click', async () => {
             const systemLogsArea = document.getElementById('system-raw-logs-area');
-            if (systemLogsArea && systemLogsArea.value) {
-                navigator.clipboard.writeText(systemLogsArea.value);
-                showToast(t('📋 已将完整系统运行日志成功复制到剪贴板！', '📋 Copying complete system logs to clipboard succeeded!', '📋 已將完整系統運行日誌成功複製到剪貼板！'));
+            let text = systemLogsArea ? systemLogsArea.value : '';
+            // 如果内容为空或仅为初始化占位文本，主动拉取本地持久化日志
+            if (!text || text.includes('等待Nexora Agent子进程启动') || text.includes('【正在装载历史日志')) {
+                try {
+                    await loadAndRenderSystemLogs();
+                    text = systemLogsArea ? systemLogsArea.value : '';
+                } catch (e) {}
+            }
+
+            const cleanText = (text || '').trim();
+            if (cleanText && !cleanText.includes('等待Nexora Agent子进程启动') && !cleanText.includes('【无历史日志数据】') && !cleanText.includes('【历史日志加载失败】')) {
+                let copied = false;
+                try {
+                    await navigator.clipboard.writeText(cleanText);
+                    copied = true;
+                } catch (err) {
+                    if (systemLogsArea) {
+                        systemLogsArea.select();
+                        copied = document.execCommand('copy');
+                    }
+                }
+                if (copied) {
+                    showToast(t('📋 已将完整系统运行日志成功复制到剪贴板！', '📋 Copying complete system logs to clipboard succeeded!', '📋 已將完整系統運行日誌成功複製到剪貼板！'));
+                } else {
+                    showToast(t('⚠️ 复制失败，请选择文本后手动按 Ctrl+C 复制', '⚠️ Copy failed, please select text and press Ctrl+C', '⚠️ 複製失敗，請選擇文本後手動按 Ctrl+C 複製'));
+                }
             } else {
                 showToast(t('⚠️ 当前无任何系统运行日志可复制', '⚠️ No system logs to copy', '⚠️ 目前無任何系統運行日誌可複製'));
             }
