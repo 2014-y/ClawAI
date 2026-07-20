@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('api', {
     // 开机自启
     getAutoStart: () => ipcRenderer.invoke('autostart-get'),
     setAutoStart: (enabled) => ipcRenderer.invoke('autostart-set', enabled),
+    copyText: (text) => ipcRenderer.invoke('copy-text', text),
     openExternal: (url) => ipcRenderer.invoke('open-external', url),
     getAccelerationStatus: () => ipcRenderer.invoke('acceleration-status'),
     getAppInstanceInfo: () => ipcRenderer.invoke('app-instance-info'),

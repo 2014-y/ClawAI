@@ -1738,16 +1738,7 @@ async function init() {
 
             const cleanText = (text || '').trim();
             if (cleanText && !cleanText.includes('等待Nexora Agent子进程启动') && !cleanText.includes('【无历史日志数据】') && !cleanText.includes('【历史日志加载失败】')) {
-                let copied = false;
-                try {
-                    await navigator.clipboard.writeText(cleanText);
-                    copied = true;
-                } catch (err) {
-                    if (systemLogsArea) {
-                        systemLogsArea.select();
-                        copied = document.execCommand('copy');
-                    }
-                }
+                const copied = await copyToClipboard(cleanText);
                 if (copied) {
                     showToast(t('📋 已将完整系统运行日志成功复制到剪贴板！', '📋 Copying complete system logs to clipboard succeeded!', '📋 已將完整系統運行日誌成功複製到剪貼板！'));
                 } else {
@@ -2896,31 +2887,7 @@ function setupIpcListeners() {
                 return;
             }
 
-            let copied = false;
-            try {
-                if (urlInput) {
-                    urlInput.focus();
-                    urlInput.select();
-                    urlInput.setSelectionRange(0, 99999);
-                }
-                await navigator.clipboard.writeText(targetUrl);
-                copied = true;
-            } catch (err) {
-                if (urlInput) {
-                    urlInput.select();
-                    copied = document.execCommand('copy');
-                } else {
-                    const tmp = document.createElement('textarea');
-                    tmp.value = targetUrl;
-                    tmp.style.position = 'fixed';
-                    tmp.style.opacity = '0';
-                    document.body.appendChild(tmp);
-                    tmp.focus();
-                    tmp.select();
-                    copied = document.execCommand('copy');
-                    document.body.removeChild(tmp);
-                }
-            }
+            const copied = await copyToClipboard(targetUrl);
 
             if (copied) {
                 const isFeishu = window.__activeQrChannel === 'feishu';
@@ -7806,13 +7773,13 @@ function addTtsToAiBubble(msgDiv, bubble) {
         display: flex;
         gap: 6px;
         margin-top: 2px;
-        opacity: 0;
+        opacity: 0.7;
         transition: opacity 0.2s ease;
         align-self: flex-start;
     `;
 
-    msgDiv.addEventListener('mouseenter', () => actionRow.style.opacity = '0.8');
-    msgDiv.addEventListener('mouseleave', () => actionRow.style.opacity = '0');
+    msgDiv.addEventListener('mouseenter', () => actionRow.style.opacity = '1.0');
+    msgDiv.addEventListener('mouseleave', () => actionRow.style.opacity = '0.7');
 
     const speakBtn = document.createElement('button');
     speakBtn.title = '朗读消息';
@@ -7954,7 +7921,57 @@ function addTtsToAiBubble(msgDiv, bubble) {
         }
     });
 
+    // 🌟 复制消息按钮
+    const copyBtn = document.createElement('button');
+    copyBtn.title = '复制消息内容';
+    copyBtn.style.cssText = `
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        outline: none;
+        padding: 0;
+    `;
+    copyBtn.addEventListener('mouseenter', () => {
+        copyBtn.style.background = 'rgba(255, 255, 255, 0.08)';
+        copyBtn.style.color = 'var(--text-primary)';
+    });
+    copyBtn.addEventListener('mouseleave', () => {
+        copyBtn.style.background = 'transparent';
+        copyBtn.style.color = 'var(--text-secondary)';
+    });
+
+    const copySvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+    const checkSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+
+    copyBtn.innerHTML = copySvg;
+
+    copyBtn.addEventListener('click', async () => {
+        const textToCopy = (bubble.innerText || bubble.textContent || '').trim();
+        if (!textToCopy) return;
+
+        const copied = await copyToClipboard(textToCopy);
+
+        if (copied) {
+            copyBtn.innerHTML = checkSvg;
+            if (typeof showToast === 'function') {
+                showToast('📋 已将消息内容成功复制到剪贴板！');
+            }
+            setTimeout(() => {
+                copyBtn.innerHTML = copySvg;
+            }, 1500);
+        }
+    });
+
     actionRow.appendChild(speakBtn);
+    actionRow.appendChild(copyBtn);
     bubbleWrapper.appendChild(actionRow);
 }
 

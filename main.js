@@ -1,5 +1,5 @@
 // main.js - Electron 主进程入口
-const { app, BrowserWindow, ipcMain, Tray, Menu, Notification, session, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, Notification, session, dialog, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const net = require('net');
@@ -5205,6 +5205,19 @@ ipcMain.handle('autostart-get', async () => {
 // 获取应用当前版本号
 ipcMain.handle('get-app-version', async () => {
     return app.getVersion();
+});
+
+// 剪贴板原生复制
+ipcMain.handle('copy-text', async (event, text) => {
+    try {
+        if (typeof text === 'string') {
+            clipboard.writeText(text);
+            return { success: true };
+        }
+        return { success: false, error: 'invalid_text' };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
 });
 
 ipcMain.handle('autostart-set', async (event, enabled) => {
