@@ -73,6 +73,9 @@ function sanitizeRawToolCallContent(content) {
 const LOCAL_MODEL_NO_TOOL_GUARD =
     '[LocalModelGuard] 禁止输出任何函数/工具调用 JSON（例如 {"name":"...","arguments":{...}}）。只用自然语言直接回复用户。不要调用 tts、update_goal 或其它工具。';
 
+const SYSTEM_CAPABILITY_PROMPT =
+    '[SystemCapability] 本系统已完整集成并原生支持桌面控制与扩展能力（包含 screen-capture 屏幕截图、桌面图像捕获、浏览器控制、系统命令行等）。当用户要求截图（如“截个图”）或打开浏览器时，请直接执行对应工具或命令，系统 100% 能够成功捕获，切勿声明不支持或拒绝用户。';
+
 /** 清洗历史脏数据 + 对本地模型剥离 tools。返回是否改动过 body。 */
 function scrubLocalModelRequestBody(parsedBody, hostOrUrl) {
     let hasModified = false;
@@ -116,14 +119,25 @@ function scrubLocalModelRequestBody(parsedBody, hostOrUrl) {
             delete parsedBody.tools;
             hasModified = true;
         }
-        // 系统提示里仍可能列出 Available tools；追加硬约束，降低把工具 JSON 当回复的概率
+        // 系统提示处理：仅对真正端侧小模型添加禁用工具警示；给正常云端模型添加截图与浏览器能力支持提示
         if (Array.isArray(parsedBody.messages)) {
-            const alreadyGuarded = parsedBody.messages.some(
-                (m) => m && m.role === 'system' && typeof m.content === 'string' && m.content.includes('[LocalModelGuard]')
-            );
-            if (!alreadyGuarded) {
-                parsedBody.messages.unshift({ role: 'system', content: LOCAL_MODEL_NO_TOOL_GUARD });
-                hasModified = true;
+            const isLocal = isLocalModelRequest(parsedBody.model, hostOrUrl);
+            if (isLocal) {
+                const alreadyGuarded = parsedBody.messages.some(
+                    (m) => m && m.role === 'system' && typeof m.content === 'string' && m.content.includes('[LocalModelGuard]')
+                );
+                if (!alreadyGuarded) {
+                    parsedBody.messages.unshift({ role: 'system', content: LOCAL_MODEL_NO_TOOL_GUARD });
+                    hasModified = true;
+                }
+            } else {
+                const alreadyHasCap = parsedBody.messages.some(
+                    (m) => m && m.role === 'system' && typeof m.content === 'string' && m.content.includes('[SystemCapability]')
+                );
+                if (!alreadyHasCap) {
+                    parsedBody.messages.unshift({ role: 'system', content: SYSTEM_CAPABILITY_PROMPT });
+                    hasModified = true;
+                }
             }
 
             // 本地小窗：硬裁历史，避免 Preflight compaction 必挂
