@@ -1823,10 +1823,7 @@ const DEFAULT_MEMORY_MD_TEMPLATE = `# MEMORY.md
 
 ## 工具使用规范
 ${MEDIA_MEMORY_MARKER}
-- **图片生成**：优先 \`draw_picture\`；否则 \`exec\` 运行 \`node <用户目录>/.openclaw/media-cli/agnes-media-cli.js image --prompt "..."\`
-- **视频生成**：优先 \`draw_video\`；否则同一 CLI 的 \`video --prompt "..."\`
-- 输出目录：\`<用户目录>/.openclaw/media-output/\`；完成后用 \`MEDIA:文件路径\` 发给用户
-- 不要使用内置 \`image_generate\` / \`video_generate\`（默认无 Google Key）
+- 生图/生视频规则见 TOOLS.md（优先 draw_picture / draw_video）
 
 ## 重要约定
 - 本文件是长期记忆；对话压缩后仍会优先读取这里的信息。
@@ -1837,6 +1834,9 @@ ${MEDIA_MEMORY_MARKER}
 const SHORT_WORKSPACE_AGENTS_MD = `# AGENTS.md
 
 Be helpful and concise. Prefer short answers.
+
+## 启动规则（一次性）
+- 启动上下文已含 AGENTS / TOOLS / MEMORY。不要重复 read 这些文件。
 
 ## Memory
 - Use MEMORY.md for lasting facts only.
@@ -2179,6 +2179,56 @@ function ensureMediaAgentsGuidance(wsDir) {
     }
 }
 
+/**
+ * 启动时一次性注入规则即可；禁止 AGENTS 再要求「先读 SYSTEM_RULES / MEMORY」导致每轮重复读盘。
+ */
+function ensureStartupRulesOnceGuidance(wsDir) {
+    try {
+        const agentsPath = path.join(wsDir, 'AGENTS.md');
+        if (!fs.existsSync(agentsPath)) return;
+        let cur = fs.readFileSync(agentsPath, 'utf8');
+        let changed = false;
+        const onceBlock = [
+            '## 启动规则（一次性）',
+            '- 会话启动上下文已包含 AGENTS / SOUL / TOOLS / MEMORY / SYSTEM_RULES（若有）。',
+            '- **不要**再主动 `read` 这些启动文件，除非用户明确要求或启动上下文明显缺失。',
+            '- 闲聊、问答、生图/生视频：直接回复，不要额外读大文件。',
+            '- 桌面操作细节在 `DESKTOP_RULES.md`：仅在需要操控桌面时再读。',
+            ''
+        ].join('\n');
+
+        // 改掉「先读 xxx」类指令
+        const reReadPatterns = [
+            /先读\s*SYSTEM_RULES\.md[，,]\s*再读\s*MEMORY\.md/g,
+            /先读\s*`?SYSTEM_RULES\.md`?[，,\s]*再读\s*`?MEMORY\.md`?/gi,
+            /每次会话开始.*读.*SYSTEM_RULES/gi
+        ];
+        for (const re of reReadPatterns) {
+            if (re.test(cur)) {
+                cur = cur.replace(re, '启动上下文已含 SYSTEM_RULES / MEMORY，勿重复读取');
+                changed = true;
+            }
+        }
+
+        if (!cur.includes('## 启动规则（一次性）') && !cur.includes('不要**再主动 `read` 这些启动文件')) {
+            // 插到文首标题后
+            if (/^#\s*AGENTS\.md[^\n]*\n/m.test(cur)) {
+                cur = cur.replace(/^(#\s*AGENTS\.md[^\n]*\n)/m, `$1\n${onceBlock}`);
+            } else {
+                cur = onceBlock + '\n' + cur;
+            }
+            changed = true;
+        }
+
+        if (changed) {
+            fs.writeFileSync(agentsPath, cur, 'utf8');
+            console.log('[PluginSeed] Patched AGENTS.md: startup rules once (no re-read)');
+        }
+    } catch (e) {
+        console.warn('[PluginSeed] ensureStartupRulesOnceGuidance:', e.message);
+    }
+}
+
 function buildMediaToolsSection() {
     const cliPath = resolveMediaCliScriptPath();
     return `${MEDIA_TOOLS_MARKER}
@@ -2217,13 +2267,24 @@ function ensureMediaMemoryGuidance(memFile) {
         const block = `
 ## 图片/视频生成
 ${MEDIA_MEMORY_MARKER}
-- 优先 \`draw_picture\` / \`draw_video\`；否则 \`exec\` + \`node ${resolveMediaCliScriptPath()} image|video --prompt "..."\`
-- 输出：\`${path.join(CONFIG_DIR, 'media-output').replace(/\\/g, '/')}/\`；回复里加 \`MEDIA:路径\`
-- 不要用 \`image_generate\` / \`video_generate\`
+- 生图/生视频规则见 TOOLS.md（优先 draw_picture / draw_video）
 `;
         if (!fs.existsSync(memFile)) return;
-        const cur = fs.readFileSync(memFile, 'utf8');
-        if (cur.includes(MEDIA_MEMORY_MARKER)) return;
+        let cur = fs.readFileSync(memFile, 'utf8');
+        if (cur.includes(MEDIA_MEMORY_MARKER)) {
+            // 旧版长文案压成短指针，避免与 AGENTS/TOOLS 重复
+            if (/agnes-media-cli\.js/i.test(cur) && cur.includes(MEDIA_MEMORY_MARKER)) {
+                const next = cur.replace(
+                    /##\s*图片\/视频生成[\s\S]*?<!--\s*nexora-media-memory-v1\s*-->[\s\S]*?(?=\n##\s|$)/m,
+                    block.trim() + '\n'
+                );
+                if (next !== cur) {
+                    fs.writeFileSync(memFile, next, 'utf8');
+                    console.log('[PluginSeed] Compacted MEMORY.md media block');
+                }
+            }
+            return;
+        }
         fs.appendFileSync(memFile, block, 'utf8');
         console.log('[PluginSeed] Appended media guidance to MEMORY.md');
     } catch (e) {
@@ -2306,6 +2367,7 @@ function seedMediaRuntimeArtifacts(appVersion) {
         const wsDir = path.join(CONFIG_DIR, 'workspace');
         ensureMediaWorkspaceGuidance(wsDir);
         ensureMediaAgentsGuidance(wsDir);
+        ensureStartupRulesOnceGuidance(wsDir);
         ensureMediaMemoryGuidance(path.join(wsDir, 'MEMORY.md'));
     } catch (e) {
         console.warn('[PluginSeed] seedMediaRuntimeArtifacts failed:', e.message);
@@ -5861,7 +5923,7 @@ async function applyElectronSessionProxy(enabled) {
             const port = acceleration.MIXED_PORT || 17890;
             await ses.setProxy({
                 proxyRules: `http=127.0.0.1:${port};https=127.0.0.1:${port}`,
-                proxyBypassRules: 'localhost,127.0.0.1,<local>,*.weixin.qq.com,*.qq.com,*.feishu.cn,*.larksuite.com'
+                proxyBypassRules: 'localhost,127.0.0.1,<local>,*.weixin.qq.com,*.qq.com,bots.qq.com,*.feishu.cn,open.feishu.cn,*.larksuite.com,*.agnes-ai.com,apihub.agnes-ai.com'
             });
         } else {
             await ses.setProxy({ mode: 'direct' });

@@ -79,10 +79,10 @@
         "primary": "agnes-ai/agnes-video-v2.0"
       },
       "maxConcurrent": 4,
-      "bootstrapMaxChars": 8000,
-      "bootstrapTotalMaxChars": 24000,
+      "bootstrapMaxChars": 2500,
+      "bootstrapTotalMaxChars": 8000,
       "compaction": {
-        "reserveTokensFloor": 20000
+        "reserveTokensFloor": 8000
       }
     }
   },

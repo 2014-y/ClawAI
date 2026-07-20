@@ -207,6 +207,58 @@ function getArg(name, argv) {
   return argv[idx + 1];
 }
 
+function framesForDuration(seconds, fps) {
+  const target = Math.max(1, Math.round(Number(seconds) * Number(fps) || 120));
+  let best = 1;
+  for (let n = 0; n <= 55; n++) {
+    const frames = 8 * n + 1;
+    if (frames > 441) break;
+    if (Math.abs(frames - target) < Math.abs(best - target)) best = frames;
+  }
+  return best;
+}
+
+function sizeForResolution(resolution, aspectRatio) {
+  const presets = {
+    '480p': { '16:9': [832, 448], '9:16': [448, 832], '1:1': [640, 640], '4:3': [640, 480], '3:4': [480, 640] },
+    '720p': { '16:9': [1152, 768], '9:16': [768, 1152], '1:1': [768, 768], '4:3': [1024, 768], '3:4': [768, 1024] },
+    '1080p': { '16:9': [1920, 1080], '9:16': [1080, 1920], '1:1': [1080, 1080], '4:3': [1440, 1080], '3:4': [1080, 1440] },
+  };
+  const resKey = String(resolution || '720p').toLowerCase();
+  const ratioKey = String(aspectRatio || '16:9');
+  const table = presets[resKey] || presets['720p'];
+  const pair = table[ratioKey] || table['16:9'];
+  return { width: pair[0], height: pair[1] };
+}
+
+function buildAgnesVideoCreateBody({ model, prompt, duration = 5, resolution = '720p', fps = 24, aspect_ratio = '16:9', image_url }) {
+  const frameRate = Math.min(60, Math.max(1, Number(fps) || 24));
+  const { width, height } = sizeForResolution(resolution, aspect_ratio);
+  const body = {
+    model: model || 'agnes-video-v2.0',
+    prompt,
+    width,
+    height,
+    num_frames: framesForDuration(duration, frameRate),
+    frame_rate: frameRate,
+  };
+  if (image_url) body.image = image_url;
+  return body;
+}
+
+function extractVideoUrl(obj) {
+  if (!obj || typeof obj !== 'object') return '';
+  return obj.metadata?.url
+    || obj.video?.url
+    || obj.video_url
+    || obj.url
+    || obj.output_url
+    || obj.output?.url
+    || obj.result?.url
+    || (obj.data && (obj.data.video_url || obj.data.url || obj.data[0]?.url))
+    || '';
+}
+
 // --- Video ---
 
 async function genVideo(argv) {
@@ -219,56 +271,65 @@ async function genVideo(argv) {
   const resolution = getArg("resolution", argv) || "720p";
   const fps = getArg("fps", argv) || 24;
   const aspect_ratio = getArg("aspect", argv) || "16:9";
-  const image_url = getArg("image_url", argv);
+  const image_url = getArg("image_url", argv) || getArg("image", argv);
 
   ensureDir(SAVE_DIR);
   const filepath = path.join(SAVE_DIR, `video_${Date.now()}.mp4`);
   const filename = path.basename(filepath);
 
   const cleanModel = model.includes('/') ? model.split('/').pop() : model;
-  const body = {
+  const body = buildAgnesVideoCreateBody({
     model: cleanModel,
     prompt,
     duration: Number(duration),
     resolution,
     fps: Number(fps),
     aspect_ratio,
-  };
-  if (image_url) body.image_url = image_url;
+    image_url,
+  });
 
-  console.error(`[video] prompt="${prompt}" model=${model} duration=${duration}s resolution=${resolution} fps=${fps} aspect=${aspect_ratio}`);
+  console.error(`[video] prompt="${prompt}" model=${model} ${body.width}x${body.height} frames=${body.num_frames} fps=${body.frame_rate}`);
 
   const result = await apiWithRetry("/videos", body, userConfig);
 
   let numFrames = undefined;
 
-  if (result.status === "processing" || result.id) {
-    const taskId = result.id || result.task_id;
-    console.error(`[video] Task submitted, ID: ${taskId}, polling status...`);
+  if (result.status === "processing" || result.status === "queued" || result.status === "pending" || result.status === "in_progress" || result.id || result.task_id || result.video_id) {
+    const pollId = result.video_id || result.id || result.task_id;
+    console.error(`[video] Task submitted, video_id/task=${pollId}, polling status...`);
     const activeKey = userConfig.apiKey || BUILTIN_API_KEYS[0];
     const activeBase = userConfig.apiBase || DEFAULT_API_BASE;
-    const pollBase = activeBase.endsWith('/videos') ? activeBase : activeBase.replace(/\/$/, '') + '/videos';
+    let pollUrl = '';
+    try {
+      const origin = new URL(activeBase).origin;
+      // 官方推荐：GET /agnesapi?video_id=
+      pollUrl = /agnes-ai\.com/i.test(origin)
+        ? `${origin}/agnesapi?video_id=${encodeURIComponent(pollId)}&model_name=${encodeURIComponent(cleanModel)}`
+        : `${(activeBase.endsWith('/videos') ? activeBase : activeBase.replace(/\/$/, '') + '/videos').replace(/\/$/, '')}/${pollId}`;
+    } catch (e) {
+      pollUrl = `https://apihub.agnes-ai.com/agnesapi?video_id=${encodeURIComponent(pollId)}&model_name=${encodeURIComponent(cleanModel)}`;
+    }
+    console.error(`[video] Poll URL: ${pollUrl}`);
 
     const startTime = Date.now();
     const maxPollTime = 10 * 60 * 1000;
     while (Date.now() - startTime < maxPollTime) {
       await new Promise((r) => setTimeout(r, 5000));
       try {
-        const pollResult = await apiGetRaw(`${pollBase}/${taskId}`, activeKey);
+        const pollResult = await apiGetRaw(pollUrl, activeKey);
         const st = pollResult.status || (pollResult.data && pollResult.data.status);
         console.error(`[video] Poll status: ${st}`);
         if (st === "succeeded" || st === "completed" || st === "success") {
-          const videoUrl = pollResult.video_url || pollResult.url || pollResult.output_url
-            || (pollResult.data && (pollResult.data.video_url || pollResult.data.url));
+          const videoUrl = extractVideoUrl(pollResult);
           if (pollResult.num_frames) numFrames = pollResult.num_frames;
-          if (!videoUrl) throw new Error("Video succeeded but no video URL in response");
+          if (!videoUrl) throw new Error("Video succeeded but no video URL in response (expected metadata.url)");
 
           await downloadFile(videoUrl, filepath);
           console.error(`[video] Saved: ${filepath}`);
           return { success: true, filepath, filename, prompt, duration: Number(duration), resolution, fps: Number(fps), aspect_ratio, model, num_frames: numFrames };
         }
         if (st === "failed" || st === "error") {
-          throw new Error(`Video generation failed: ${pollResult.error || JSON.stringify(pollResult).substring(0, 200)}`);
+          throw new Error(`Video generation failed: ${pollResult.error?.message || pollResult.error || JSON.stringify(pollResult).substring(0, 200)}`);
         }
       } catch (e) {
         if (e.message.includes("No video URL") || e.message.includes("failed")) throw e;
@@ -278,7 +339,7 @@ async function genVideo(argv) {
     throw new Error("Video generation timed out after 10 minutes");
   }
 
-  const videoUrl = result.video_url || result.url || result.output_url || result.remixed_from_video_id;
+  const videoUrl = extractVideoUrl(result) || result.remixed_from_video_id;
   if (!videoUrl) throw new Error(`No video URL in response: ${JSON.stringify(result).substring(0, 500)}`);
 
   await downloadFile(videoUrl, filepath);

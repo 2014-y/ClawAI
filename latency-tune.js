@@ -16,13 +16,15 @@ const DEFAULTS = {
   ollamaContextWindow: 16384,
   ollamaNumCtx: 16384,
   ollamaMaxTokens: 1024,
-  bootstrapMaxChars: 8000,
-  bootstrapTotalMaxChars: 24000,
+  // 云端：启动时一次性注入规则即可，总量过大只会每轮拖慢
+  bootstrapMaxChars: 2500,
+  bootstrapTotalMaxChars: 8000,
   /** 本地模型：尽量少注入，但仍靠更大窗口兜底 */
   smallBootstrapMaxChars: 1200,
   smallBootstrapTotalMaxChars: 2800,
   cloudContextWindowCap: 131072,
-  reserveTokensFloor: 20000,
+  // 压缩预留：云端也不再顶到 20000，否则历史很长才压缩、越聊越慢
+  reserveTokensFloor: 8000,
   /** 小于等于此窗口视为「小上下文」——用自适应 floor + 短 bootstrap */
   smallContextThreshold: 24576
 };
@@ -179,18 +181,20 @@ function ensureLatencySafeConfig(config, opts = {}) {
   const effectiveCtx = resolveEffectiveContextWindow(cfg) || ollamaCtx;
   const smallCtx = effectiveCtx <= DEFAULTS.smallContextThreshold;
 
-  // bootstrap：小窗口必须砍，否则 AGENTS.md 一注入就超窗
+  // bootstrap：启动一次性注入；云端若被误标成 small-ctx 过矮，也要抬回云端默认
   const bootMax = smallCtx ? DEFAULTS.smallBootstrapMaxChars : DEFAULTS.bootstrapMaxChars;
   const bootTotal = smallCtx ? DEFAULTS.smallBootstrapTotalMaxChars : DEFAULTS.bootstrapTotalMaxChars;
-  if (!Number.isFinite(Number(ad.bootstrapMaxChars)) || Number(ad.bootstrapMaxChars) > bootMax) {
+  const curBoot = Number(ad.bootstrapMaxChars);
+  const curTotal = Number(ad.bootstrapTotalMaxChars);
+  if (!Number.isFinite(curBoot) || curBoot > bootMax || (!smallCtx && curBoot < bootMax)) {
     const prev = ad.bootstrapMaxChars;
     ad.bootstrapMaxChars = bootMax;
-    changes.push(`bootstrapMaxChars: ${prev ?? 'unset'} -> ${bootMax}${smallCtx ? ' (small-ctx)' : ''}`);
+    if (prev !== bootMax) changes.push(`bootstrapMaxChars: ${prev ?? 'unset'} -> ${bootMax}${smallCtx ? ' (small-ctx)' : ''}`);
   }
-  if (!Number.isFinite(Number(ad.bootstrapTotalMaxChars)) || Number(ad.bootstrapTotalMaxChars) > bootTotal) {
+  if (!Number.isFinite(curTotal) || curTotal > bootTotal || (!smallCtx && curTotal < bootTotal)) {
     const prev = ad.bootstrapTotalMaxChars;
     ad.bootstrapTotalMaxChars = bootTotal;
-    changes.push(`bootstrapTotalMaxChars: ${prev ?? 'unset'} -> ${bootTotal}${smallCtx ? ' (small-ctx)' : ''}`);
+    if (prev !== bootTotal) changes.push(`bootstrapTotalMaxChars: ${prev ?? 'unset'} -> ${bootTotal}${smallCtx ? ' (small-ctx)' : ''}`);
   }
 
   // 压缩预留：按窗口自适应（绝不能对 8k 模型写 20000）
@@ -200,7 +204,7 @@ function ensureLatencySafeConfig(config, opts = {}) {
   // 过小或过大（相对窗口）都纠正
   const tooSmall = !Number.isFinite(floor) || floor < Math.min(512, safeFloor);
   const tooLargeForWindow = Number.isFinite(floor) && floor > safeFloor && smallCtx;
-  // 云端：仍保证至少 20000；小窗：强制落到 safeFloor
+  // 云端：保证至少 DEFAULTS.reserveTokensFloor，但若配置更大也往下收到默认（加速压缩）
   if (smallCtx) {
     if (!Number.isFinite(floor) || floor !== safeFloor) {
       const prev = ad.compaction.reserveTokensFloor;
@@ -226,7 +230,7 @@ function ensureLatencySafeConfig(config, opts = {}) {
       ad.compaction.qualityGuard.maxRetries = 2;
       changes.push('compaction.qualityGuard.maxRetries: -> 2');
     }
-  } else if (tooSmall || !Number.isFinite(floor) || floor < DEFAULTS.reserveTokensFloor) {
+  } else if (tooSmall || !Number.isFinite(floor) || floor > DEFAULTS.reserveTokensFloor) {
     const prev = ad.compaction.reserveTokensFloor;
     ad.compaction.reserveTokensFloor = DEFAULTS.reserveTokensFloor;
     changes.push(`compaction.reserveTokensFloor: ${prev ?? 'unset'} -> ${DEFAULTS.reserveTokensFloor}`);
@@ -234,20 +238,19 @@ function ensureLatencySafeConfig(config, opts = {}) {
     // unreachable when !smallCtx, kept for clarity
   }
 
-  // contextPruning：小窗口强制软裁剪工具输出
-  if (smallCtx) {
-    if (!ad.contextPruning || typeof ad.contextPruning !== 'object') ad.contextPruning = {};
-    if (!isObject(ad.contextPruning.softTrim)) ad.contextPruning.softTrim = {};
-    const st = ad.contextPruning.softTrim;
-    if (!Number.isFinite(Number(st.maxChars)) || Number(st.maxChars) > 4000) {
-      st.maxChars = 3000;
-      changes.push('contextPruning.softTrim.maxChars: -> 3000');
-    }
-    if (!isObject(ad.contextPruning.hardClear)) ad.contextPruning.hardClear = {};
-    if (ad.contextPruning.hardClear.enabled !== true) {
-      ad.contextPruning.hardClear.enabled = true;
-      changes.push('contextPruning.hardClear.enabled: -> true');
-    }
+  // contextPruning：云端也裁工具长输出，避免历史里堆满截图/命令结果
+  if (!ad.contextPruning || typeof ad.contextPruning !== 'object') ad.contextPruning = {};
+  if (!isObject(ad.contextPruning.softTrim)) ad.contextPruning.softTrim = {};
+  const st = ad.contextPruning.softTrim;
+  const softCap = smallCtx ? 3000 : 6000;
+  if (!Number.isFinite(Number(st.maxChars)) || Number(st.maxChars) > softCap) {
+    st.maxChars = softCap;
+    changes.push(`contextPruning.softTrim.maxChars: -> ${softCap}`);
+  }
+  if (!isObject(ad.contextPruning.hardClear)) ad.contextPruning.hardClear = {};
+  if (ad.contextPruning.hardClear.enabled !== true) {
+    ad.contextPruning.hardClear.enabled = true;
+    changes.push('contextPruning.hardClear.enabled: -> true');
   }
 
   if (ad.humanDelay && ad.humanDelay.enabled) {
@@ -255,7 +258,7 @@ function ensureLatencySafeConfig(config, opts = {}) {
     changes.push('humanDelay.enabled: true -> false');
   }
 
-  // 工具：本地 provider 强制轻量
+  // 工具：本地 provider 强制轻量；云端收紧默认 coding 全量工具表（~8k tokens/轮）
   if (!cfg.tools) cfg.tools = {};
   if (!cfg.tools.byProvider) cfg.tools.byProvider = {};
   if (!isObject(cfg.tools.byProvider.ollama)) cfg.tools.byProvider.ollama = {};
@@ -264,9 +267,107 @@ function ensureLatencySafeConfig(config, opts = {}) {
     changes.push('tools.byProvider.ollama.profile: -> minimal');
   }
   if (!Array.isArray(cfg.tools.deny)) cfg.tools.deny = [];
-  if (!cfg.tools.deny.includes('tts')) {
-    cfg.tools.deny.push('tts');
-    changes.push('tools.deny += tts');
+  for (const toolName of ['tts', 'browser']) {
+    if (!cfg.tools.deny.includes(toolName)) {
+      cfg.tools.deny.push(toolName);
+      changes.push(`tools.deny += ${toolName}`);
+    }
+  }
+
+  // agnes-ai / ten：profile + alsoAllow 扩权（勿与 allow 同用；allow 会变成交集砍掉桌面工具）
+  // 禁止 deny group:plugins（会误杀 draw_*）；改按渠道插件 id 砍 schema
+  const cloudToolLean = {
+    profile: 'messaging',
+    alsoAllow: [
+      'group:fs',
+      'group:runtime',
+      'group:web',
+      'group:memory',
+      'image',
+      'draw_picture',
+      'draw_video'
+    ],
+    deny: [
+      'sessions_history',
+      'sessions_send',
+      'sessions_spawn',
+      'sessions_yield',
+      'subagents',
+      'agents_list',
+      'canvas',
+      'nodes',
+      'cron',
+      'gateway',
+      'tts',
+      'browser',
+      'pdf',
+      'feishu',
+      'qqbot',
+      'whatsapp',
+      'voice-call',
+      'matrix',
+      'discord',
+      'slack',
+      'openclaw-weixin'
+    ]
+  };
+  for (const prov of ['agnes-ai', 'ten']) {
+    if (!isObject(cfg.tools.byProvider[prov])) cfg.tools.byProvider[prov] = {};
+    const tp = cfg.tools.byProvider[prov];
+    if (tp.profile !== cloudToolLean.profile) {
+      tp.profile = cloudToolLean.profile;
+      changes.push(`tools.byProvider.${prov}.profile: -> ${cloudToolLean.profile}`);
+    }
+    const alsoKey = JSON.stringify(cloudToolLean.alsoAllow);
+    if (JSON.stringify(tp.alsoAllow || []) !== alsoKey) {
+      tp.alsoAllow = [...cloudToolLean.alsoAllow];
+      changes.push(`tools.byProvider.${prov}.alsoAllow: -> lean desktop set`);
+    }
+    if (tp.allow) {
+      delete tp.allow;
+      changes.push(`tools.byProvider.${prov}.allow: removed (use alsoAllow)`);
+    }
+    const denyKey = JSON.stringify(cloudToolLean.deny);
+    if (JSON.stringify(tp.deny || []) !== denyKey) {
+      tp.deny = [...cloudToolLean.deny];
+      changes.push(`tools.byProvider.${prov}.deny: -> channel-plugin lean`);
+    }
+  }
+
+  // 防止工具轮询把对话拖死
+  if (!isObject(cfg.tools.loopDetection)) cfg.tools.loopDetection = {};
+  if (cfg.tools.loopDetection.enabled !== true) {
+    cfg.tools.loopDetection.enabled = true;
+    changes.push('tools.loopDetection.enabled: -> true');
+  }
+
+  // Skills 目录默认把几十个 skill 塞进 system prompt（~3–4k tokens）；硬顶字数
+  if (!cfg.skills || typeof cfg.skills !== 'object') cfg.skills = {};
+  if (!isObject(cfg.skills.limits)) cfg.skills.limits = {};
+  const maxSkillChars = Number(cfg.skills.limits.maxSkillsPromptChars);
+  if (!Number.isFinite(maxSkillChars) || maxSkillChars > 3000) {
+    cfg.skills.limits.maxSkillsPromptChars = 3000;
+    changes.push('skills.limits.maxSkillsPromptChars: -> 3000');
+  }
+
+  // 云端请求总超时：避免无限挂起；过短又会误杀慢生成
+  if (!cfg.agents) cfg.agents = {};
+  if (!isObject(cfg.agents.defaults)) cfg.agents.defaults = {};
+  const timeoutSec = Number(cfg.agents.defaults.timeoutSeconds);
+  if (!Number.isFinite(timeoutSec) || timeoutSec < 90 || timeoutSec > 240) {
+    cfg.agents.defaults.timeoutSeconds = 180;
+    changes.push('agents.defaults.timeoutSeconds: -> 180');
+  }
+
+  // 未绑定渠道插件默认关掉，减少工具 schema 体积（用户启用通讯时再开）
+  if (!cfg.plugins) cfg.plugins = {};
+  if (!cfg.plugins.entries) cfg.plugins.entries = {};
+  for (const idle of ['slack', 'whatsapp', 'matrix', 'voice-call']) {
+    if (!isObject(cfg.plugins.entries[idle])) continue;
+    if (cfg.plugins.entries[idle].enabled !== false) {
+      cfg.plugins.entries[idle].enabled = false;
+      changes.push(`plugins.entries.${idle}.enabled: -> false`);
+    }
   }
 
   // 双模型教学默认不打断主链路

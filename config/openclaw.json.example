@@ -65,10 +65,11 @@
         "primary": "agnes-ai/agnes-video-v2.0"
       },
       "maxConcurrent": 4,
-      "bootstrapMaxChars": 8000,
-      "bootstrapTotalMaxChars": 24000,
+      "timeoutSeconds": 180,
+      "bootstrapMaxChars": 2500,
+      "bootstrapTotalMaxChars": 8000,
       "compaction": {
-        "reserveTokensFloor": 20000
+        "reserveTokensFloor": 8000
       }
     }
   },
@@ -358,13 +359,57 @@
       "basePath": "/acp"
     }
   },
+  "skills": {
+    "limits": {
+      "maxSkillsPromptChars": 3000
+    }
+  },
   "tools": {
     "deny": [
-      "tts"
+      "tts",
+      "browser"
     ],
+    "loopDetection": {
+      "enabled": true
+    },
     "byProvider": {
       "ollama": {
         "profile": "minimal"
+      },
+      "agnes-ai": {
+        "profile": "messaging",
+        "alsoAllow": [
+          "group:fs",
+          "group:runtime",
+          "group:web",
+          "group:memory",
+          "image",
+          "draw_picture",
+          "draw_video"
+        ],
+        "deny": [
+          "sessions_history",
+          "sessions_send",
+          "sessions_spawn",
+          "sessions_yield",
+          "subagents",
+          "agents_list",
+          "canvas",
+          "nodes",
+          "cron",
+          "gateway",
+          "tts",
+          "browser",
+          "pdf",
+          "feishu",
+          "qqbot",
+          "whatsapp",
+          "voice-call",
+          "matrix",
+          "discord",
+          "slack",
+          "openclaw-weixin"
+        ]
       }
     },
     "media": {

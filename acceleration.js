@@ -29,11 +29,15 @@ const NO_PROXY_LIST = [
     '0.0.0.0',
     '.weixin.qq.com',
     '.qq.com',
+    'bots.qq.com',
     '.wechat.com',
     '.feishu.cn',
     '.feishu.net',
+    'open.feishu.cn',
     '.larksuite.com',
-    '.dingtalk.com'
+    '.dingtalk.com',
+    'apihub.agnes-ai.com',
+    '.agnes-ai.com'
 ].join(',');
 
 let appRef = null;
@@ -1779,12 +1783,79 @@ function getProxyEnv() {
     };
 }
 
+/** 系统 Clash fake-ip 时 DNS 会返回 198.18.x */
+function detectFakeIpHijack() {
+    try {
+        const { execFileSync } = require('child_process');
+        const out = execFileSync('powershell', [
+            '-ExecutionPolicy', 'Bypass', '-NoProfile', '-Command',
+            "try { (Resolve-DnsName apihub.agnes-ai.com -Type A -ErrorAction Stop | Select-Object -First 1 -ExpandProperty IPAddress) } catch { '' }"
+        ], { encoding: 'utf8', timeout: 4000, windowsHide: true });
+        const ip = String(out || '').trim();
+        return /^198\.18\./.test(ip) ? ip : null;
+    } catch {
+        return null;
+    }
+}
+
+function isLocalPortListening(port) {
+    const p = Number(port);
+    if (!Number.isFinite(p) || p <= 0) return false;
+    try {
+        const { execFileSync } = require('child_process');
+        // netstat 比 Get-NetTCPConnection 更稳（后者在部分环境会空结果）
+        const out = execFileSync('cmd.exe', ['/c', `netstat -ano | findstr :${p}`], {
+            encoding: 'utf8',
+            timeout: 4000,
+            windowsHide: true
+        });
+        return /(LISTENING|LISTEN)/i.test(String(out || '')) && new RegExp(`:${p}\\s`).test(String(out || ''));
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * 系统 Clash（如 FlClash）开 fake-ip 时，DNS 把云端 API 解析成 198.18.x。
+ * 若清掉代理让 Node 直连假 IP，会表现为卡住 / ETIMEDOUT。
+ */
+function applyFakeIpSystemProxyFallback(envObj) {
+    const fakeIp = detectFakeIpHijack();
+    if (!fakeIp) return false;
+    const candidates = [7890, 7897, 7891, 10809, 10808, MIXED_PORT]
+        .map(Number)
+        .filter((v, i, a) => v > 0 && a.indexOf(v) === i);
+    for (const port of candidates) {
+        if (!isLocalPortListening(port)) continue;
+        const proxyUrl = `http://127.0.0.1:${port}`;
+        Object.assign(envObj, {
+            HTTP_PROXY: proxyUrl,
+            HTTPS_PROXY: proxyUrl,
+            ALL_PROXY: proxyUrl,
+            http_proxy: proxyUrl,
+            https_proxy: proxyUrl,
+            all_proxy: proxyUrl,
+            NO_PROXY: 'localhost,127.0.0.1,::1',
+            no_proxy: 'localhost,127.0.0.1,::1',
+            NEXORA_FAKEIP_PROXY_FALLBACK: String(port),
+            NEXORA_FAKEIP_SAMPLE: fakeIp
+        });
+        console.warn(`[Acceleration] Detected Clash fake-ip (${fakeIp}); gateway will use system proxy 127.0.0.1:${port}`);
+        return true;
+    }
+    console.warn(`[Acceleration] Detected Clash fake-ip (${fakeIp}) but no local mixed port; cloud/channel calls may hang`);
+    return false;
+}
+
 function applyProxyToEnvObject(envObj) {
     const proxyEnv = getProxyEnv();
     if (!proxyEnv) {
         // 加速关闭时清掉可能继承的系统代理，避免污染
         for (const key of Object.keys(envObj || {})) {
             if (key.toLowerCase().includes('proxy')) delete envObj[key];
+        }
+        try { applyFakeIpSystemProxyFallback(envObj); } catch (e) {
+            console.warn('[Acceleration] fake-ip fallback skipped:', e && e.message);
         }
         return envObj;
     }

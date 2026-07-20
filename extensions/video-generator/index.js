@@ -120,19 +120,17 @@ export function createSkill(runtime) {
       const filepath = path.join(dir, filename);
 
       const cleanModel = selectedModel.includes('/') ? selectedModel.split('/').pop() : selectedModel;
-      const body = {
+      const body = buildAgnesVideoCreateBody({
         model: cleanModel,
         prompt,
         duration: Number(duration),
         resolution,
         fps: Number(fps),
         aspect_ratio,
-      };
-      if (image_url) {
-        body.image_url = image_url;
-      }
+        image_url,
+      });
 
-      console.log(`[video-generator] Generating: ${prompt} | model=${selectedModel} | duration=${duration}s | ${resolution}`);
+      console.log(`[video-generator] Generating: ${prompt} | model=${selectedModel} | ${body.width}x${body.height} frames=${body.num_frames} fps=${body.frame_rate}`);
 
       const videoUrl = await callVideoAPIWithRetry(body, userApiBase, userApiKey);
 
@@ -155,6 +153,79 @@ export function createSkill(runtime) {
   };
 }
 
+function framesForDuration(seconds, fps) {
+  const target = Math.max(1, Math.round(Number(seconds) * Number(fps) || 120));
+  let best = 1;
+  for (let n = 0; n <= 55; n++) {
+    const frames = 8 * n + 1;
+    if (frames > 441) break;
+    if (Math.abs(frames - target) < Math.abs(best - target)) best = frames;
+  }
+  return best;
+}
+
+function sizeForResolution(resolution, aspectRatio) {
+  const presets = {
+    '480p': { '16:9': [832, 448], '9:16': [448, 832], '1:1': [640, 640], '4:3': [640, 480], '3:4': [480, 640] },
+    '720p': { '16:9': [1152, 768], '9:16': [768, 1152], '1:1': [768, 768], '4:3': [1024, 768], '3:4': [768, 1024] },
+    '1080p': { '16:9': [1920, 1080], '9:16': [1080, 1920], '1:1': [1080, 1080], '4:3': [1440, 1080], '3:4': [1080, 1440] },
+  };
+  const resKey = String(resolution || '720p').toLowerCase();
+  const ratioKey = String(aspectRatio || '16:9');
+  const table = presets[resKey] || presets['720p'];
+  const pair = table[ratioKey] || table['16:9'];
+  return { width: pair[0], height: pair[1] };
+}
+
+/** 按官方文档构造创建任务 body：https://agnes-ai.com/zh-Hans/docs/agnes-video-v20 */
+function buildAgnesVideoCreateBody({ model, prompt, duration = 5, resolution = '720p', fps = 24, aspect_ratio = '16:9', image_url }) {
+  const frameRate = Math.min(60, Math.max(1, Number(fps) || 24));
+  const { width, height } = sizeForResolution(resolution, aspect_ratio);
+  const body = {
+    model: model || 'agnes-video-v2.0',
+    prompt,
+    width,
+    height,
+    num_frames: framesForDuration(duration, frameRate),
+    frame_rate: frameRate,
+  };
+  if (image_url) body.image = image_url;
+  return body;
+}
+
+function resolveVideoPollUrl(videoId, apiBaseUrl, modelName) {
+  const base = String(apiBaseUrl || DEFAULT_API_BASE).trim();
+  try {
+    const origin = new URL(base).origin;
+    // 官方推荐：GET /agnesapi?video_id=（兼容旧版才是 /v1/videos/<task_id>）
+    if (/agnes-ai\.com/i.test(origin)) {
+      let url = `${origin}/agnesapi?video_id=${encodeURIComponent(videoId)}`;
+      if (modelName) url += `&model_name=${encodeURIComponent(String(modelName).replace(/^.*\//, ''))}`;
+      return url;
+    }
+  } catch (e) {}
+  return `${base.replace(/\/$/, '')}/${videoId}`;
+}
+
+function extractVideoUrl(result) {
+  if (!result || typeof result !== 'object') return '';
+  // 官方完成态：metadata.url
+  return result.metadata?.url
+    || result.video?.url
+    || result.video_url
+    || result.url
+    || result.output_url
+    || result.output?.url
+    || result.result?.url
+    || result.data?.[0]?.url
+    || '';
+}
+
+function pickVideoPollId(result) {
+  // 新接入优先 video_id
+  return result?.video_id || result?.id || result?.task_id || null;
+}
+
 async function callVideoAPIWithRetry(body, apiBase, userApiKey) {
   let lastError = null;
 
@@ -173,6 +244,7 @@ async function callVideoAPIWithRetry(body, apiBase, userApiKey) {
       return await callVideoAPI(body, apiKey, DEFAULT_API_BASE);
     } catch (err) {
       lastError = err;
+      console.warn(`[video-generator] Built-in key ${attempt + 1}/${BUILTIN_API_KEYS.length} failed: ${err.message}`);
     }
   }
 
@@ -187,7 +259,7 @@ function callVideoAPI(body, apiKey, apiBaseUrl) {
 
     const req = transport.request({
       hostname: urlObj.hostname,
-      port: urlObj.port,
+      port: urlObj.port || (urlObj.protocol === "https:" ? 443 : 80),
       path: urlObj.pathname + urlObj.search,
       method: "POST",
       headers: {
@@ -195,6 +267,7 @@ function callVideoAPI(body, apiKey, apiBaseUrl) {
         "Content-Length": Buffer.byteLength(data),
         Authorization: `Bearer ${apiKey}`,
       },
+      timeout: 60000,
     }, (res) => {
       let chunks = [];
       res.on("data", (chunk) => chunks.push(chunk));
@@ -207,11 +280,17 @@ function callVideoAPI(body, apiKey, apiBaseUrl) {
             return;
           }
 
-          if (result.status === "processing" || result.id) {
-            const taskId = result.id || result.task_id;
-            if (taskId) {
+          const immediateUrl = extractVideoUrl(result);
+          if (immediateUrl && !result.status && !result.id && !result.task_id && !result.video_id) {
+            resolve(immediateUrl);
+            return;
+          }
+
+          if (result.status === "processing" || result.status === "queued" || result.status === "pending" || result.status === "in_progress" || result.id || result.task_id || result.video_id) {
+            const pollId = pickVideoPollId(result);
+            if (pollId) {
               try {
-                const finalUrl = await pollVideoResult(taskId, apiKey, apiBaseUrl);
+                const finalUrl = await pollVideoResult(pollId, apiKey, apiBaseUrl, body.model);
                 resolve(finalUrl);
                 return;
               } catch (pollErr) {
@@ -221,9 +300,8 @@ function callVideoAPI(body, apiKey, apiBaseUrl) {
             }
           }
 
-          const videoUrl = result.video_url || result.url || result.output_url || result.data?.[0]?.url;
-          if (videoUrl) {
-            resolve(videoUrl);
+          if (immediateUrl) {
+            resolve(immediateUrl);
           } else {
             reject(new Error(`No video URL in response`));
           }
@@ -234,51 +312,68 @@ function callVideoAPI(body, apiKey, apiBaseUrl) {
     });
 
     req.on("error", reject);
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error("Video create request timeout"));
+    });
     req.write(data);
     req.end();
   });
 }
 
-async function pollVideoResult(taskId, apiKey, apiBaseUrl) {
-  const maxAttempts = 120;
+async function pollVideoResult(videoId, apiKey, apiBaseUrl, modelName) {
+  const maxAttempts = 120; // 最长约 10 分钟
+  const pollUrl = resolveVideoPollUrl(videoId, apiBaseUrl, modelName);
+  console.log(`[video-generator] Polling ${pollUrl}`);
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     await new Promise((r) => setTimeout(r, 5000));
     try {
-      const result = await checkVideoTaskStatus(taskId, apiKey, apiBaseUrl);
-      if (result.status === "succeeded" || result.status === "completed" || result.status === "success") {
-        const videoUrl = result.video_url || result.url || result.output_url || result.data?.[0]?.url;
-        if (videoUrl) return videoUrl;
+      const result = await checkVideoTaskStatus(pollUrl, apiKey);
+      const status = result.status || result.data?.status || '';
+      if (attempt === 0 || attempt % 6 === 5) {
+        console.log(`[video-generator] Poll #${attempt + 1} status=${status || 'unknown'}`);
       }
-      if (result.status === "failed" || result.status === "error") {
-        throw new Error(`Video generation failed: ${result.error || 'Unknown error'}`);
+      if (status === "succeeded" || status === "completed" || status === "success") {
+        const videoUrl = extractVideoUrl(result);
+        if (videoUrl) return videoUrl;
+        throw new Error("Video succeeded but no video URL in response (expected metadata.url)");
+      }
+      if (status === "failed" || status === "error") {
+        const errMsg = result.error?.message || result.error || result.message || 'Unknown error';
+        throw new Error(`Video generation failed: ${errMsg}`);
       }
     } catch (e) {
-      if (e.message.includes("failed")) throw e;
+      if (/failed|no video URL/i.test(e.message || '')) throw e;
+      console.warn(`[video-generator] Poll error: ${e.message}`);
     }
   }
   throw new Error("Video generation timed out after 10 minutes");
 }
 
-function checkVideoTaskStatus(taskId, apiKey, apiBaseUrl) {
+function checkVideoTaskStatus(pollUrl, apiKey) {
   return new Promise((resolve, reject) => {
-    const pollUrl = `${apiBaseUrl.replace(/\/$/, '')}/${taskId}`;
     const urlObj = new URL(pollUrl);
     const transport = urlObj.protocol === "https:" ? https : http;
 
     const req = transport.request({
       hostname: urlObj.hostname,
-      port: urlObj.port,
+      port: urlObj.port || (urlObj.protocol === "https:" ? 443 : 80),
       path: urlObj.pathname + urlObj.search,
       method: "GET",
       headers: {
         Authorization: `Bearer ${apiKey}`,
       },
+      timeout: 30000,
     }, (res) => {
       let chunks = [];
       res.on("data", (chunk) => chunks.push(chunk));
       res.on("end", () => {
         try {
           const result = JSON.parse(Buffer.concat(chunks).toString());
+          if (res.statusCode < 200 || res.statusCode >= 300 || result.error?.message) {
+            reject(new Error(result.error?.message || `HTTP ${res.statusCode}`));
+            return;
+          }
           resolve(result);
         } catch (e) {
           reject(e);
@@ -287,6 +382,10 @@ function checkVideoTaskStatus(taskId, apiKey, apiBaseUrl) {
     });
 
     req.on("error", reject);
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error("Video poll request timeout"));
+    });
     req.end();
   });
 }

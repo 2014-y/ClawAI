@@ -2252,6 +2252,12 @@ function formatLogForUser(text) {
         cleanLine.includes('LLM idle timeout') ||
         cleanLine.includes('This operation was aborted') ||
         cleanLine.includes('AbortError') ||
+        cleanLine.includes('delivery-recovery') ||
+        cleanLine.includes('send_attempt_started') ||
+        cleanLine.includes('refusing blind replay') ||
+        lowerLine.includes('sendinputnotify') ||
+        lowerLine.includes('exceeded 30000ms') ||
+        (lowerLine.includes('qqbot') && (lowerLine.includes('websocket error') || lowerLine.includes('gateway error') || lowerLine.includes('request timeout') || lowerLine.includes('timeout'))) ||
         cleanLine.includes('log file:') ||
         cleanLine.includes('allow is empty') ||
         cleanLine.includes('discovered non-bundled') ||
@@ -2423,7 +2429,13 @@ function formatLogForUser(text) {
             lowerLine.includes('rotate_profile') ||
             lowerLine.includes('idle timeout') ||
             lowerLine.includes('aborted') ||
-            lowerLine.includes('aborterror')
+            lowerLine.includes('aborterror') ||
+            lowerLine.includes('delivery-recovery') ||
+            lowerLine.includes('send_attempt_started') ||
+            lowerLine.includes('refusing blind replay') ||
+            lowerLine.includes('sendinputnotify') ||
+            lowerLine.includes('exceeded 30000ms') ||
+            (lowerLine.includes('qqbot') && (lowerLine.includes('websocket') || lowerLine.includes('gateway error') || lowerLine.includes('timeout')))
         ) return null;
         return `[⚠️ 系统警报] ⚠️ 系统运行警告：${cleanLine}`;
     }
@@ -8791,10 +8803,17 @@ async function handleActionGenerate(type) {
             }
             addSessionLog('image-gen', modelId, 500, 0, 0, 3000);
         } else {
-            // 视频生成 API
+            // 视频生成 API（官方参数：width/height/num_frames/frame_rate）
+            const cleanVideoModel = String(modelId || 'agnes-video-v2.0').includes('/')
+                ? String(modelId).split('/').pop()
+                : String(modelId || 'agnes-video-v2.0');
             const body = {
-                model: modelId,
-                prompt: prompt
+                model: cleanVideoModel,
+                prompt: prompt,
+                width: 1152,
+                height: 768,
+                num_frames: 121,
+                frame_rate: 24
             };
 
             const response = await fetch(genUrl, {
@@ -8812,11 +8831,12 @@ async function handleActionGenerate(type) {
             const result = await response.json();
             
             // 视频 API 是异步任务模式，需要轮询等待
-            const taskId = result.id || result.task_id || result.video_id;
+            const taskId = result.video_id || result.id || result.task_id || result.video_id;
             if (!taskId) {
                 // 如果直接返回了 URL（同步模式）
                 let videoUrl = '';
-                if (result.data && result.data[0]) videoUrl = result.data[0].url || '';
+                if (result.metadata && result.metadata.url) videoUrl = result.metadata.url;
+                else if (result.data && result.data[0]) videoUrl = result.data[0].url || '';
                 else if (result.url) videoUrl = result.url;
                 else if (result.output && result.output.url) videoUrl = result.output.url;
                 
@@ -8837,13 +8857,14 @@ async function handleActionGenerate(type) {
                 return;
             }
 
-            // 异步轮询模式
+            // 异步轮询模式（官方推荐 video_id + /agnesapi）
             let pollUrl = '';
             try {
                 const originUrl = new URL(apiBase).origin;
-                pollUrl = `${originUrl}/agnesapi?video_id=${taskId}`;
+                const modelQs = modelId ? `&model_name=${encodeURIComponent(String(modelId).replace(/^.*\//, ''))}` : '';
+                pollUrl = `${originUrl}/agnesapi?video_id=${encodeURIComponent(taskId)}${modelQs}`;
             } catch (err) {
-                pollUrl = `https://apihub.agnes-ai.com/agnesapi?video_id=${taskId}`;
+                pollUrl = `https://apihub.agnes-ai.com/agnesapi?video_id=${encodeURIComponent(taskId)}`;
             }
             const maxPolls = 180; // 最多轮询 180 次 (15分钟)
             let pollCount = 0;
@@ -8892,7 +8913,8 @@ async function handleActionGenerate(type) {
                     if (status === 'completed' || status === 'succeeded' || status === 'success') {
                         clearInterval(pollInterval);
                         let videoUrl = '';
-                        if (pollResult.video && pollResult.video.url) videoUrl = pollResult.video.url;
+                        if (pollResult.metadata && pollResult.metadata.url) videoUrl = pollResult.metadata.url;
+                        else if (pollResult.video && pollResult.video.url) videoUrl = pollResult.video.url;
                         else if (pollResult.data && pollResult.data[0]) videoUrl = pollResult.data[0].url || '';
                         else if (pollResult.url) videoUrl = pollResult.url;
                         else if (pollResult.output && pollResult.output.url) videoUrl = pollResult.output.url;
