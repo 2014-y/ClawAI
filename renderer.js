@@ -213,6 +213,50 @@ function formatNumberWithUnit(num, isApprox = false) {
     }
 }
 
+function formatTokenUsageLog(tokenUsage) {
+    if (!tokenUsage) return '';
+    const currentLang = localStorage.getItem('setting_language') || 'zh-CN';
+
+    function convertUnit(n) {
+        if (currentLang === 'en-US') {
+            if (n >= 1000000) return `${(n / 1000000).toFixed(2)}M`;
+            if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+            return n.toLocaleString();
+        } else {
+            const unitYi = currentLang === 'zh-TW' ? '億' : '亿';
+            const unitWan = currentLang === 'zh-TW' ? '萬' : '万';
+            if (n >= 100000000) return `${(n / 100000000).toFixed(2)} ${unitYi}`;
+            if (n >= 10000) return `${(n / 10000).toFixed(2)} ${unitWan}`;
+            return n.toLocaleString();
+        }
+    }
+
+    if (tokenUsage.includes('+')) {
+        const parts = tokenUsage.split('+');
+        const inNum = parseInt(parts[0], 10) || 0;
+        const outNum = parseInt(parts[1], 10) || 0;
+        const total = inNum + outNum;
+
+        const totalDisplay = convertUnit(total);
+        if (total >= 10000 || (currentLang === 'en-US' && total >= 1000)) {
+            const inLabel = currentLang === 'en-US' ? 'Input' : (currentLang === 'zh-TW' ? '輸入' : '输入');
+            const outLabel = currentLang === 'en-US' ? 'Output' : (currentLang === 'zh-TW' ? '輸出' : '输出');
+            return `${totalDisplay} Tokens (${inLabel} ${inNum.toLocaleString()} + ${outLabel} ${outNum.toLocaleString()})`;
+        } else {
+            return `${total.toLocaleString()} Tokens (${inNum.toLocaleString()} + ${outNum.toLocaleString()})`;
+        }
+    } else {
+        const num = parseInt(tokenUsage, 10);
+        if (!isNaN(num)) {
+            if (num >= 10000 || (currentLang === 'en-US' && num >= 1000)) {
+                return `${convertUnit(num)} Tokens (${num.toLocaleString()})`;
+            }
+            return `${num.toLocaleString()} Tokens`;
+        }
+        return `${tokenUsage} Tokens`;
+    }
+}
+
 // 标记顶部「保存配置」有未保存改动（左侧表单），并刷新 JSON 预览
 function markConfigDirty() {
     const topBtn = document.getElementById('config-save-btn-top');
@@ -2237,7 +2281,8 @@ function formatLogForUser(text) {
         const modelName = tokenMatch ? tokenMatch[1] : '';
         const tokenUsage = tokenMatch ? tokenMatch[2] : '';
         if (tokenUsage) {
-            return `[📊 对话账单] 计费流量记账成功：大模型 ${modelName} 本次会话消耗了 ${tokenUsage} tokens`;
+            const formattedUsage = formatTokenUsageLog(tokenUsage);
+            return `[📊 对话账单] 计费流量记账成功：大模型 ${modelName} 本次会话消耗了 ${formattedUsage}`;
         }
         return `[📊 对话账单] 流量计费凭证已安全保存`;
     }
