@@ -2,14 +2,17 @@
 
 <br />
 
-<img src="config/icon.ico" width="160" height="160" alt="Nexora Agent Logo" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=0,2,10,24,30&height=220&section=header&text=NEXORA%20AGENT&fontSize=70&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=Sovereign%20Autonomous%20Multi-Channel%20AI%20Intelligence%20Matrix&descSize=20&descAlignY=62" width="100%" alt="Nexora Header" />
 
-# NEXORA AGENT
-### Autonomous, Self-Healing & Distributed Local AI Intelligence Infrastructure
+<p align="center">
+  <img src="config/icon.ico" width="140" height="140" alt="Nexora Agent Logo" />
+</p>
 
-**专为企业与个人打造的下一代全离线、分布式、自愈型多渠道 AI 智能体控制中枢**
+### 🌌 The Sovereign, Distributed & Autonomous Multi-Channel AI Matrix
 
-*Engineered for Privacy. Powered by Local Intelligence. Driven by Zero-Trust Architecture.*
+**下一代企业级与个人专属的全离线、分布式、自愈型多渠道 AI 智能体控制中枢**
+
+*Engineered for Absolute Privacy. Powered by Local Intelligence. Driven by Zero-Trust Architecture.*
 
 <br />
 
@@ -44,20 +47,20 @@
 
 ---
 
-## 🖥️ 实时内核启动控制台示范 (Live Telemetry Stream)
+## 🖥️ 极客拟态终端示范 (Cyberpunk Interactive Terminal)
 
 ```text
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ NEXORA AGENT KERNEL TELEMETRY STREAM (BOOT SEQUENCE v1.0.4)                            │
-├────────────────────────────────────────────────────────────────────────────────────────┤
-│ [SYSTEM] Bootstrapping Nexora Agent Core Architecture... [OK]                          │
-│ [SANDBOX] Node.js v24.15.0 LTS Hardened Environment Attached (Init Time: 0.018s)      │
-│ [SECURITY] Loaded 54 NO_PROXY Domain White-Lists. Local Identity Shielded.              │
-│ [ROUTER] Pre-warmed Channel Adapters: WeChat, Feishu, QQBot, Slack, Matrix             │
-│ [RECONNECT] Exponential Backoff Circuit Breaker Active. Max Retry Floor: Infinity.     │
-│ [MEMORY] Incremental Long-Term Memory Synced (~/.openclaw/MEMORY.md). Deduplication OK. │
-│ [STATUS] HTTP Server Listening on 127.0.0.1:18789. All Systems Operational 🟢           │
-└────────────────────────────────────────────────────────────────────────────────────────┘
+ ┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ 🔴 🟡 🟢 NEXORA AGENT KERNEL TELEMETRY (LIVE BOOT STREAM v1.0.4)                             │
+ ├─────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ [SYSTEM]    ⚡ Bootstrapping Nexora Agent Core Engine...                        [SUCCESS] │
+ │ [SANDBOX]   🔒 Attached Portable Node.js v24.15.0 LTS Hardened Environment     (18ms)    │
+ │ [SECURITY]  🛡️ Applied 54 NO_PROXY Domain Identities. Zero-Trust Shield Active. [SECURE]  │
+ │ [ROUTER]    🔌 Multi-Channel Connectors Loaded: WeChat, Feishu, QQBot, Slack, Matrix        │
+ │ [RECONNECT] 🔄 Exponential Backoff Circuit Breaker Primed. Auto-Retry Floor: Infinity       │
+ │ [MEMORY]    🧠 Incremental Long-Term Memory Synced (~/.openclaw/MEMORY.md). Deduplicated.   │
+ │ [GATEWAY]   🌐 Gateway Online at http://127.0.0.1:18789. All Systems Operational 🟢        │
+ └─────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -242,11 +245,11 @@ T_{\text{floor}} + \text{Extract}(C_t, \text{MEMORY.md}), & \text{if } T(C_t) \g
 
 | 性能与运行指标 | 传统云端部署方案 | 开源 Python 机器人框架 | **Nexora Agent 控制台** |
 | :--- | :--- | :--- | :--- |
-| **应用冷启动时间 (Cold Boot)** | 12.5 秒 (服务器拉起) | 8.2 秒 (脚本加载) | **2.8 秒 (内置沙箱速启)** |
-| **待机内存开销 (Standby RAM)** | ~ 512 MB (云节点) | ~ 280 MB | **37 MB (多进程内存优化)** |
-| **断网热恢复时间 (Re-Connect)** | 需人工重新登录 | 需手动重启脚本 | **< 45 秒 (无限指数退避)** |
-| **上下文 Token 压缩效率** | 0% (无压缩) | 20% (硬截断) | **68.5% (Markdown 增量去重)** |
-| **微信异地风控封号率** | 高 (云 IP 跳变) | 高 | **0.00% (NO_PROXY 原生 IP 直连)** |
+| **应用冷启动时间 (Cold Boot)** | 12.5 秒 (服务器拉起) | 8.2 秒 (脚本加载) | **🟢 2.8 秒 (内置沙箱速启)** |
+| **待机内存开销 (Standby RAM)** | ~ 512 MB (云节点) | ~ 280 MB | **🟢 37 MB (多进程内存优化)** |
+| **断网热恢复时间 (Re-Connect)** | 🔴 需人工重新登录 | 🔴 需手动重启脚本 | **⚡ < 45 秒 (无限指数退避)** |
+| **上下文 Token 压缩效率** | 0% (无压缩) | 20% (硬截断) | **⚡ 68.5% (Markdown 增量去重)** |
+| **微信异地风控封号率** | 🔴 高 (云 IP 跳变) | 🔴 高 | **🟢 0.00% (NO_PROXY 原生 IP 直连)** |
 
 ---
 
@@ -326,5 +329,7 @@ module.exports = CustomPlugin;
 ---
 
 <div align="center">
+  <br />
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=0,2,10,24,30&height=120&section=footer" width="100%" alt="Nexora Footer" />
   <sub>Built with ❤️ by Nexora Team. Empowering Decentralized Local AI Agents everywhere.</sub>
 </div>
