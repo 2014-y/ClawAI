@@ -4511,6 +4511,19 @@ input:focus, select:focus, textarea:focus {
   width: 100%; /* 宽度占满父容器 */
 }
 
+/* 展开时抬高自身；父行也要抬，否则 backdrop-filter 形成的层叠上下文会被下一行盖住 */
+.custom-select-wrapper.active {
+  z-index: 10050;
+}
+
+#settings-view .form-group-section > div:has(.custom-select-wrapper.active),
+.form-group-section > div:has(.custom-select-wrapper.active),
+.form-field:has(.custom-select-wrapper.active),
+.settings-language-module:has(.custom-select-wrapper.active) {
+  position: relative;
+  z-index: 100;
+}
+
 .custom-select-trigger {
   display: flex;
   justify-content: space-between;
