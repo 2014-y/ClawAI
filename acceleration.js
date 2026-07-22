@@ -36,8 +36,6 @@ const NO_PROXY_LIST = [
     'open.feishu.cn',
     '.larksuite.com',
     '.dingtalk.com',
-    'apihub.agnes-ai.com',
-    '.agnes-ai.com'
 ].join(',');
 
 let appRef = null;
@@ -56,7 +54,9 @@ let state = {
     selectedGroup: 'GLOBAL',
     mode: 'rule',
     systemProxy: false,
-    virtualNic: false
+    virtualNic: false,
+    systemProxyOwned: false,
+    systemProxySnapshot: null
 };
 
 function getRootDir() {
@@ -1271,7 +1271,7 @@ function buildRuntimeYaml(profileContent) {
         'geodata-mode: true',
         'geo-auto-update: false',
         'tun:',
-        `  enable: ${state.virtualNic && isProcessElevatedReal() && isWintunReady() ? 'true' : 'false'}`,
+        `  enable: ${state.virtualNic && !hasExternalProxyManagerActive() && isProcessElevatedReal() && isWintunReady() ? 'true' : 'false'}`,
         '  stack: mixed',
         '  auto-route: true',
         '  auto-detect-interface: true',
@@ -1817,13 +1817,82 @@ function powershell(script) {
     });
 }
 
+function isNexoraProxyServer(value) {
+    const text = String(value || '').trim();
+    if (!text) return false;
+    const port = Number(MIXED_PORT) || 17890;
+    const escapedPort = String(port).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(?:^|[=;\\s])(?:https?=)?(?:127\\.0\\.0\\.1|localhost):${escapedPort}(?:$|[;\\s])`, 'i').test(text);
+}
+
+async function readSystemProxySettings() {
+    if (process.platform !== 'win32') return null;
+    const key = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings';
+    const res = await powershell(`try { $p = Get-ItemProperty -Path '${key}'; [pscustomobject]@{ ProxyEnable = [int]($p.ProxyEnable -as [int]); ProxyServer = [string]$p.ProxyServer; ProxyOverride = [string]$p.ProxyOverride } | ConvertTo-Json -Compress } catch { '{}' }`);
+    try {
+        const parsed = JSON.parse(String(res.out || '{}').trim() || '{}');
+        return {
+            proxyEnable: Number(parsed.ProxyEnable) === 1,
+            proxyServer: String(parsed.ProxyServer || ''),
+            proxyOverride: String(parsed.ProxyOverride || '')
+        };
+    } catch (e) {
+        return null;
+    }
+}
+
+function quotePowerShellString(value) {
+    return `'${String(value || '').replace(/'/g, "''")}'`;
+}
+
+function hasExternalProxyManagerActive() {
+    const candidates = [7890, 7897, 7891, 10809, 10808]
+        .map(Number)
+        .filter((port) => port > 0 && port !== Number(MIXED_PORT));
+    return candidates.some((port) => isLocalPortListening(port));
+}
+
 async function applySystemProxy(enabled) {
     if (process.platform !== 'win32') return { success: true, skipped: true };
     const key = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings';
     if (enabled) {
+        const current = await readSystemProxySettings();
+        const occupiedByOtherProxy = (current
+            && current.proxyEnable
+            && current.proxyServer
+            && !isNexoraProxyServer(current.proxyServer))
+            || hasExternalProxyManagerActive();
+        if (occupiedByOtherProxy) {
+            state.systemProxy = false;
+            state.systemProxyOwned = false;
+            state.systemProxySnapshot = null;
+            saveState();
+            console.warn(`[Acceleration] System proxy already owned by another app (${current && current.proxyServer ? current.proxyServer : 'external local proxy'}); Nexora will not overwrite it.`);
+            return { success: false, skipped: true, reason: 'external_proxy', proxyServer: current && current.proxyServer ? current.proxyServer : '' };
+        }
+        if (!state.systemProxyOwned) {
+            state.systemProxySnapshot = current || { proxyEnable: false, proxyServer: '', proxyOverride: '' };
+        }
         await powershell(`try { Set-ItemProperty -Path '${key}' -Name ProxyEnable -Type DWord -Value 1; Set-ItemProperty -Path '${key}' -Name ProxyServer -Type String -Value '127.0.0.1:${MIXED_PORT}'; Set-ItemProperty -Path '${key}' -Name ProxyOverride -Type String -Value 'localhost;127.*;<local>' } catch {}`);
+        state.systemProxyOwned = true;
+        saveState();
     } else {
-        await powershell(`try { Set-ItemProperty -Path '${key}' -Name ProxyEnable -Type DWord -Value 0 } catch {}`);
+        const current = await readSystemProxySettings();
+        if (current && current.proxyServer && !isNexoraProxyServer(current.proxyServer)) {
+            state.systemProxyOwned = false;
+            state.systemProxySnapshot = null;
+            saveState();
+            return { success: true, skipped: true, reason: 'external_proxy' };
+        }
+        const snapshot = state.systemProxySnapshot;
+        if (snapshot && snapshot.proxyEnable && snapshot.proxyServer) {
+            await powershell(`try { Set-ItemProperty -Path '${key}' -Name ProxyEnable -Type DWord -Value 1; Set-ItemProperty -Path '${key}' -Name ProxyServer -Type String -Value ${quotePowerShellString(snapshot.proxyServer)}; Set-ItemProperty -Path '${key}' -Name ProxyOverride -Type String -Value ${quotePowerShellString(snapshot.proxyOverride || '')} } catch {}`);
+        } else {
+            await powershell(`try { Set-ItemProperty -Path '${key}' -Name ProxyEnable -Type DWord -Value 0 } catch {}`);
+        }
+        state.systemProxyOwned = false;
+        state.systemProxySnapshot = null;
+        saveState();
     }
     return { success: true };
 }
@@ -1845,7 +1914,7 @@ async function setOptions(options = {}) {
         state.virtualNic = options.virtualNic;
         if (state.enabled) {
             try {
-                const tunEnable = state.virtualNic && isProcessElevatedReal() && isWintunReady();
+                const tunEnable = state.virtualNic && !hasExternalProxyManagerActive() && isProcessElevatedReal() && isWintunReady();
                 await controllerRequest('PATCH', '/configs', { tun: { enable: tunEnable } });
             } catch (e) {
                 console.error('[Acceleration] Failed to hot-reload TUN:', e);
@@ -2458,6 +2527,7 @@ function getStatus() {
         selectedProxy: state.selectedProxy,
         mode: state.mode || 'rule',
         systemProxy: !!state.systemProxy,
+        systemProxyOwned: !!state.systemProxyOwned,
         virtualNic: !!state.virtualNic,
         mixedPort: MIXED_PORT,
         controller: `${CONTROLLER_HOST}:${CONTROLLER_PORT}`,
