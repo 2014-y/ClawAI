@@ -274,8 +274,21 @@ function buildGeneratedProxyGroups(profileContent) {
     ].join('\n');
 }
 
+function hasTopLevelYamlKey(yamlText, key) {
+    const re = new RegExp('^' + String(key || '').replace(/[^A-Za-z0-9_-]/g, '') + '\\s*:', 'm');
+    return re.test(String(yamlText || '').replace(/^\uFEFF/, ''));
+}
+
 function buildMihomoProfileBody(profileContent) {
     let body = String(profileContent || '').replace(/^\uFEFF/, '');
+    const hasProxyGroups = hasTopLevelYamlKey(body, 'proxy-groups');
+    const hasRules = hasTopLevelYamlKey(body, 'rules');
+    const hasRuleProviders = hasTopLevelYamlKey(body, 'rule-providers');
+
+    if (hasProxyGroups || hasRules || hasRuleProviders) {
+        return sanitizeTopLevelYamlScalars(body);
+    }
+
     const proxyBlock = extractTopLevelYamlBlock(body, 'proxies');
     if (proxyBlock && proxyBlock.includes('-')) {
         return sanitizeProxyYamlBlock(sanitizeTopLevelYamlScalars(proxyBlock)) + '\n' + buildGeneratedProxyGroups(body);
@@ -1271,7 +1284,7 @@ function buildRuntimeYaml(profileContent) {
         'geodata-mode: true',
         'geo-auto-update: false',
         'tun:',
-        `  enable: ${state.virtualNic && !hasExternalProxyManagerActive() && isProcessElevatedReal() && isWintunReady() ? 'true' : 'false'}`,
+        `  enable: ${state.virtualNic && isProcessElevatedReal() && isWintunReady() ? 'true' : 'false'}`,
         '  stack: mixed',
         '  auto-route: true',
         '  auto-detect-interface: true',
@@ -1857,19 +1870,6 @@ async function applySystemProxy(enabled) {
     const key = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings';
     if (enabled) {
         const current = await readSystemProxySettings();
-        const occupiedByOtherProxy = (current
-            && current.proxyEnable
-            && current.proxyServer
-            && !isNexoraProxyServer(current.proxyServer))
-            || hasExternalProxyManagerActive();
-        if (occupiedByOtherProxy) {
-            state.systemProxy = false;
-            state.systemProxyOwned = false;
-            state.systemProxySnapshot = null;
-            saveState();
-            console.warn(`[Acceleration] System proxy already owned by another app (${current && current.proxyServer ? current.proxyServer : 'external local proxy'}); Nexora will not overwrite it.`);
-            return { success: false, skipped: true, reason: 'external_proxy', proxyServer: current && current.proxyServer ? current.proxyServer : '' };
-        }
         if (!state.systemProxyOwned) {
             state.systemProxySnapshot = current || { proxyEnable: false, proxyServer: '', proxyOverride: '' };
         }
@@ -1914,7 +1914,7 @@ async function setOptions(options = {}) {
         state.virtualNic = options.virtualNic;
         if (state.enabled) {
             try {
-                const tunEnable = state.virtualNic && !hasExternalProxyManagerActive() && isProcessElevatedReal() && isWintunReady();
+                const tunEnable = state.virtualNic && isProcessElevatedReal() && isWintunReady();
                 await controllerRequest('PATCH', '/configs', { tun: { enable: tunEnable } });
             } catch (e) {
                 console.error('[Acceleration] Failed to hot-reload TUN:', e);
@@ -2121,15 +2121,36 @@ const DELAY_TEST_CONCURRENCY = 8;
 /** 临时测速内核测完后保留一会儿（不接管系统代理），二次测速免去冷启动 */
 const TEMP_CORE_IDLE_MS = 3 * 60 * 1000;
 
+
+function pickSelectableGroupForNode(proxies, requestedGroup, proxyName) {
+    if (!proxies || !proxyName) return requestedGroup || 'GLOBAL';
+    const requested = requestedGroup || state.selectedGroup || 'GLOBAL';
+    const reqInfo = proxies[requested];
+    if (reqInfo && PROXY_GROUP_TYPES.has(String(reqInfo.type || '').toLowerCase()) && Array.isArray(reqInfo.all) && reqInfo.all.includes(proxyName)) {
+        return requested;
+    }
+    const preferredName = /^(GLOBAL|PROXY|Proxy|\u4ee3\u7406|\u8282\u70b9\u9009\u62e9|\u624b\u52a8\u9009\u62e9|SELECT|\u9009\u62e9\u8282\u70b9|\u56fd\u5916\u6d41\u91cf|\u6f0f\u7f51\u4e4b\u9c7c)$/i;
+    const candidates = Object.entries(proxies)
+        .filter(([, val]) => val && PROXY_GROUP_TYPES.has(String(val.type || '').toLowerCase()) && Array.isArray(val.all) && val.all.includes(proxyName))
+        .map(([key, val]) => ({
+            key,
+            score: (String(val.type || '').toLowerCase() === 'selector' ? 100 : 0)
+                + (preferredName.test(key) ? 50 : 0)
+                + (key === state.selectedGroup ? 25 : 0)
+        }))
+        .sort((a, b) => b.score - a.score);
+    return candidates.length ? candidates[0].key : requested;
+}
+
 async function selectProxy(group, name) {
-    const g = group || 'GLOBAL';
+    let proxies = null;
+    try { proxies = await getProxiesFromController(); } catch (e) {}
+    const g = pickSelectableGroupForNode(proxies, group || state.selectedGroup || 'GLOBAL', name);
     await controllerRequest('PUT', `/proxies/${encodeURIComponent(g)}`, { name });
-    // 软切换：只同步少量主 Selector，不强行改 URLTest/Fallback
-    // （批量改组会触发更多路由重建，更容易感觉「切一下就断一下」）
     try {
-        const proxies = await getProxiesFromController();
+        if (!proxies) proxies = await getProxiesFromController();
         if (proxies) {
-            const primaryName = /^(GLOBAL|PROXY|Proxy|代理|节点选择|手动选择|SELECT|选择节点)$/i;
+            const primaryName = /^(GLOBAL|PROXY|Proxy|\u4ee3\u7406|\u8282\u70b9\u9009\u62e9|\u624b\u52a8\u9009\u62e9|SELECT|\u9009\u62e9\u8282\u70b9|\u56fd\u5916\u6d41\u91cf|\u6f0f\u7f51\u4e4b\u9c7c)$/i;
             for (const [key, val] of Object.entries(proxies)) {
                 if (key === g) continue;
                 if (!val || String(val.type) !== 'Selector') continue;
@@ -2141,7 +2162,6 @@ async function selectProxy(group, name) {
             }
         }
     } catch (e) {}
-    // 明确不调用 DELETE /connections：旧连接继续走原节点直到自然结束，新连接走新节点
     state.selectedProxy = name;
     state.selectedGroup = g;
     saveState();
