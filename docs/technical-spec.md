@@ -43,9 +43,9 @@ graph TD
 ### 1.3 核心技术栈矩阵
 | 层次 / 模块 | 技术选型 | 说明 |
 | :--- | :--- | :--- |
-| **应用外壳** | Electron (v31.x) | 跨平台桌面客户端容器 |
+| **应用外壳** | Electron | 跨平台桌面客户端容器 |
 | **界面表现** | Vanilla HTML5 + CSS3 + ES6 | 轻量，无框架开销，极速加载 |
-| **调度中枢** | OpenClaw (Node.js >= 24) | 模块化 AI 消息网关与多通道集成框架 |
+| **调度中枢** | OpenClaw (Node.js LTS) | 模块化 AI 消息网关与多通道集成框架 |
 | **通讯插件** | `@tencent-weixin/openclaw-weixin`, Feishu SDK, QQBot SDK | 通讯通道接入包 |
 | **离线语音** | `sherpa-onnx` (Kaldi 新一代), ONNX Runtime, VITS | 本地离线 ASR / TTS 神经网络引擎 |
 | **网络加速** | Mihomo (Clash Meta 内核) | 提供高性能的本地代理网关与路由选择 |

@@ -41,7 +41,7 @@
 ### 第 1 步：下载并安装软件
 
 1. 用浏览器打开官方最新发布包下载地址：
-   [GitHub Releases 下载页](https://github.com/2014-y/ClawAI/releases)
+   [GitHub Releases 下载页](https://github.com/2014-y/NexoraAgent/releases)
 2. 在页面中找到最新发布的版本，下载以 `.exe` 结尾的文件（例如：`Nexora Agent Setup.exe`）。
 3. 下载完成后，双击运行该安装程序。
 4. **注意**：如果 Windows 系统弹窗提示 *“Windows 已保护你的电脑”* 或者 *“未知发布者”*：

@@ -22,7 +22,7 @@
 对于非技术人员，您**绝对不需要**去安装 Node.js 或者学习任何命令行代码。请直接使用我们为您打包好的一键式图形安装包：
 
 1. 用浏览器打开官方 Releases 下载页面：  
-   👉 [GitHub Releases 下载页](https://github.com/2014-y/ClawAI/releases)  
+   👉 [GitHub Releases 下载页](https://github.com/2014-y/NexoraAgent/releases)  
 2. 找到最新发布版，下载名为 `Nexora Agent Setup.exe` 的安装文件。  
 3. 双击该安装包文件，按照弹出的安装向导指引一路点击「下一步」完成安装。  
 4. 在桌面找到 **Nexora Agent** 的小机器人图标，双击打开即可开始使用。
@@ -121,7 +121,7 @@
 
 ### 7.1 本地开发环境准备
 * **操作系统**：Windows 10 / 11 (64位)
-* **Node.js 版本**：建议使用较新版本（推荐 **Node.js v24.x**）
+* **Node.js 版本**：建议使用最新 LTS 版本（推荐 **Node.js LTS**）
 * **依赖管理工具**：npm
 
 ### 7.2 获取源码与本地调试
@@ -129,8 +129,8 @@
 
 ```bash
 # 1. 克隆代码仓库
-git clone https://github.com/2014-y/ClawAI.git
-cd Nexora-Agent
+git clone https://github.com/2014-y/NexoraAgent.git
+cd NexoraAgent
 
 # 2. 安装项目依赖
 npm install
