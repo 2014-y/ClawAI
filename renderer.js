@@ -2032,17 +2032,7 @@ async function init() {
     // 监听主进程发起的启动清空日志信号
     if (window.api && window.api.onGatewayClearLogs) {
         window.api.onGatewayClearLogs(() => {
-            const streamList = document.getElementById('dash-activity-stream-list');
-            if (streamList) {
-                streamList.innerHTML = `<div class="activity-item-empty" data-i18n="console.dash.empty_tips">${t('console.dash.empty_tips') || '暂无系统活动，启动服务后将在此显示最新状态...'}</div>`;
-            }
-            const logTerminal = document.getElementById('builtin-terminal-logs');
-            if (logTerminal) logTerminal.innerHTML = '';
-            const systemLogsArea = document.getElementById('system-raw-logs-area');
-            if (systemLogsArea) systemLogsArea.value = '';
-            __gatewayLoadedPluginCount = null;
-            updateRightPluginsCountUI();
-            gatewayLogReadyTail = '';
+            resetConsoleRuntimeLogs();
         });
     }
 
@@ -2080,6 +2070,7 @@ async function init() {
             gatewayToggleBtn.style.opacity = '0.6';
             gatewayToggleBtn.style.cursor = 'not-allowed';
             window.api.gatewayAction('stop');
+            resetConsoleRuntimeLogs();
             
             window.toggleLockTimeout = setTimeout(() => {
                 window.isTogglingGateway = false;
@@ -2214,6 +2205,7 @@ async function init() {
             } else if (gatewayStatus === 'running') {
                 showToast('正在关闭Nexora Agent核心服务...');
                 window.api.gatewayAction('stop');
+                resetConsoleRuntimeLogs();
             } else if (gatewayStatus === 'starting') {
                 showToast('Nexora Agent正在启动中，请稍候...');
             }
@@ -2271,6 +2263,35 @@ let __activityLogQueue = [];
 let __isProcessingLogQueue = false;
 let __seenPluginLogsThisStartup = new Set();
 const ACTIVITY_LOG_QUEUE_HARD_CAP = 40;
+
+function getActivityEmptyTipsHtml() {
+    return `<div class="activity-item-empty" data-i18n="console.dash.empty_tips">${t('console.dash.empty_tips') || '暂无系统活动，启动服务后将在此显示最新状态...'}</div>`;
+}
+
+function resetConsoleRuntimeLogs(options = {}) {
+    const clearSystemLogsArea = options.clearSystemLogsArea === true;
+    __activityLogQueue = [];
+    __isProcessingLogQueue = false;
+    resetPluginLogDedupe();
+
+    const streamList = document.getElementById('dash-activity-stream-list');
+    if (streamList) {
+        streamList.innerHTML = getActivityEmptyTipsHtml();
+        streamList.scrollTop = 0;
+    }
+
+    if (logTerminal) logTerminal.innerHTML = '';
+    const builtinLogs = document.getElementById('builtin-terminal-logs');
+    if (builtinLogs) builtinLogs.innerHTML = '';
+    if (clearSystemLogsArea) {
+        const systemLogsArea = document.getElementById('system-raw-logs-area');
+        if (systemLogsArea) systemLogsArea.value = '';
+    }
+    if (Array.isArray(window.__deferredConsoleLogs)) window.__deferredConsoleLogs.length = 0;
+    gatewayLogReadyTail = '';
+    __gatewayLoadedPluginCount = null;
+    try { updateRightPluginsCountUI(); } catch (e) {}
+}
 
 function resetPluginLogDedupe() {
     __seenPluginLogsThisStartup.clear();
@@ -3245,6 +3266,7 @@ function setupIpcListeners() {
             window.api.gatewayAction('start');
         } else if (action === 'stop') {
             window.api.gatewayAction('stop');
+            resetConsoleRuntimeLogs();
         }
     });
 
@@ -5920,6 +5942,17 @@ async function renderPluginsGrid() {
 // 进度更新中心驱动
 function updateProgressUI(val, textLabel = '') {
     const oldProgress = currentProgress;
+    let nextProgress = Number(val);
+    if (!Number.isFinite(nextProgress)) nextProgress = 0;
+    nextProgress = Math.max(0, Math.min(100, nextProgress));
+    const canRegressProgress = gatewayStatus === 'stopped' || gatewayStatus === 'upgrading' || nextProgress === 100;
+    if (!canRegressProgress && currentProgress > 0 && currentProgress < 100 && nextProgress < currentProgress) {
+        nextProgress = currentProgress;
+    }
+    if (gatewayStatus === 'running' && currentProgress === 100 && nextProgress < 100) {
+        nextProgress = 100;
+    }
+    val = nextProgress;
     currentProgress = val;
     const progressFill = document.getElementById('terminal-progress-bar-fill');
     const progressPercent = document.getElementById('terminal-progress-bar-percent');

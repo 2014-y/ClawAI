@@ -3631,6 +3631,7 @@ async function stopGatewayProcess() {
         if (mainWindow) {
             mainWindow.webContents.send('gateway-status', 'stopped');
             mainWindow.webContents.send('gateway-log', '\n[System] Nexora Agent服务已停止。\n');
+            mainWindow.webContents.send('gateway-clear-logs');
         }
     }
 }
@@ -3699,6 +3700,7 @@ async function startGatewayProcess() {
         }
 
         try {
+            await waitForGatewayRuntimeReady();
             await checkAndHealSandboxNode();
         } catch (err) {
             console.error('[SandboxCheck] Error during check and heal:', err);
@@ -7816,6 +7818,82 @@ try {
 } catch (e) {}
 
 // 初始化应用
+let gatewayRuntimePreparePromise = null;
+
+function prepareGatewayRuntimeInBackground(bootSplash) {
+    if (gatewayRuntimePreparePromise) return gatewayRuntimePreparePromise;
+    gatewayRuntimePreparePromise = (async () => {
+        let heartbeat = null;
+        try {
+            let packaged = false;
+            try { packaged = !!app.isPackaged; } catch (e) { packaged = false; }
+            if (packaged && bootSplash && !bootSplash.isDestroyed()) {
+                updateSplashStatus(bootSplash, '正在准备 OpenClaw 运行时…', 5);
+                let tick = 8;
+                heartbeat = setInterval(() => {
+                    tick = Math.min(72, tick + 1.5);
+                    updateSplashStatus(bootSplash, '正在后台准备运行时，主界面可先使用…', Math.floor(tick));
+                }, 700);
+            }
+            const runtimeInfo = await ensureGatewayRuntime(app, {
+                onProgress: (p) => updateSplashStatus(bootSplash, (p && p.message) || '', p && p.percent)
+            });
+            console.log(
+                `[GatewayRuntime] mode=${runtimeInfo && runtimeInfo.mode} extracted=${runtimeInfo && runtimeInfo.extracted} root=${runtimeInfo && runtimeInfo.root}`
+            );
+            try {
+                if (runtimeInfo && runtimeInfo.root) {
+                    deployRuntimeArtifacts();
+                    try {
+                        const deployedHarden = path.join(process.env.NEXORA_AGENT_RUNTIME_DIR || '', 'gateway-boot-harden.js');
+                        if (deployedHarden && fs.existsSync(deployedHarden)) {
+                            const bootHarden = require(deployedHarden);
+                            softenOpenClawStartupMigrationGuard = bootHarden.softenOpenClawStartupMigrationGuard;
+                            ensureSandboxNpmPresent = bootHarden.ensureSandboxNpmPresent;
+                            hardenGatewayBootAgainstPluginNpm = bootHarden.hardenGatewayBootAgainstPluginNpm;
+                        }
+                    } catch (e) {}
+                    const soft = softenOpenClawStartupMigrationGuard(runtimeInfo.root);
+                    const npm = ensureSandboxNpmPresent(runtimeInfo.root, __dirname);
+                    let tpl = { ok: false };
+                    try {
+                        if (typeof require('./gateway-boot-harden').ensureOpenClawWorkspaceTemplates === 'function') {
+                            tpl = require('./gateway-boot-harden').ensureOpenClawWorkspaceTemplates(runtimeInfo.root, [
+                                path.join(__dirname, 'config', 'openclaw-templates'),
+                                path.join(runtimeInfo.root, 'config', 'openclaw-templates')
+                            ]);
+                        }
+                    } catch (e) {}
+                    console.log(`[GatewayBoot] post-extract soft=${JSON.stringify(soft)} npm=${JSON.stringify(npm)} templates=${JSON.stringify(tpl)}`);
+                }
+            } catch (e) {
+                console.warn('[GatewayBoot] post-extract harden:', e.message);
+            }
+            updateSplashStatus(bootSplash, '运行时就绪…', 100);
+            return runtimeInfo;
+        } catch (err) {
+            console.error('[GatewayRuntime] ensure failed:', err);
+            try {
+                dialog.showErrorBox(
+                    'OpenClaw 运行时未就绪',
+                    `无法解压或定位网关运行时。\n\n${err && err.message ? err.message : err}\n\n请重新安装 Nexora Agent，或联系支持。`
+                );
+            } catch (e) {}
+            throw err;
+        } finally {
+            if (heartbeat) {
+                try { clearInterval(heartbeat); } catch (e) {}
+            }
+        }
+    })();
+    return gatewayRuntimePreparePromise;
+}
+
+async function waitForGatewayRuntimeReady() {
+    if (!gatewayRuntimePreparePromise) prepareGatewayRuntimeInBackground(null);
+    return await gatewayRuntimePreparePromise;
+}
+
 app.whenReady().then(async () => {
     if (!global.nexoraInstance) return;
 
@@ -7935,73 +8013,15 @@ app.whenReady().then(async () => {
         console.error('[System] Failed to resolve true user home:', err.message);
     }
 
-    // 打包态：异步解压 gateway-runtime.zip（切勿 spawnSync，否则窗口「未响应」）
     let bootSplash = null;
-    let heartbeat = null;
     try {
         let packaged = false;
         try { packaged = !!app.isPackaged; } catch (e) { packaged = false; }
         if (packaged) {
             bootSplash = createSplashWindow();
-            updateSplashStatus(bootSplash, '正在准备 OpenClaw 运行时…', 5);
-            let tick = 8;
-            heartbeat = setInterval(() => {
-                tick = Math.min(72, tick + 1.5);
-                updateSplashStatus(bootSplash, '正在解压运行时（首次启动，请稍候）…', Math.floor(tick));
-            }, 700);
+            updateSplashStatus(bootSplash, '正在打开 Nexora Agent…', 3);
         }
-        const runtimeInfo = await ensureGatewayRuntime(app, {
-            onProgress: (p) => {
-                updateSplashStatus(bootSplash, (p && p.message) || '', p && p.percent);
-            }
-        });
-        console.log(
-            `[GatewayRuntime] mode=${runtimeInfo && runtimeInfo.mode} extracted=${runtimeInfo && runtimeInfo.extracted} root=${runtimeInfo && runtimeInfo.root}`
-        );
-        try {
-            if (runtimeInfo && runtimeInfo.root) {
-                deployRuntimeArtifacts();
-                try {
-                    const deployedHarden = path.join(process.env.NEXORA_AGENT_RUNTIME_DIR || '', 'gateway-boot-harden.js');
-                    if (deployedHarden && fs.existsSync(deployedHarden)) {
-                        const bootHarden = require(deployedHarden);
-                        softenOpenClawStartupMigrationGuard = bootHarden.softenOpenClawStartupMigrationGuard;
-                        ensureSandboxNpmPresent = bootHarden.ensureSandboxNpmPresent;
-                        hardenGatewayBootAgainstPluginNpm = bootHarden.hardenGatewayBootAgainstPluginNpm;
-                    }
-                } catch (e) {}
-                const soft = softenOpenClawStartupMigrationGuard(runtimeInfo.root);
-                const npm = ensureSandboxNpmPresent(runtimeInfo.root, __dirname);
-                let tpl = { ok: false };
-                try {
-                    if (typeof require('./gateway-boot-harden').ensureOpenClawWorkspaceTemplates === 'function') {
-                        tpl = require('./gateway-boot-harden').ensureOpenClawWorkspaceTemplates(runtimeInfo.root, [
-                            path.join(__dirname, 'config', 'openclaw-templates'),
-                            path.join(runtimeInfo.root, 'config', 'openclaw-templates')
-                        ]);
-                    }
-                } catch (e) {}
-                console.log(`[GatewayBoot] post-extract soft=${JSON.stringify(soft)} npm=${JSON.stringify(npm)} templates=${JSON.stringify(tpl)}`);
-            }
-        } catch (e) {
-            console.warn('[GatewayBoot] post-extract harden:', e.message);
-        }
-        if (runtimeInfo && runtimeInfo.extracted) {
-            updateSplashStatus(bootSplash, '运行时就绪，正在启动…', 100);
-        }
-    } catch (err) {
-        console.error('[GatewayRuntime] ensure failed:', err);
-        try {
-            dialog.showErrorBox(
-                'OpenClaw 运行时未就绪',
-                `无法解压或定位网关运行时。\n\n${err && err.message ? err.message : err}\n\n请重新安装 Nexora Agent，或联系支持。`
-            );
-        } catch (e) {}
-    } finally {
-        if (heartbeat) {
-            try { clearInterval(heartbeat); } catch (e) {}
-        }
-    }
+    } catch (e) {}
 
     // 先出窗口再种插件，避免首启同步拷贝把 UI 卡死
     // CONFIG_DIR 最终确定后再挂载语音运行时（设置文件落在用户 OpenClaw 目录）
@@ -8017,13 +8037,13 @@ app.whenReady().then(async () => {
     createWindow(bootSplash);
     createTray();
     setImmediate(() => {
+        try {
+            prepareGatewayRuntimeInBackground(bootSplash)
+                .then(() => checkAndHealSandboxNode())
+                .catch(e => console.warn('[GatewayRuntime] background prepare failed:', e.message));
+        } catch (e) {}
         try { seedBundledPlugins(); } catch (e) {}
         try { watchRoleConfigFile(); } catch (e) {}
-        
-        // 自动在后台静默初始化底层 Node 引擎沙箱，不必等用户手动点击
-        try {
-            checkAndHealSandboxNode().catch(e => console.warn('[SandboxAutoInit] background init failed:', e.message));
-        } catch (e) {}
     });
 
     app.on('activate', () => {
