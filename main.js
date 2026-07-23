@@ -2736,7 +2736,7 @@ function seedMediaRuntimeArtifacts(appVersion) {
     }
 }
 
-function seedBundledPlugins() {
+function seedBundledPlugins(options = {}) {
     try {
         const destRoot = path.join(CONFIG_DIR, 'extensions');
         fs.mkdirSync(destRoot, { recursive: true });
@@ -2748,6 +2748,14 @@ function seedBundledPlugins() {
 
         let appVersion = '0.0.0';
         try { appVersion = app.getVersion(); } catch (e) {}
+        const seedStampPath = path.join(CONFIG_DIR, '.nexora-bundled-seed-stamp');
+        if (options.fast === true) {
+            try {
+                if (fs.existsSync(seedStampPath) && fs.readFileSync(seedStampPath, 'utf8').trim() === appVersion) {
+                    return;
+                }
+            } catch (e) {}
+        }
 
         const legacyRoot = path.join(CONFIG_DIR, 'plugins');
         if (fs.existsSync(legacyRoot)) {
@@ -2813,6 +2821,7 @@ function seedBundledPlugins() {
             syncBundledPluginFiles(name);
         }
         seedMediaRuntimeArtifacts(appVersion);
+        try { fs.writeFileSync(seedStampPath, appVersion, 'utf8'); } catch (e) {}
     } catch (e) {
         console.error('[PluginSeed] seedBundledPlugins failed:', e.message);
     }
@@ -3672,6 +3681,7 @@ async function startGatewayProcess() {
         gatewayStartInFlight = (async () => {
         try {
         const preferredGatewayPort = resolveConfiguredGatewayPort();
+        let gatewayPortWasOccupied = false;
         // 先把 UI 打到 starting，避免清理端口时界面长时间假“空闲/运行中”
         if (mainWindow) {
             mainWindow.webContents.send('gateway-clear-logs');
@@ -3680,6 +3690,7 @@ async function startGatewayProcess() {
         }
 
         if (await probeGatewayPort(preferredGatewayPort)) {
+            gatewayPortWasOccupied = true;
             // 本进程已 fork 过：真·跳过。外部孤儿占用端口时不能跳过，否则 UI 无 stdout、活动流空白。
             if (gatewayProcess) {
                 console.log(`[Gateway] Port ${preferredGatewayPort} already owned by this app; skip duplicate fork`);
@@ -3717,6 +3728,9 @@ async function startGatewayProcess() {
         if (process.platform === 'win32') {
             try {
                 if (instanceId <= 1) {
+                    if (!gatewayPortWasOccupied) {
+                        console.log(`[Gateway] Port ${preferredGatewayPort} is free; skip netstat cleanup`);
+                    } else {
                     const killed = await killPidsListeningOnPort(
                         preferredGatewayPort,
                         [process.pid, process.ppid]
@@ -3729,6 +3743,7 @@ async function startGatewayProcess() {
                     }
                     // 给 OS 一点时间释放 LISTEN
                     await new Promise((r) => setTimeout(r, 400));
+                    }
                 }
             } catch (err) {
                 console.error('Failed to cleanup leftover gateway port processes:', err);
@@ -3812,7 +3827,7 @@ async function startGatewayProcess() {
             }
 
             // 部署内置自定义插件到用户状态目录
-            seedBundledPlugins();
+            seedBundledPlugins({ fast: true });
 
             // 启动Nexora Agent前再跑一次延迟收紧，确保磁盘上的配置已是“快配置”
             try {
@@ -8039,7 +8054,7 @@ app.whenReady().then(async () => {
     setImmediate(() => {
         try {
             prepareGatewayRuntimeInBackground(bootSplash)
-                .then(() => checkAndHealSandboxNode())
+                .then(() => console.log('[GatewayRuntime] background prepare completed'))
                 .catch(e => console.warn('[GatewayRuntime] background prepare failed:', e.message));
         } catch (e) {}
         try { seedBundledPlugins(); } catch (e) {}
