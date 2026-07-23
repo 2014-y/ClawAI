@@ -155,6 +155,138 @@ function getAvailableNodePath() {
 }
 
 
+
+function resolveBundledNpmCliPath() {
+    const candidates = [];
+    const push = (value) => {
+        if (!value) return;
+        if (!candidates.includes(value)) candidates.push(value);
+    };
+
+    push(resolveAppFsPath('.node-sandbox', 'node_modules', 'npm', 'bin', 'npm-cli.js'));
+    push(path.join(__dirname, '.node-sandbox', 'node_modules', 'npm', 'bin', 'npm-cli.js'));
+    push(path.join(__dirname, 'node_modules', 'npm', 'bin', 'npm-cli.js'));
+
+    const nodePath = getAvailableNodePath();
+    if (nodePath) {
+        const nodeDir = path.dirname(nodePath);
+        push(path.join(nodeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js'));
+        push(path.join(path.dirname(nodeDir), 'node_modules', 'npm', 'bin', 'npm-cli.js'));
+    }
+
+    const pathEntries = String(process.env.Path || process.env.PATH || '')
+        .split(path.delimiter)
+        .filter(Boolean);
+    for (const entry of pathEntries) {
+        push(path.join(entry, 'node_modules', 'npm', 'bin', 'npm-cli.js'));
+        push(path.join(path.dirname(entry), 'node_modules', 'npm', 'bin', 'npm-cli.js'));
+    }
+
+    for (const candidate of candidates) {
+        try {
+            if (fs.existsSync(candidate)) return candidate;
+        } catch (e) {}
+    }
+    return null;
+}
+
+function buildNpmUpdateEnv() {
+    const env = { ...process.env };
+    const winDir = env.SystemRoot || env.WINDIR || 'C:\\Windows';
+    env.SystemRoot = winDir;
+    env.WINDIR = winDir;
+    env.ComSpec = env.ComSpec && fs.existsSync(env.ComSpec)
+        ? env.ComSpec
+        : path.join(winDir, 'System32', 'cmd.exe');
+
+    const pathKey = process.platform === 'win32' ? 'Path' : 'PATH';
+    const additions = [
+        resolveAppFsPath('.node-sandbox'),
+        path.dirname(getAvailableNodePath() || ''),
+        path.join(winDir, 'System32'),
+        winDir,
+        path.join(winDir, 'System32', 'WindowsPowerShell', 'v1.0'),
+    ].filter(Boolean);
+    const existing = env[pathKey] || env.PATH || env.Path || '';
+    env[pathKey] = [...additions, existing].filter(Boolean).join(path.delimiter);
+    env.PATH = env[pathKey];
+    return env;
+}
+
+function resolveNpmUpdateRunner() {
+    try {
+        ensureSandboxNpmPresent(resolveAppFsRoot(), __dirname);
+    } catch (e) {}
+
+    const nodePath = getAvailableNodePath();
+    const npmCli = resolveBundledNpmCliPath();
+    if (nodePath && npmCli) {
+        return {
+            command: nodePath,
+            prefixArgs: [npmCli],
+            nodePath,
+            npmCli,
+            via: 'bundled-node-npm-cli'
+        };
+    }
+
+    throw new Error('No bundled npm runtime available. node=' + (nodePath || 'missing') + ' npmCli=' + (npmCli || 'missing'));
+}
+
+function runNpmUpdateCommand(args, opts = {}) {
+    const { spawn } = require('child_process');
+    const runner = resolveNpmUpdateRunner();
+    const timeoutMs = opts.timeout || 30000;
+    return new Promise((resolve, reject) => {
+        const child = spawn(runner.command, [...runner.prefixArgs, ...args], {
+            cwd: opts.cwd || __dirname,
+            shell: false,
+            windowsHide: true,
+            env: buildNpmUpdateEnv()
+        });
+        let stdout = '';
+        let stderr = '';
+        let settled = false;
+        const finish = (fn) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            fn();
+        };
+        const timer = setTimeout(() => {
+            try { child.kill(); } catch (e) {}
+            finish(() => reject(new Error('npm command timed out: ' + args.join(' '))));
+        }, timeoutMs);
+
+        child.stdout?.on('data', (d) => {
+            const text = d.toString();
+            stdout += text;
+            opts.onStdout?.(text);
+        });
+        child.stderr?.on('data', (d) => {
+            const text = d.toString();
+            stderr += text;
+            opts.onStderr?.(text);
+        });
+        child.on('error', (err) => finish(() => reject(new Error(
+            'npm command failed to start: ' + err.message
+            + ' | runner=' + runner.via
+            + ' | node=' + runner.nodePath
+            + ' | npmCli=' + runner.npmCli
+        ))));
+        child.on('close', (code) => finish(() => {
+            if (code === 0) resolve(stdout);
+            else reject(new Error(
+                'npm command failed: exit ' + code
+                + ' | runner=' + runner.via
+                + ' | node=' + runner.nodePath
+                + ' | npmCli=' + runner.npmCli
+                + '\n' + (stderr || stdout)
+            ));
+        }));
+    });
+}
+
 // ==========================================
 // 内置 Node 运行时（.node-sandbox）自动升级
 // ==========================================
@@ -7339,11 +7471,11 @@ ipcMain.handle('install-update', async (event, savePath) => {
 ipcMain.handle('update-openclaw-package', async (event, { targetVersion }) => {
     // 开启全兼容热更新支持：即便在无任何开发环境的电脑上打包运行，也允许通过沙箱进行 OpenClaw 包升级
 
-    const { execFile } = require('child_process');
+    const { spawn } = require('child_process');
     const path = require('path');
     const fs = require('fs');
 
-    const appDir = __dirname;
+    const appDir = resolveAppFsRoot();
     const log = (msg) => {
         console.log(`[GatewayUpdate] ${msg}`);
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -7358,13 +7490,12 @@ ipcMain.handle('update-openclaw-package', async (event, { targetVersion }) => {
             log('正在查询 npm 最新版本...');
             try {
                 const result = await new Promise((resolve, reject) => {
-                    execFile('npm', ['view', 'openclaw', 'version', '--json'], {
-                        cwd: appDir, shell: true, timeout: 30000
-                    }, (err, stdout) => {
-                        if (err) return reject(err);
-                        try { resolve(JSON.parse(stdout.trim())); }
-                        catch (e) { resolve(stdout.trim().replace(/"/g, '')); }
-                    });
+                    runNpmUpdateCommand(['view', 'openclaw', 'version', '--json'], { cwd: appDir, timeout: 30000 })
+                        .then((stdout) => {
+                            try { resolve(JSON.parse(stdout.trim())); }
+                            catch (e) { resolve(stdout.trim().replace(/"/g, '')); }
+                        })
+                        .catch(reject);
                 });
                 version = String(result);
             } catch (e) {
@@ -7379,13 +7510,12 @@ ipcMain.handle('update-openclaw-package', async (event, { targetVersion }) => {
         let nodeUpgrade = null; // { targetVersion } 需要升级时填充
         try {
             const engineInfo = await new Promise((resolve) => {
-                execFile('npm', ['view', `openclaw@${version}`, 'engines.node', '--json'], {
-                    cwd: appDir, shell: true, timeout: 15000
-                }, (err, stdout) => {
-                    if (err) return resolve(null);
-                    try { resolve(JSON.parse(stdout.trim())); }
-                    catch (e) { resolve(stdout.trim().replace(/"/g, '')); }
-                });
+                runNpmUpdateCommand(['view', `openclaw@${version}`, 'engines.node', '--json'], { cwd: appDir, timeout: 15000 })
+                    .then((stdout) => {
+                        try { resolve(JSON.parse(stdout.trim())); }
+                        catch (e) { resolve(stdout.trim().replace(/"/g, '')); }
+                    })
+                    .catch(() => resolve(null));
             });
 
             if (engineInfo) {
@@ -7450,18 +7580,21 @@ ipcMain.handle('update-openclaw-package', async (event, { targetVersion }) => {
         log(`正在安装 openclaw@${version}，请稍候...`);
         const installResult = await new Promise((resolve, reject) => {
             const npmArgs = ['install', `openclaw@${version}`, '--save', '--save-exact'];
-            const child = execFile('npm', npmArgs, {
+            let stdout = '';
+            let stderr = '';
+            runNpmUpdateCommand(npmArgs, {
                 cwd: appDir,
-                shell: true,
                 timeout: 120000,
-                env: { ...process.env }
-            }, (err, stdout, stderr) => {
-                if (err) {
-                    reject(new Error(`npm install 失败: ${err.message}\n${stderr || ''}`));
-                } else {
-                    resolve(stdout);
+                onStdout: (text) => { stdout += text; log(text.trim()); },
+                onStderr: (text) => {
+                    stderr += text;
+                    const trimmed = text.trim();
+                    if (trimmed && !trimmed.startsWith('npm warn')) log(trimmed);
                 }
+            }).then(resolve).catch((err) => {
+                reject(new Error(`npm install 失败: ${err.message}\n${stderr || stdout}`));
             });
+            const child = { stdout: null, stderr: null };
 
             // 实时输出安装日志
             if (child.stdout) child.stdout.on('data', (d) => log(d.toString().trim()));

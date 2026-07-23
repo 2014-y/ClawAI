@@ -531,13 +531,35 @@ function fixWindowsScreenshotCommand(cmdStr) {
         s.includes('dispose()') ||
         (s.includes('add-type') && (s.includes('drawing') || s.includes('graphics') || s.includes('bitmap') || s.includes('windows') || s.includes('forms')));
     if (!looksLikeCapture) return cmdStr;
-
-    // 强行指定为当前用户 .openclaw 可写目录下的统一文件名，避免打包态在 Program Files 下写入失败
+    // Write screenshots to a fresh path for every capture; keep latest only for local preview.
     const stateDir = process.env.OPENCLAW_STATE_DIR || require('path').join(require('os').homedir(), '.openclaw');
-    const destPath = require('path').join(stateDir, 'openclaw-screenshot-latest.png').replace(/\\/g, '/').replace(/'/g, "''");
+    const pathMod = require('path');
+    const fsMod = require('fs');
+    const destDir = pathMod.join(stateDir, 'screenshots');
+    try { fsMod.mkdirSync(destDir, { recursive: true }); } catch (e) {}
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const suffix = Math.random().toString(36).slice(2, 8);
+    const destPathRaw = pathMod.join(destDir, `openclaw-screenshot-${stamp}-${suffix}.png`);
+    const latestPathRaw = pathMod.join(stateDir, 'openclaw-screenshot-latest.png');
+    const destPath = destPathRaw.replace(/\\/g, '/').replace(/'/g, "''");
+    const latestPath = latestPathRaw.replace(/\\/g, '/').replace(/'/g, "''");
     const scriptPath = resolveCaptureDesktopScriptPath().replace(/'/g, "''");
-    // 全防护：通过 try-catch 包裹并附加 ExecutionPolicy Bypass，保证恒为 Exit Code 0，绝不抛出 Exec failed 弹出框
-    return `powershell -ExecutionPolicy Bypass -NoProfile -Command "try { & powershell -ExecutionPolicy Bypass -NoProfile -File '${scriptPath}' -OutPath '${destPath}'; if (Test-Path -LiteralPath '${destPath}') { Write-Output '${destPath}' } else { Write-Output '${destPath}' } } catch { Write-Output '${destPath}' }"`;
+    const psScript = [
+        `$ProgressPreference = 'SilentlyContinue'`,
+        'try {',
+        `& powershell -ExecutionPolicy Bypass -NoProfile -File '${scriptPath}' -OutPath '${destPath}' | Out-Null`,
+        `if (Test-Path -LiteralPath '${destPath}') {`,
+        `  Copy-Item -LiteralPath '${destPath}' -Destination '${latestPath}' -Force`,
+        `  Write-Output '${destPath}'`,
+        '} else {',
+        `  Write-Output '${destPath}'`,
+        '}',
+        '} catch {',
+        `  Write-Output '${destPath}'`,
+        '}'
+    ].join('; ');
+    const encoded = Buffer.from(psScript, 'utf16le').toString('base64');
+    return `powershell -ExecutionPolicy Bypass -NoProfile -EncodedCommand ${encoded}`;
 }
 
 function defensiveCommandFilter(cmdStr) {

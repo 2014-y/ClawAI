@@ -38,9 +38,9 @@ function registerDrawVideo(api) {
     },
     async execute(_toolCallId, params, signal, onUpdate) {
       const result = await skill.draw_video(params || {}, { signal, onUpdate });
-      const mediaHint = result.filepath ? `\nMEDIA:${result.filepath}` : '';
+      const mediaHint = result.filepath ? `MEDIA:${result.filepath}` : '';
       return {
-        content: [{ type: 'text', text: JSON.stringify(result) + mediaHint }],
+        content: [{ type: 'text', text: mediaHint ? mediaHint + '\n' + JSON.stringify(result) : JSON.stringify(result) }],
         details: result,
       };
     },
@@ -71,18 +71,7 @@ export function createSkill(runtime) {
     name: "video-generator",
     description: "Generate videos via agnes-ai, OpenAI-compatible, or custom media providers",
 
-    instruction: `当用户要求生成视频时使用此技能。支持以下参数控制：
-
-- prompt (必填): 视频描述文本
-- image_url (可选): 首帧图片 URL
-- model: 模型名称
-- duration (默认 5): 视频时长（秒）
-- resolution (默认 "720p"): 分辨率
-- fps (默认 24): 帧率
-- aspect_ratio (默认 "16:9"): 宽高比
-
-供应商在 ~/.openclaw/video-generator.json 配置（provider / apiBase / apiKey / model）。
-自定义供应商可写在 ~/.openclaw/media-providers.json。`,
+    instruction: "Use draw_video when the user asks to generate or create a video. Return each generated file as a MEDIA:<absolute path> line before any prose.",
 
     async draw_video(params = {}, opts = {}) {
       const core = await loadMediaCore();

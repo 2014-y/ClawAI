@@ -38,9 +38,9 @@ function registerDrawPicture(api) {
     async execute(_toolCallId, params) {
       const result = await skill.draw_picture(params || {});
       const files = (result.files || []).map((f) => f.filepath).filter(Boolean);
-      const mediaHint = files.length ? `\nMEDIA:${files.join('\nMEDIA:')}` : '';
+      const mediaHint = files.length ? `MEDIA:${files.join('\nMEDIA:')}` : '';
       return {
-        content: [{ type: 'text', text: JSON.stringify(result) + mediaHint }],
+        content: [{ type: 'text', text: mediaHint ? mediaHint + '\n' + JSON.stringify(result) : JSON.stringify(result) }],
         details: result,
       };
     },
@@ -71,16 +71,7 @@ export function createSkill(runtime) {
     name: "image-generator",
     description: "Generate images via agnes-ai, OpenAI-compatible, or custom media providers",
 
-    instruction: `当用户要求生成图片时使用此技能。支持以下参数控制：
-
-- prompt (必填): 图片描述文本
-- model: 模型名称
-- size (默认 "1024x1024"): 尺寸
-- n (默认 1): 生成数量，1-4
-- quality / style: 仅 DALL·E 兼容上游需要时再传
-
-供应商在 ~/.openclaw/media-generator.json 配置（provider / apiBase / apiKey / model）。
-自定义供应商可写在 ~/.openclaw/media-providers.json。`,
+    instruction: "Use draw_picture when the user asks to generate, draw, or create an image. Return each generated file as a MEDIA:<absolute path> line before any prose.",
 
     async draw_picture(params = {}) {
       const core = await loadMediaCore();

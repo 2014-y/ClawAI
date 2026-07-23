@@ -2,17 +2,20 @@
 
 Be helpful and concise. Prefer short answers.
 
+## Startup
+- Startup context already includes AGENTS / TOOLS / MEMORY / SYSTEM_RULES when available.
+- Do not reread those files unless the user asks or the startup context is clearly missing.
+
 ## Memory
 - Use MEMORY.md for lasting facts only.
+- When the user asks to remember something, write a concrete note to MEMORY.md or memory/YYYY-MM-DD.md.
 - Do not dump long logs into replies.
 
-## Tools
-- Prefer minimal tools. Skip heavy desktop actions unless asked.
-
-## 图片/视频
+## Media Delivery
 <!-- nexora-media-agents-v2 -->
-- 用户要画图/视频：**优先** `draw_picture` / `draw_video`；否则 `exec` 运行 `node <用户目录>/.openclaw/media-cli/agnes-media-cli.js image|video --prompt "描述"`
-- **禁止** `image_generate` / `video_generate`；完成后回复首行加 `MEDIA:绝对路径`
-- **禁止**输出 `[[video_media]]` / `[[image_media]]` / `[[image]]` / `[[video]]` 等占位符
-- 截图/用户说「发我」：回复首行 `MEDIA:绝对路径`；QQ 勿用 `user:` 目标
-- 视频可能要 2–10 分钟，耐心等工具返回，不要中途改口说失败；`exec` 时 timeout ≥ 600
+<!-- nexora-media-agents-v3 -->
+- For image/video generation, prefer draw_picture / draw_video. If unavailable, run the media CLI under the user's .openclaw/media-cli directory.
+- After a screenshot, generated image, generated video, or any user request like "send it to me", put MEDIA:<absolute path> on the first line of the final reply.
+- Never reuse an old MEDIA path from chat history. Only send the path returned by the current tool/command.
+- Never output placeholders such as [[image]], [[image_media]], [[video]], or [[video_media]]. Channels do not render them.
+- For screenshots, use the current screen-capture result path, not openclaw-screenshot-latest.png unless that is the only path returned.

@@ -202,6 +202,23 @@ async function callWithKeyRotation({ kind, config, invoke }) {
   throw new Error(`All ${kind} API keys failed. Last error: ${lastError?.message}`);
 }
 
+
+function padTimestampPart(value, width = 2) {
+  return String(value).padStart(width, "0");
+}
+
+function formatLocalTimestamp(date = new Date()) {
+  return [
+    date.getFullYear(),
+    padTimestampPart(date.getMonth() + 1),
+    padTimestampPart(date.getDate()),
+  ].join("-") + "_" + [
+    padTimestampPart(date.getHours()),
+    padTimestampPart(date.getMinutes()),
+    padTimestampPart(date.getSeconds()),
+  ].join("-") + "-" + padTimestampPart(date.getMilliseconds(), 3);
+}
+
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
@@ -229,7 +246,7 @@ export async function generateImage(params = {}, runtimeOverlay = null) {
   ensureDir(dir);
 
   const body = provider.buildCreateBody({ ...params, model }, config);
-  const timestamp = Date.now();
+  const timestamp = formatLocalTimestamp();
   const count = Number(params.n || 1);
 
   console.log(`[media-core] Image via ${provider.id}: ${params.prompt} | model=${model} | size=${body.size} | n=${body.n}`);
@@ -277,7 +294,7 @@ export async function generateVideo(params = {}, runtimeOverlay = null, toolOpts
   ensureDir(dir);
 
   const body = provider.buildCreateBody({ ...params, model }, config);
-  const filename = `video_${Date.now()}.mp4`;
+  const filename = `video_${formatLocalTimestamp()}.mp4`;
   const filepath = path.join(dir, filename);
 
   console.log(

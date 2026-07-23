@@ -1,0 +1,20 @@
+{
+  "kind": "webpage_snapshot",
+  "url": "https://raw.githubusercontent.com/2014-y/NexoraAgent/master/docs/technical-spec.md",
+  "final_url": "https://raw.githubusercontent.com/2014-y/NexoraAgent/master/docs/technical-spec.md",
+  "status": 200,
+  "read_status": "blocked",
+  "content_type": "text/plain; charset=utf-8",
+  "fetched_at": "2026-07-22T13:58:42.891276600+00:00",
+  "title": "Untitled webpage",
+  "description": "",
+  "site_name": null,
+  "published_at": null,
+  "source_type": "unknown",
+  "text": "",
+  "quote_candidates": [],
+  "word_count": 0,
+  "truncated": false,
+  "blocked": true,
+  "source": "direct_http"
+}
