@@ -126,7 +126,11 @@ function getAvailableNodePath() {
         try {
             // 检查内置 node 是否真的能运行（防范缺少 VC++ 运行库或被安全组策略拦截）
             const check = require('child_process').execFileSync(sandboxPath, ['-v'], { encoding: 'utf8', timeout: 1000 }).trim();
-            if (check.startsWith('v')) {
+            const match = check.match(/^v(\d+)\.(\d+)\.(\d+)/);
+            const major = match ? parseInt(match[1], 10) : 0;
+            const minor = match ? parseInt(match[2], 10) : 0;
+            const patch = match ? parseInt(match[3], 10) : 0;
+            if (major > 24 || (major === 24 && (minor > 15 || (minor === 15 && patch >= 0))) || (major === 22 && minor >= 22) || major >= 25) {
                 return sandboxPath;
             }
         } catch (e) {
@@ -3578,6 +3582,17 @@ function scheduleGatewayReloadAfterChannelChange(reason, opts = {}) {
 }
 
 // 停止后台Nexora Agent子进程
+function clearGatewayRuntimeLogsForFreshStart() {
+    const names = ['gateway_stdout.log', 'gateway_stderr.log', 'gateway-output.log', 'gateway-error.log'];
+    for (const name of names) {
+        try {
+            const target = path.join(CONFIG_DIR, name);
+            fs.mkdirSync(path.dirname(target), { recursive: true });
+            fs.writeFileSync(target, '', 'utf8');
+        } catch (e) {}
+    }
+}
+
 async function stopGatewayProcess() {
     if (gatewayProcess) {
         gatewayProcess.isIntentionallyStopped = true; // 标记为主动停止，避免触发意外退出警报
@@ -3718,7 +3733,9 @@ async function startGatewayProcess() {
         }
 
         if (mainWindow) {
+            clearGatewayRuntimeLogsForFreshStart();
             mainWindow.webContents.send('gateway-status', 'starting');
+            mainWindow.webContents.send('gateway-clear-logs');
             mainWindow.webContents.send('gateway-log', '[System] 正在拉起内置 OpenClaw Gateway 核心...\n');
         }
         try {
@@ -7205,8 +7222,16 @@ async function httpsGetJson(urlStr) {
     }
 }
 
+function normalizeNpmCoreVersion(value) {
+    return String(value || '').trim().replace(/^v/i, '');
+}
+
+function isSameNpmCoreVersion(left, right) {
+    return normalizeNpmCoreVersion(left) === normalizeNpmCoreVersion(right);
+}
+
 function isNewerVersion(latest, current) {
-    const normalize = (v) => String(v || '').replace(/^v/i, '').split(/[.-]/).map((p) => {
+    const normalize = (v) => normalizeNpmCoreVersion(v).split(/[.-]/).map((p) => {
         const n = parseInt(p, 10);
         return Number.isFinite(n) ? n : 0;
     });

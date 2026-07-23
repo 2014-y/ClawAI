@@ -2038,6 +2038,10 @@ async function init() {
             }
             const logTerminal = document.getElementById('builtin-terminal-logs');
             if (logTerminal) logTerminal.innerHTML = '';
+            const systemLogsArea = document.getElementById('system-raw-logs-area');
+            if (systemLogsArea) systemLogsArea.value = '';
+            __gatewayLoadedPluginCount = null;
+            updateRightPluginsCountUI();
             gatewayLogReadyTail = '';
         });
     }
@@ -2757,6 +2761,11 @@ function setupIpcListeners() {
         // 跨 IPC 分片拼接，避免 "http server listening" 被拆开导致一直卡在进度条
         gatewayLogReadyTail = (gatewayLogReadyTail + '\n' + text).slice(-8000);
         const readyHaystack = gatewayLogReadyTail;
+        const pluginCountMatch = readyHaystack.match(/http server listening\s*\((\d+)\s*plugins?/i);
+        if (pluginCountMatch) {
+            __gatewayLoadedPluginCount = parseInt(pluginCountMatch[1], 10) || 0;
+            updateRightPluginsCountUI();
+        }
 
         if (
             readyHaystack.includes('[gateway] ready')
@@ -14641,4 +14650,3 @@ setTimeout(() => {
         addTtsToAiBubble(welcomeRow, welcomeBubble);
     }
 }, 1200);
-
