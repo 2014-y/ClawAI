@@ -5307,6 +5307,16 @@ ipcMain.handle('plugin-prompt-credentials', async (event, pluginId) => {
 // 清理微信登录态凭证实现彻底解绑
 ipcMain.handle('wechat-clear', async () => {
     try {
+        stopActiveChannelLogin({ suppressFail: true });
+        clearWeChatQrWaitTimer();
+        wechatQrEmitted = false;
+        wechatFailEmitted = true;
+        if (wechatLoginSuccessWatcher) {
+            clearInterval(wechatLoginSuccessWatcher);
+            wechatLoginSuccessWatcher = null;
+        }
+        forceKillWeChatLoginProcess();
+
         // 1. 如果Nexora Agent运行中，先停止以解除文件夹句柄锁
         stopGatewayProcess();
 
@@ -5315,6 +5325,26 @@ ipcMain.handle('wechat-clear', async () => {
         if (fs.existsSync(weixinCachePath)) {
             fs.rmSync(weixinCachePath, { recursive: true, force: true });
         }
+
+        try {
+            if (fs.existsSync(CONFIG_PATH)) {
+                const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8').replace(/^\uFEFF/, ''));
+                if (!config.channels) config.channels = {};
+                const wx = config.channels['openclaw-weixin'] && typeof config.channels['openclaw-weixin'] === 'object'
+                    ? config.channels['openclaw-weixin']
+                    : {};
+                wx.enabled = false;
+                wx.accounts = [];
+                config.channels['openclaw-weixin'] = wx;
+                if (config.plugins && config.plugins.entries && config.plugins.entries['openclaw-weixin']) {
+                    config.plugins.entries['openclaw-weixin'].enabled = false;
+                }
+                writeOpenClawConfigObject(config);
+            }
+        } catch (cfgErr) {
+            console.warn('[WeChat Clear] config cleanup failed:', cfgErr.message);
+        }
+
         return { success: true };
     } catch (e) {
         console.error('Failed to clear WeChat session:', e);
@@ -5325,6 +5355,64 @@ ipcMain.handle('wechat-clear', async () => {
 // 检测微信当前是否已绑定 (检测 openclaw-weixin 缓存文件夹是否存在)
 // 统一的微信绑定状态探测：以 accounts.json 中是否存在有效账号 + 对应账号详情为准，
 // 避免登录过程中缓存目录刚生成（尚未写入 accounts.json）时误报为“已绑定”导致前端渲染异常。
+function readWeChatAccountIdsFromDisk() {
+    try {
+        const weixinCachePath = path.join(CONFIG_DIR, 'openclaw-weixin');
+        const ids = [];
+        const accountsJsonPath = path.join(weixinCachePath, 'accounts.json');
+        if (fs.existsSync(accountsJsonPath)) {
+            const accounts = JSON.parse(fs.readFileSync(accountsJsonPath, 'utf8'));
+            if (Array.isArray(accounts)) {
+                for (const accountId of accounts) {
+                    const value = String(accountId || '').trim();
+                    if (value && !ids.includes(value)) ids.push(value);
+                }
+            }
+        }
+        const accountsDir = path.join(weixinCachePath, 'accounts');
+        if (fs.existsSync(accountsDir)) {
+            for (const fileName of fs.readdirSync(accountsDir)) {
+                if (!fileName.endsWith('.json')) continue;
+                const accountId = path.basename(fileName, '.json').trim();
+                if (accountId && !ids.includes(accountId)) ids.push(accountId);
+            }
+        }
+        return ids;
+    } catch (e) {
+        return [];
+    }
+}
+
+function syncWeChatAccountsToConfig(preferredIds) {
+    const accountIds = (Array.isArray(preferredIds) && preferredIds.length ? preferredIds : readWeChatAccountIdsFromDisk())
+        .map((id) => String(id || '').trim())
+        .filter(Boolean);
+    if (accountIds.length === 0) return false;
+    let config = {};
+    if (fs.existsSync(CONFIG_PATH)) {
+        config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8').replace(/^\uFEFF/, ''));
+    }
+    if (!config.channels) config.channels = {};
+    const wx = config.channels['openclaw-weixin'] && typeof config.channels['openclaw-weixin'] === 'object'
+        ? config.channels['openclaw-weixin']
+        : {};
+    wx.enabled = true;
+    wx.autostart = true;
+    wx.accounts = accountIds;
+    if (!wx.dmPolicy) wx.dmPolicy = 'open';
+    if (!wx.groupPolicy) wx.groupPolicy = 'open';
+    if (!Array.isArray(wx.allowFrom)) wx.allowFrom = ['*'];
+    if (!Array.isArray(wx.groupAllowFrom)) wx.groupAllowFrom = ['*'];
+    config.channels['openclaw-weixin'] = wx;
+    if (!config.plugins) config.plugins = {};
+    if (!config.plugins.entries) config.plugins.entries = {};
+    config.plugins.entries['openclaw-weixin'] = { ...(config.plugins.entries['openclaw-weixin'] || {}), enabled: true };
+    if (!Array.isArray(config.plugins.allow)) config.plugins.allow = [];
+    if (!config.plugins.allow.includes('openclaw-weixin')) config.plugins.allow.push('openclaw-weixin');
+    writeOpenClawConfigObject(config);
+    return true;
+}
+
 function getWeChatStatus() {
     try {
         const weixinCachePath = path.join(CONFIG_DIR, 'openclaw-weixin');
@@ -5333,8 +5421,8 @@ function getWeChatStatus() {
 
         const accountsJsonPath = path.join(weixinCachePath, 'accounts.json');
         if (fs.existsSync(accountsJsonPath)) {
-            const accounts = JSON.parse(fs.readFileSync(accountsJsonPath, 'utf8'));
-            if (Array.isArray(accounts) && accounts.length > 0) {
+            const accounts = readWeChatAccountIdsFromDisk();
+            if (accounts.length > 0) {
                 const accountId = accounts[0];
                 const accountDetailPath = path.join(weixinCachePath, 'accounts', `${accountId}.json`);
                 if (fs.existsSync(accountDetailPath)) {
@@ -5345,6 +5433,7 @@ function getWeChatStatus() {
                         userId: accountDetail.userId ? accountDetail.userId.split('@')[0] : 'WeChat Bot'
                     };
                     bound = true;
+                    try { syncWeChatAccountsToConfig(accounts); } catch (syncErr) { console.warn('[WeChat Status] config sync failed:', syncErr.message); }
                 }
             }
         }
@@ -6234,7 +6323,7 @@ function applyFeishuScanResultToConfig(result) {
 
     feishu.accounts[accountId] = accountPatch;
     feishu.enabled = true;
-    if (!feishu.defaultAccount) feishu.defaultAccount = accountId;
+    feishu.defaultAccount = accountId;
     if (result.domain) feishu.domain = result.domain;
     // 扫码创建的个人 Agent：私信默认仅本人；群聊开放但需要 @
     if (!feishu.groupPolicy) feishu.groupPolicy = 'open';
@@ -6251,6 +6340,7 @@ function applyFeishuScanResultToConfig(result) {
     config.plugins.entries.feishu = { ...(config.plugins.entries.feishu || {}), enabled: true };
     if (!Array.isArray(config.plugins.allow)) config.plugins.allow = [];
     if (!config.plugins.allow.includes('feishu')) config.plugins.allow.push('feishu');
+    config.plugins.entries.feishu.enabled = true;
 
     try { sanitizeFeishuConfig(config); } catch (e) {}
     writeOpenClawConfigObject(config);
