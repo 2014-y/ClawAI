@@ -58,6 +58,7 @@ const SKIP_TOP_LEVEL = [
 
 const ROOT_FILES = [
   'patch_gateway.js',
+  'tool-turn-repair.js',
   'token-usage-parse.js',
   'capture-desktop.ps1',
   'desktop-control.ps1',

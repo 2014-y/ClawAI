@@ -127,6 +127,8 @@ function deployPatch(stateDir) {
   const src = path.join(ROOT, 'patch_gateway.js');
   if (!exists(src) || !exists(stateDir)) return;
   fs.copyFileSync(src, path.join(stateDir, 'patch_gateway.js'));
+  const repair = path.join(ROOT, 'tool-turn-repair.js');
+  if (exists(repair)) fs.copyFileSync(repair, path.join(stateDir, 'tool-turn-repair.js'));
   const harden = path.join(ROOT, 'gateway-boot-harden.js');
   if (exists(harden)) fs.copyFileSync(harden, path.join(stateDir, 'gateway-boot-harden.js'));
 }

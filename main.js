@@ -953,7 +953,7 @@ function resolveWritableRuntimeDir() {
 function deployRuntimeArtifacts() {
     const dir = resolveWritableRuntimeDir();
     // 优先拷贝应用内最新补丁（asar/工程），再回退 gateway-runtime（可能是旧解压）
-    const names = ['patch_gateway.js', 'token-usage-parse.js', 'capture-desktop.ps1', 'desktop-control.ps1', 'openclaw-state.js', 'gateway-auth.js', 'gateway-boot-harden.js'];
+    const names = ['patch_gateway.js', 'tool-turn-repair.js', 'token-usage-parse.js', 'capture-desktop.ps1', 'desktop-control.ps1', 'openclaw-state.js', 'gateway-auth.js', 'gateway-boot-harden.js'];
     for (const name of names) {
         const srcCandidates = [path.join(__dirname, name), resolveAppFsPath(name)];
         const src = srcCandidates.find((p) => {
@@ -1104,7 +1104,8 @@ const BUNDLED_CUSTOM_PLUGINS = [
     'context-router',
     'health-check',
     'remote-policy',
-    'voice-bridge'
+    'voice-bridge',
+    'session-tool-heal'
 ];
 
 /** extensions/ 下的媒体生成插件：云电脑开箱必须启用并注入 load.paths */
@@ -2306,6 +2307,36 @@ function trimOversizedMainSessionTranscript() {
     return false;
 }
 
+/** 启动时：修复所有会话里断裂的 tool_call/tool_result（Gemini 哑火根因） */
+function healBrokenToolTurnsOnBoot() {
+    try {
+        const repairPath = path.join(__dirname, 'tool-turn-repair.js');
+        const alt = path.join(CONFIG_DIR, 'tool-turn-repair.js');
+        let repair = null;
+        if (fs.existsSync(repairPath)) repair = require(repairPath);
+        else if (fs.existsSync(alt)) repair = require(alt);
+        if (!repair || typeof repair.healAllSessionTranscripts !== 'function') return;
+        // 确保状态目录 + 运行时目录都有一份，供 TokenGuard / 插件 require
+        try {
+            if (fs.existsSync(repairPath) && CONFIG_DIR) {
+                fs.copyFileSync(repairPath, path.join(CONFIG_DIR, 'tool-turn-repair.js'));
+            }
+        } catch (e) {}
+        try {
+            const runtimeDir = process.env.NEXORA_AGENT_RUNTIME_DIR;
+            if (runtimeDir && fs.existsSync(repairPath)) {
+                fs.copyFileSync(repairPath, path.join(runtimeDir, 'tool-turn-repair.js'));
+            }
+        } catch (e) {}
+        const summary = repair.healAllSessionTranscripts(CONFIG_DIR, fs, path);
+        if (summary.healed > 0) {
+            console.log(`[ToolHeal] Boot heal: scanned=${summary.scanned} healed=${summary.healed}`);
+        }
+    } catch (e) {
+        console.warn('[ToolHeal] healBrokenToolTurnsOnBoot:', e.message);
+    }
+}
+
 /** 启动时：主模型是 ollama 则强制重置卡死会话 + 压短 workspace */
 function healOllamaContextOverflowOnBoot() {
     try {
@@ -2815,9 +2846,11 @@ function seedBundledPlugins(options = {}) {
 
         // 角色管理插件依赖根目录 role-config.js：无论 bundle stamp 是否变化都强制同步
         syncRoleManagerSharedModules();
-        // voice-bridge / error-filter 钩子变更必须立即覆盖用户目录
+        // voice-bridge / error-filter / session-tool-heal / disk-compact 钩子变更必须立即覆盖用户目录
         syncBundledPluginFiles('voice-bridge');
         syncBundledPluginFiles('error-filter');
+        syncBundledPluginFiles('session-tool-heal');
+        syncBundledPluginFiles('disk-compact');
         for (const name of BUNDLED_EXTENSION_PLUGINS) {
             syncBundledPluginFiles(name);
         }
@@ -3845,6 +3878,7 @@ async function startGatewayProcess() {
                     }
                     // 小窗口：再压一次 workspace AGENTS.md + 过大会话 / 卡死 compaction
                     try {
+                        healBrokenToolTurnsOnBoot();
                         healOllamaContextOverflowOnBoot();
                     } catch (e2) {}
                 }
@@ -4429,6 +4463,23 @@ function ensureOpenClawConfigInitialized() {
 
         // 媒体生成插件：任意电脑开箱必须启用（不受版本 stamp 影响）
         for (const name of BUNDLED_EXTENSION_PLUGINS) {
+            if (!config.plugins.entries[name]) {
+                config.plugins.entries[name] = {};
+                needsSave = true;
+            }
+            if (config.plugins.entries[name].enabled !== true) {
+                config.plugins.entries[name].enabled = true;
+                needsSave = true;
+            }
+            if (!config.plugins.allow.includes(name)) {
+                config.plugins.allow.push(name);
+                needsSave = true;
+            }
+        }
+
+        // 会话 tool 配对自愈：必须常开，否则 Gemini 聊着聊着会整段哑火
+        {
+            const name = 'session-tool-heal';
             if (!config.plugins.entries[name]) {
                 config.plugins.entries[name] = {};
                 needsSave = true;

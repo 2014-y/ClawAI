@@ -80,9 +80,68 @@ const SYSTEM_CAPABILITY_PROMPT =
 const SYSTEM_CAPABILITY_PROMPT_SAFE =
     '[SystemCapability] When the user asks for a screenshot, call the exec tool with command exactly "screen-capture". Do not write your own screenshot script. The screenshot command only returns a local file path; do not call any message/sendMedia tool for that screenshot. In the final visible reply, put exactly one plain first line "MEDIA:<absolute path returned by this turn>" and then at most one short status sentence. Never emit the same screenshot through both a message tool and MEDIA. Never reuse openclaw-screenshot-latest.png unless it is the only path returned. Never output [[image]], [[video]], [[image_media]], or [[video_media]].\nWhen the user asks to open a browser, visit a webpage, or search, call exec with command "start <URL>" and then briefly say the browser was opened.';
 
+function isToolResultRole(msg) {
+    try { return loadToolTurnRepair().isToolResultRole(msg); } catch (e) {
+        if (!msg || !msg.role) return false;
+        const r = String(msg.role);
+        return r === 'tool' || r === 'function' || r === 'toolResult' || r === 'tool_result';
+    }
+}
+
+function assistantHasToolCalls(msg) {
+    try { return loadToolTurnRepair().assistantHasToolCalls(msg); } catch (e) {
+        return !!(
+            msg &&
+            msg.role === 'assistant' &&
+            ((Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) || msg.function_call)
+        );
+    }
+}
+
+let __toolTurnRepairMod = null;
+let __toolTurnRepairLoadFailedAt = 0;
+function loadToolTurnRepair() {
+    if (__toolTurnRepairMod) return __toolTurnRepairMod;
+    // 短暂退避后允许重试（运行时目录可能稍后才拷贝到位）
+    if (__toolTurnRepairLoadFailedAt && Date.now() - __toolTurnRepairLoadFailedAt < 5000) {
+        throw new Error('tool-turn-repair unavailable');
+    }
+    const path = require('path');
+    const fs = require('fs');
+    const candidates = [
+        path.join(__dirname, 'tool-turn-repair.js'),
+        process.env.NEXORA_AGENT_RUNTIME_DIR && path.join(process.env.NEXORA_AGENT_RUNTIME_DIR, 'tool-turn-repair.js'),
+        process.env.OPENCLAW_STATE_DIR && path.join(process.env.OPENCLAW_STATE_DIR, 'tool-turn-repair.js'),
+    ].filter(Boolean);
+    let lastErr = null;
+    for (const p of candidates) {
+        try {
+            if (!fs.existsSync(p)) continue;
+            __toolTurnRepairMod = require(p);
+            __toolTurnRepairLoadFailedAt = 0;
+            return __toolTurnRepairMod;
+        } catch (e) {
+            lastErr = e;
+        }
+    }
+    __toolTurnRepairLoadFailedAt = Date.now();
+    try {
+        console.error('[TokenGuard] tool-turn-repair.js missing/unreadable — Gemini tool-pair heal deferred', lastErr && lastErr.message);
+    } catch (e) {}
+    throw lastErr || new Error('tool-turn-repair.js not found');
+}
+
+/** Gemini 等：发请求前修复断裂的 tool 配对（实现见 tool-turn-repair.js） */
+function repairBrokenToolTurns(messages) {
+    try { return loadToolTurnRepair().repairBrokenToolTurns(messages); } catch (e) {
+        return { messages, modified: false, keptIndexes: [] };
+    }
+}
+
 function scrubLocalModelRequestBody(parsedBody, hostOrUrl) {
     let hasModified = false;
     if (!parsedBody || typeof parsedBody !== 'object') return false;
+    const isLocal = isLocalModelRequest(parsedBody.model, hostOrUrl);
 
     if (Array.isArray(parsedBody.messages)) {
         const cleanedMessages = [];
@@ -91,10 +150,9 @@ function scrubLocalModelRequestBody(parsedBody, hostOrUrl) {
             if (!msg || typeof msg !== 'object') continue;
             let content = msg.content;
             
-            // 毒性幻觉清洗：如果助手回复中包含了假装截图的 [[image]]/[image]，且它并没有进行任何工具调用，这说明是纯文本假截图，会严重污染上下文，必须跳过
-            const hasToolCalls = msg.tool_calls && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0;
+            // 毒性幻觉清洗：假截图 assistant（无 tool_calls）才删；绝不删 tool/function 结果行
+            const hasToolCalls = assistantHasToolCalls(msg);
             if (msg.role === 'assistant' && typeof content === 'string' && (content.includes('[[image]]') || content.includes('[image]')) && !hasToolCalls) {
-                // 如果发现毒性回复，不仅要删掉这条，还要把前一条 user 请求（比如“截个图”）也一并弹出去，保持对话连贯
                 if (cleanedMessages.length > 0 && cleanedMessages[cleanedMessages.length - 1].role === 'user') {
                     cleanedMessages.pop();
                 }
@@ -102,11 +160,21 @@ function scrubLocalModelRequestBody(parsedBody, hostOrUrl) {
                 continue;
             }
 
+            // tool / function 结果消息禁止在 scrub 阶段删除（否则 Gemini 配对必断）
+            if (isToolResultRole(msg)) {
+                cleanedMessages.push(msg);
+                continue;
+            }
+
             if (typeof content === 'string') {
+                // 带 tool_calls 的 assistant 绝不能因正文脏词被整段删掉
                 if (
-                    content.includes('None of the functions provided') ||
-                    content.includes('None of the functions in the provided list') ||
-                    content.includes('None of the functions listed')
+                    !hasToolCalls &&
+                    (
+                        content.includes('None of the functions provided') ||
+                        content.includes('None of the functions in the provided list') ||
+                        content.includes('None of the functions listed')
+                    )
                 ) {
                     hasModified = true;
                     continue;
@@ -124,7 +192,7 @@ function scrubLocalModelRequestBody(parsedBody, hostOrUrl) {
         parsedBody.messages = cleanedMessages;
     }
 
-    if (isLocalModelRequest(parsedBody.model, hostOrUrl)) {
+    if (isLocal) {
         if (parsedBody.tools || parsedBody.tool_choice) {
             delete parsedBody.tools;
             delete parsedBody.tool_choice;
@@ -156,29 +224,29 @@ function scrubLocalModelRequestBody(parsedBody, hostOrUrl) {
             }
         }
     }
-        // 系统提示处理：仅对真正端侧小模型添加禁用工具警示；给正常云端模型添加截图与浏览器能力支持提示
-        if (Array.isArray(parsedBody.messages)) {
-            const isLocal = isLocalModelRequest(parsedBody.model, hostOrUrl);
-            if (isLocal) {
-                const alreadyGuarded = parsedBody.messages.some(
-                    (m) => m && m.role === 'system' && typeof m.content === 'string' && m.content.includes('[LocalModelGuard]')
-                );
-                if (!alreadyGuarded) {
-                    parsedBody.messages.unshift({ role: 'system', content: LOCAL_MODEL_NO_TOOL_GUARD });
-                    hasModified = true;
-                }
-            } else {
-                const alreadyHasCap = parsedBody.messages.some(
-                    (m) => m && m.role === 'system' && typeof m.content === 'string' && m.content.includes('Never emit the same screenshot through both')
-                );
-                if (!alreadyHasCap) {
-                    parsedBody.messages.unshift({ role: 'system', content: SYSTEM_CAPABILITY_PROMPT_SAFE });
-                    hasModified = true;
-                }
-            }
 
-            // 本地小窗：硬裁历史，避免 Preflight compaction 必挂
-            // 保留全部 system + 最近若干轮 user/assistant
+    // 系统提示处理：仅对真正端侧小模型添加禁用工具警示；给正常云端模型添加截图与浏览器能力支持提示
+    if (Array.isArray(parsedBody.messages)) {
+        if (isLocal) {
+            const alreadyGuarded = parsedBody.messages.some(
+                (m) => m && m.role === 'system' && typeof m.content === 'string' && m.content.includes('[LocalModelGuard]')
+            );
+            if (!alreadyGuarded) {
+                parsedBody.messages.unshift({ role: 'system', content: LOCAL_MODEL_NO_TOOL_GUARD });
+                hasModified = true;
+            }
+        } else {
+            const alreadyHasCap = parsedBody.messages.some(
+                (m) => m && m.role === 'system' && typeof m.content === 'string' && m.content.includes('Never emit the same screenshot through both')
+            );
+            if (!alreadyHasCap) {
+                parsedBody.messages.unshift({ role: 'system', content: SYSTEM_CAPABILITY_PROMPT_SAFE });
+                hasModified = true;
+            }
+        }
+
+        // 本地小窗：硬裁历史，避免 Preflight compaction 必挂（云端 Gemini 绝不能跑这段，否则会切断 tool 配对）
+        if (isLocal) {
             const MAX_CHARS = 12000; // ~3k tokens 量级，给 8k 窗留出回复空间
             const msgs = parsedBody.messages;
             let total = 0;
@@ -194,7 +262,6 @@ function scrubLocalModelRequestBody(parsedBody, hostOrUrl) {
             if (total > MAX_CHARS && msgs.length > 6) {
                 const systems = msgs.filter((m) => m && m.role === 'system');
                 const rest = msgs.filter((m) => m && m.role !== 'system');
-                // 从尾部往前凑，直到接近上限
                 const kept = [];
                 let budget = Math.floor(MAX_CHARS * 0.7);
                 for (let i = rest.length - 1; i >= 0; i--) {
@@ -211,36 +278,48 @@ function scrubLocalModelRequestBody(parsedBody, hostOrUrl) {
                     budget -= len;
                     if (budget <= 0 && kept.length >= 4) break;
                 }
+                // 裁切后若以孤儿 tool 结果开头，丢掉，避免后续 repair 前就脏
+                while (kept.length && isToolResultRole(kept[0])) kept.shift();
                 parsedBody.messages = [...systems.slice(0, 3), ...kept];
+                hasModified = true;
+            }
+
+            // 上限与 latency-tune 一致（16384）。仅本地 Ollama。
+            let ollamaCtxCap = 16384;
+            let ollamaMaxTokCap = 1024;
+            try {
+                const lt = require('./latency-tune');
+                if (lt && lt.DEFAULTS) {
+                    if (Number(lt.DEFAULTS.ollamaNumCtx) > 0) ollamaCtxCap = Number(lt.DEFAULTS.ollamaNumCtx);
+                    if (Number(lt.DEFAULTS.ollamaMaxTokens) > 0) ollamaMaxTokCap = Number(lt.DEFAULTS.ollamaMaxTokens);
+                }
+            } catch (e) {}
+            if (parsedBody.options && typeof parsedBody.options === 'object') {
+                if (Number(parsedBody.options.num_ctx) > ollamaCtxCap) {
+                    parsedBody.options.num_ctx = ollamaCtxCap;
+                    hasModified = true;
+                }
+            }
+            if (Number(parsedBody.num_ctx) > ollamaCtxCap) {
+                parsedBody.num_ctx = ollamaCtxCap;
+                hasModified = true;
+            }
+            if (Number(parsedBody.max_tokens) > ollamaMaxTokCap) {
+                parsedBody.max_tokens = ollamaMaxTokCap;
                 hasModified = true;
             }
         }
 
-        // 上限与 latency-tune 一致（16384）。旧逻辑压到 8192 会抵消配置侧修复，
-        // 导致 OpenClaw 按 16k 预算、Ollama 实际 8k → 必触发 context overflow。
-        let ollamaCtxCap = 16384;
-        let ollamaMaxTokCap = 1024;
-        try {
-            const lt = require('./latency-tune');
-            if (lt && lt.DEFAULTS) {
-                if (Number(lt.DEFAULTS.ollamaNumCtx) > 0) ollamaCtxCap = Number(lt.DEFAULTS.ollamaNumCtx);
-                if (Number(lt.DEFAULTS.ollamaMaxTokens) > 0) ollamaMaxTokCap = Number(lt.DEFAULTS.ollamaMaxTokens);
-            }
-        } catch (e) {}
-        if (parsedBody.options && typeof parsedBody.options === 'object') {
-            if (Number(parsedBody.options.num_ctx) > ollamaCtxCap) {
-                parsedBody.options.num_ctx = ollamaCtxCap;
-                hasModified = true;
-            }
-        }
-        if (Number(parsedBody.num_ctx) > ollamaCtxCap) {
-            parsedBody.num_ctx = ollamaCtxCap;
+        // 云端/本地统一：修复断裂的 tool_call ↔ tool 配对（Gemini 400 根因）
+        const repaired = repairBrokenToolTurns(parsedBody.messages);
+        if (repaired.modified) {
+            parsedBody.messages = repaired.messages;
             hasModified = true;
+            try {
+                console.log(`[TokenGuard] Repaired broken tool turns for model: ${parsedBody.model}`);
+            } catch (e) {}
         }
-        if (Number(parsedBody.max_tokens) > ollamaMaxTokCap) {
-            parsedBody.max_tokens = ollamaMaxTokCap;
-            hasModified = true;
-        }
+    }
 
     if (parsedBody.stream === true) {
         if (!parsedBody.stream_options) {
@@ -1224,7 +1303,7 @@ function wrapRequest(originalRequest, defaultProto) {
                         const newBodyStr = JSON.stringify(parsedBody);
                         finalBuffer = Buffer.from(newBodyStr, 'utf8');
                         clientRequest.setHeader('Content-Length', finalBuffer.length);
-                        console.log(`[TokenGuard] Cleaned messages and stripped tools in http.request for model: ${parsedBody.model}`);
+                        console.log(`[TokenGuard] Scrubbed request body in http.request for model: ${parsedBody.model}`);
                     }
                 } catch (e) {}
                 
@@ -1335,7 +1414,7 @@ function wrapFetch(originalFetch) {
                         if (Buffer.isBuffer(init.body)) init.body = Buffer.from(newBodyStr, 'utf8');
                         else if (init.body instanceof Uint8Array) init.body = new Uint8Array(Buffer.from(newBodyStr, 'utf8'));
                         else init.body = newBodyStr;
-                        console.log(`[TokenGuard] Cleaned messages and stripped tools in fetch for model: ${parsedBody.model}`);
+                        console.log(`[TokenGuard] Scrubbed request body in fetch for model: ${parsedBody.model}`);
                     }
                     // Debug: 强制 dump 下来让我们可以分析它到底发了什么
                 }
@@ -1436,7 +1515,7 @@ Module._load = function(request, parent, isMain) {
                                         if (Buffer.isBuffer(options.body)) options.body = Buffer.from(newBodyStr, 'utf8');
                                         else if (options.body instanceof Uint8Array) options.body = new Uint8Array(Buffer.from(newBodyStr, 'utf8'));
                                         else options.body = newBodyStr;
-                                        console.log(`[TokenGuard] Cleaned messages and stripped tools in undici.request for model: ${parsedBody.model}`);
+                                        console.log(`[TokenGuard] Scrubbed request body in undici.request for model: ${parsedBody.model}`);
                                     }
                                 }
                             } catch(e) {}

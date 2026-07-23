@@ -1,0 +1,13 @@
+{
+  "name": "@openclaw-plugin/session-tool-heal",
+  "version": "1.0.0",
+  "description": "OpenClaw plugin: session-tool-heal",
+  "main": "index.js",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  },
+  "license": "MIT"
+}

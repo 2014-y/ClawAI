@@ -14,14 +14,32 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
 const PLUGIN_NAME = 'disk-compact';
+const require = createRequire(import.meta.url);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STATE_DIR = process.env.OPENCLAW_STATE_DIR
   || path.join(process.env.OPENCLAW_HOME || process.env.USERPROFILE || process.env.HOME || os.homedir(), '.openclaw');
 const COMPACT_DIR = path.join(STATE_DIR, 'workspace', 'compact-history');
 const TOKEN_THRESHOLD = 20000;       // 达到此 token 数就开始压缩
 const SAFE_THRESHOLD = 15000;        // 目标 token 数
 const IDENTITY_SNAPSHOT = path.join(COMPACT_DIR, 'identity.json');
+
+function loadToolRepair() {
+  const candidates = [
+    process.env.OPENCLAW_STATE_DIR && path.join(process.env.OPENCLAW_STATE_DIR, 'tool-turn-repair.js'),
+    path.join(STATE_DIR, 'tool-turn-repair.js'),
+    path.join(__dirname, '..', '..', 'tool-turn-repair.js'),
+  ].filter(Boolean);
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) return require(p);
+    } catch (_) {}
+  }
+  return null;
+}
 
 // 确保目录存在
 function ensureDir() {
@@ -45,7 +63,10 @@ function readSession(sessionFile) {
 function estimateTokens(lines) {
   let totalChars = 0;
   for (const line of lines) {
-    totalChars += line.length;
+    if (typeof line === 'string') totalChars += line.length;
+    else {
+      try { totalChars += JSON.stringify(line).length; } catch (_) {}
+    }
   }
   return Math.ceil(totalChars / 4);
 }
@@ -201,9 +222,20 @@ export default function createPlugin(runtime) {
           const sessionKey = context?.sessionId || 'unknown';
           const summaryFile = writeCompactSummary(lines, sessionKey);
 
-          // 3. 保留最近的对话 + 身份信息，截断旧的
-          const recentLines = lines.slice(-30); // 只保留最近 30 条记录
-          
+          // 3. 保留最近对话，且不切断 tool_call / tool_result 配对（否则 Gemini 整会话 400）
+          // 若修复模块不可用：宁可跳过压缩，也不要 raw slice(-30) 切断配对
+          let recentLines = null;
+          try {
+            const repairMod = loadToolRepair();
+            if (repairMod && typeof repairMod.sliceSessionLinesKeepingToolPairs === 'function') {
+              recentLines = repairMod.sliceSessionLinesKeepingToolPairs(lines, 30).lines;
+            }
+          } catch (e) {}
+          if (!recentLines) {
+            console.warn(`[${PLUGIN_NAME}] tool-turn-repair unavailable — skip compact to avoid breaking tool pairs`);
+            return;
+          }
+
           // 4. 写回会话文件
           fs.writeFileSync(sessionFile, recentLines.map(l => JSON.stringify(l)).join('\n') + '\n', 'utf-8');
           

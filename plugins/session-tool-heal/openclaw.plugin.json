@@ -1,0 +1,22 @@
+{
+  "id": "session-tool-heal",
+  "name": "Session Tool Turn Heal",
+  "description": "Repairs broken tool_call/tool_result pairs so Gemini sessions keep responding",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否启用会话工具轮次自愈"
+      }
+    }
+  }
+}

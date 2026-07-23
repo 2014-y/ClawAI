@@ -143,6 +143,7 @@
       "tts-worker.js",
       "runtime-pack-manifest.js",
       "patch_gateway.js",
+      "tool-turn-repair.js",
       "capture-desktop.ps1",
       "desktop-control.ps1",
       "weixin-direct-login.mjs",
