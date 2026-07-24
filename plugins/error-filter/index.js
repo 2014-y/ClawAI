@@ -137,12 +137,14 @@ async function runScreenCapture() {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const suffix = Math.random().toString(36).slice(2, 8);
   const filepath = path.join(dir, `openclaw-screenshot-${stamp}-${suffix}.png`);
-  const latest = path.join(stateDir(), 'openclaw-screenshot-latest.png');
+  const latest = path.join(dir, 'openclaw-screenshot-latest.png');
   await execFileAsync('powershell.exe', [
     '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', resolveCaptureScriptPath(), '-OutPath', filepath,
   ], { timeout: 30000, maxBuffer: 1024 * 1024 });
   if (!fs.existsSync(filepath)) throw new Error('screenshot file was not created');
   try { fs.copyFileSync(filepath, latest); } catch (_) {}
+  // 兼容旧路径（部分 UI 仍指向 state 根目录）
+  try { fs.copyFileSync(filepath, path.join(stateDir(), 'openclaw-screenshot-latest.png')); } catch (_) {}
   return filepath;
 }
 
@@ -226,6 +228,13 @@ function extractJsonObjects(text) {
   return objects;
 }
 
+/** 能力介绍/长文里提到工具名，不能当成“伪工具指令”去真执行 */
+function looksLikeCapabilityProse(text) {
+  const raw = String(text || '');
+  if (raw.length > 280) return true;
+  return /能做|能力|神通|介绍|以下几类|抓影之术|web_search|music_generate|draw_video/i.test(raw);
+}
+
 function extractPromptFromPseudoToolJson(text) {
   for (const candidate of extractJsonObjects(text)) {
     let obj;
@@ -244,7 +253,19 @@ function extractPromptFromPseudoToolJson(text) {
 }
 
 function extractDrawPicturePrompt(text) {
-  const raw = String(text || '');
+  const raw = String(text || '').trim();
+  if (!raw || looksLikeCapabilityProse(raw)) return '';
+  // 整段几乎是伪工具调用，才提取；散文夹带 draw_picture / JSON 举例一律忽略
+  const callAtStart = /^\s*draw_picture\s*\(/i.test(raw) || /\n\s*draw_picture\s*\(/i.test(raw);
+  const mostlyJsonTool = (() => {
+    const stripped = raw.replace(/^[\s`"'[(]+/, '').trim();
+    if (!stripped.startsWith('{') || raw.length > 800) return false;
+    if (!/"action"\s*:\s*"draw_picture"|"name"\s*:\s*"draw_picture"/i.test(raw)) return false;
+    const outside = raw.replace(/\{[\s\S]*\}/, '').replace(/[\s`"'[\]]+/g, '');
+    return outside.length < 24;
+  })();
+  if (!callAtStart && !mostlyJsonTool) return '';
+
   const jsonPrompt = extractPromptFromPseudoToolJson(raw);
   if (jsonPrompt) return jsonPrompt;
   const call = raw.match(/\bdraw_picture\s*\(([\s\S]{0,1200}?)\)/i);
@@ -267,10 +288,73 @@ function extractDrawPicturePrompt(text) {
 
 function looksLikePseudoScreenshot(text) {
   const raw = String(text || '').trim();
-  if (/^MEDIA\s*:/i.test(raw)) return false;
-  if (/\b(?:screen-capture|screenshot|capture-desktop)\b/i.test(raw)) return true;
+  if (!raw || /^MEDIA\s*:/i.test(raw)) return false;
+  if (looksLikeCapabilityProse(raw)) return false;
+  if (/draw_picture/i.test(raw) && !/"command"\s*:\s*"(?:screen-capture|screenshot)"/i.test(raw)) return false;
+  if (/^[\s`"'[{(]*screen-capture[\s`"'\])},;]*$/i.test(raw)) return true;
   if (/\/exec\s+openclaw\s+(?:gateway\s+status\s+)?(?:screenshot|screen-capture)/i.test(raw)) return true;
+  if (/"command"\s*:\s*"(?:screen-capture|screenshot|capture-desktop)"/i.test(raw)) return true;
+  if (/^(?:请)?(?:执行|运行)?\s*(?:screen-capture|screenshot|capture-desktop)\s*[。.!！]*$/i.test(raw)) return true;
   return false;
+}
+
+/** 弱模型拒绝对话时的典型话术 → 自动补截图（仅短拒绝，不碰能力介绍） */
+function looksLikeScreenshotRefusal(text) {
+  const raw = String(text || '');
+  if (!raw.trim() || /^MEDIA\s*:/i.test(raw.trim())) return false;
+  if (looksLikeCapabilityProse(raw)) return false;
+  if (extractMediaDirectiveUrls(raw).length > 0) return false;
+  const refuse =
+    /无法.*(?:截|摄)|不能.*(?:截|摄)|没有.*权限|暂未修得|虚空摄影|传影显圣|切换.*(?:强力|更强).*模型|suggest(?:ing)? switching to a stronger model|cannot reliably use the real tool/i.test(
+      raw
+    );
+  const aboutShot = /截图|截个图|截张图|截屏|screenshot|screen-capture/i.test(raw);
+  return refuse && aboutShot;
+}
+
+/** 双 hook 可能对同一段伪指令各跑一次；短 TTL 缓存 + 进行中锁避免重复截图/生图 */
+const _pseudoMediaSideEffectCache = new Map();
+const _pseudoMediaInflight = new Map();
+const PSEUDO_MEDIA_CACHE_TTL_MS = 12000;
+
+function pseudoMediaCacheKey(text) {
+  return String(text || '').trim().slice(0, 800);
+}
+
+function getCachedPseudoMedia(text) {
+  const key = pseudoMediaCacheKey(text);
+  const hit = _pseudoMediaSideEffectCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > PSEUDO_MEDIA_CACHE_TTL_MS) {
+    _pseudoMediaSideEffectCache.delete(key);
+    return null;
+  }
+  return hit;
+}
+
+function setCachedPseudoMedia(text, kind, mediaUrls, replyText) {
+  _pseudoMediaSideEffectCache.set(pseudoMediaCacheKey(text), {
+    at: Date.now(),
+    kind,
+    mediaUrls: Array.isArray(mediaUrls) ? mediaUrls : [],
+    replyText: String(replyText || ''),
+  });
+}
+
+async function withPseudoMediaLock(text, worker) {
+  const key = pseudoMediaCacheKey(text);
+  const cached = getCachedPseudoMedia(text);
+  if (cached) return cached;
+  if (_pseudoMediaInflight.has(key)) return _pseudoMediaInflight.get(key);
+  const pending = (async () => {
+    try {
+      return await worker();
+    } finally {
+      _pseudoMediaInflight.delete(key);
+    }
+  })();
+  _pseudoMediaInflight.set(key, pending);
+  return pending;
 }
 
 function extractMediaDirectiveUrls(text) {
@@ -280,7 +364,8 @@ function extractMediaDirectiveUrls(text) {
   let match;
   while ((match = re.exec(raw))) {
     let value = String(match[1] || '').trim().replace(/^`|`$/g, '');
-    const fileMatch = value.match(/^[A-Za-z]:[\\/].*?\.(?:png|jpe?g|webp|gif|bmp|mp4|mov|webm|mp3|wav|m4a)\b/i);
+    const fileMatch = value.match(/^[A-Za-z]:[\\/].*?\.(?:png|jpe?g|webp|gif|bmp|mp4|mov|webm|mp3|wav|m4a)\b/i)
+      || value.match(/^\/.*?\.(?:png|jpe?g|webp|gif|bmp|mp4|mov|webm|mp3|wav|m4a)\b/i);
     if (fileMatch) value = fileMatch[0];
     value = value.replace(/[),.;]+$/g, '');
     if (value) urls.push(unixPath(value));
@@ -288,27 +373,53 @@ function extractMediaDirectiveUrls(text) {
   return Array.from(new Set(urls));
 }
 
+/** 把「MEDIA:路径 状态句」拆成两行，避免 Control UI 把状态句拼进路径 */
+function normalizeMediaDirectiveLines(text) {
+  return String(text || '').replace(
+    /(^|\n)([ \t]*MEDIA\s*:\s*)([A-Za-z]:[\\/][^\n]*?\.(?:png|jpe?g|webp|gif|bmp|mp4|mov|webm|mp3|wav|m4a)|\/[^\n]*?\.(?:png|jpe?g|webp|gif|bmp|mp4|mov|webm|mp3|wav|m4a))([ \t]+)([^\n]+)/gi,
+    (_, lead, prefix, filePath, _sp, status) => `${lead}${prefix}${filePath}\n${String(status).trim()}`
+  );
+}
+
 async function maybeRewritePseudoMedia(text) {
-  const raw = String(text || '');
-  if (!raw.trim() || /^MEDIA\s*:/i.test(raw.trim())) return null;
+  const raw = normalizeMediaDirectiveLines(String(text || ''));
+  if (!raw.trim()) return null;
+  if (/^MEDIA\s*:/i.test(raw.trim()) && extractMediaDirectiveUrls(raw).length > 0) {
+    // 已是 MEDIA 回复：只做换行规范化
+    const normalized = normalizeMediaDirectiveLines(raw);
+    return normalized !== String(text || '') ? normalized : null;
+  }
+
+  const cached = getCachedPseudoMedia(raw);
+  if (cached && cached.replyText) return cached.replyText;
 
   const prompt = extractDrawPicturePrompt(raw);
-  if (prompt) {
-    const files = await runDrawPicture(prompt);
-    return `${files.map((file) => `MEDIA:${unixPath(file)}`).join('\n')}\nImage generated.`;
-  }
+  const needShot = !prompt && (looksLikePseudoScreenshot(raw) || looksLikeScreenshotRefusal(raw));
+  if (!prompt && !needShot) return null;
 
-  if (looksLikePseudoScreenshot(raw)) {
-    const file = await runScreenCapture();
-    return `MEDIA:${unixPath(file)}\nScreenshot captured.`;
-  }
-
-  return null;
+  const result = await withPseudoMediaLock(raw, async () => {
+    const again = getCachedPseudoMedia(raw);
+    if (again) return again;
+    if (prompt) {
+      const files = await runDrawPicture(prompt);
+      const mediaUrls = files.map(unixPath);
+      const replyText = `${mediaUrls.map((u) => `MEDIA:${u}`).join('\n')}\nImage generated.`;
+      setCachedPseudoMedia(raw, 'draw', mediaUrls, replyText);
+      return getCachedPseudoMedia(raw);
+    }
+    const file = unixPath(await runScreenCapture());
+    const replyText = `MEDIA:${file}\nScreenshot captured.`;
+    setCachedPseudoMedia(raw, 'shot', [file], replyText);
+    return getCachedPseudoMedia(raw);
+  });
+  return result && result.replyText ? result.replyText : null;
 }
 
 async function maybeBuildPseudoMediaPayload(payload) {
   const base = payload && typeof payload === 'object' ? payload : {};
-  const raw = typeof base.text === 'string' ? base.text : extractText({ content: base.content });
+  const raw = normalizeMediaDirectiveLines(
+    typeof base.text === 'string' ? base.text : extractText({ content: base.content })
+  );
   if (!raw.trim()) return null;
 
   const directiveUrls = extractMediaDirectiveUrls(raw);
@@ -321,19 +432,34 @@ async function maybeBuildPseudoMediaPayload(payload) {
     return { ...base, text: statusText, mediaUrl: directiveUrls[0], mediaUrls: directiveUrls };
   }
 
+  const cached = getCachedPseudoMedia(raw);
+  if (cached && cached.mediaUrls && cached.mediaUrls.length > 0) {
+    const status = cached.kind === 'draw' ? 'Image generated.' : 'Screenshot captured.';
+    return { ...base, text: status, mediaUrl: cached.mediaUrls[0], mediaUrls: cached.mediaUrls };
+  }
+
   const prompt = extractDrawPicturePrompt(raw);
-  if (prompt) {
-    const files = await runDrawPicture(prompt);
-    const mediaUrls = files.map(unixPath);
-    return { ...base, text: 'Image generated.', mediaUrl: mediaUrls[0], mediaUrls };
-  }
+  const needShot = !prompt && (looksLikePseudoScreenshot(raw) || looksLikeScreenshotRefusal(raw));
+  if (!prompt && !needShot) return null;
 
-  if (looksLikePseudoScreenshot(raw)) {
+  const result = await withPseudoMediaLock(raw, async () => {
+    const again = getCachedPseudoMedia(raw);
+    if (again) return again;
+    if (prompt) {
+      const files = await runDrawPicture(prompt);
+      const mediaUrls = files.map(unixPath);
+      const replyText = `${mediaUrls.map((u) => `MEDIA:${u}`).join('\n')}\nImage generated.`;
+      setCachedPseudoMedia(raw, 'draw', mediaUrls, replyText);
+      return getCachedPseudoMedia(raw);
+    }
     const file = unixPath(await runScreenCapture());
-    return { ...base, text: 'Screenshot captured.', mediaUrl: file, mediaUrls: [file] };
-  }
-
-  return null;
+    const replyText = `MEDIA:${file}\nScreenshot captured.`;
+    setCachedPseudoMedia(raw, 'shot', [file], replyText);
+    return getCachedPseudoMedia(raw);
+  });
+  if (!result || !result.mediaUrls || result.mediaUrls.length === 0) return null;
+  const status = result.kind === 'draw' ? 'Image generated.' : 'Screenshot captured.';
+  return { ...base, text: status, mediaUrl: result.mediaUrls[0], mediaUrls: result.mediaUrls };
 }
 
 function register(api) {
@@ -346,7 +472,7 @@ function register(api) {
       const payload = await maybeBuildPseudoMediaPayload(event?.payload);
       if (!payload) return;
       try { api.logger?.info?.(`[${PLUGIN_ID}] rewrote pseudo media payload to mediaUrls`); } catch (_) {}
-      return { payload };
+      return { payload, metadata: { nexoraPseudoMediaFixed: true } };
     } catch (e) {
       console.warn(`[${PLUGIN_ID}] reply_payload_sending hook error:`, e && e.message);
     }
@@ -354,6 +480,7 @@ function register(api) {
 
   api.on('message_sending', async (event) => {
     try {
+      if (event?.metadata?.nexoraPseudoMediaFixed) return;
       const text = extractText(event);
       const mediaRewrite = await maybeRewritePseudoMedia(text);
       if (mediaRewrite) {

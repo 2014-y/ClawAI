@@ -2278,6 +2278,37 @@ function getActivityEmptyTipsHtml() {
     return `<div class="activity-item-empty" data-i18n="console.dash.empty_tips">${t('console.dash.empty_tips') || '暂无系统活动，启动服务后将在此显示最新状态...'}</div>`;
 }
 
+function getStartingActivityTipsHtml() {
+    return `<div class="starting-activity-item" data-i18n="console.dash.starting_tips">${t('console.dash.starting_tips') || '首次启动或深度初始化环境可能需要较长时间，请耐心等待...'}</div>`;
+}
+
+/** 启动中：始终在活动流顶部展示等待提示（不依赖列表是否为空） */
+function ensureStartingActivityTip() {
+    const streamList = document.getElementById('dash-activity-stream-list');
+    if (!streamList) return;
+    streamList.querySelectorAll('.activity-item-empty').forEach((el) => el.remove());
+    let tip = streamList.querySelector('.starting-activity-item');
+    if (!tip) {
+        streamList.insertAdjacentHTML('afterbegin', getStartingActivityTipsHtml());
+        tip = streamList.querySelector('.starting-activity-item');
+    } else if (streamList.firstElementChild !== tip) {
+        streamList.insertBefore(tip, streamList.firstChild);
+    }
+}
+
+/** 就绪/停止：去掉启动等待条；若没有任何真实日志则恢复空状态文案 */
+function dismissStartingActivityTip(options = {}) {
+    const restoreEmptyIfBlank = options.restoreEmptyIfBlank !== false;
+    const streamList = document.getElementById('dash-activity-stream-list');
+    if (!streamList) return;
+    streamList.querySelectorAll('.starting-activity-item').forEach((el) => el.remove());
+    if (!restoreEmptyIfBlank) return;
+    const hasRealLines = !!streamList.querySelector('.activity-log-line');
+    if (!hasRealLines && !streamList.querySelector('.activity-item-empty')) {
+        streamList.innerHTML = getActivityEmptyTipsHtml();
+    }
+}
+
 function resetConsoleRuntimeLogs(options = {}) {
     const clearSystemLogsArea = options.clearSystemLogsArea === true;
     __activityLogQueue = [];
@@ -2341,8 +2372,8 @@ function processActivityLogQueue() {
 
     const streamList = document.getElementById('dash-activity-stream-list');
     if (streamList) {
-        const emptyTips = streamList.querySelector('.activity-item-empty');
-        if (emptyTips) emptyTips.remove();
+        // 真实日志到来后，空提示与「请耐心等待」启动条都必须移除
+        streamList.querySelectorAll('.activity-item-empty, .starting-activity-item').forEach((el) => el.remove());
 
         const item = document.createElement('div');
         item.className = 'activity-log-line typing';
@@ -6286,6 +6317,9 @@ function updateGatewayStatusUI(status) {
         btnLabelText.innerText = t('console.btn.stop');
         gatewayToggleBtn.className = 'status-badge-container running';
 
+        // 已运行：启动等待条不应再留在活动流里
+        try { dismissStartingActivityTip({ restoreEmptyIfBlank: true }); } catch (e) {}
+
         if (chatWelcomeText) {
             chatWelcomeText.setAttribute('data-i18n', 'status.running_hint');
             chatWelcomeText.innerText = isEn ? 'I have successfully connected to your local OpenClaw gateway!' : '我已经与您本地的 OpenClaw Nexora Agent成功对接！';
@@ -6358,6 +6392,7 @@ function updateGatewayStatusUI(status) {
         if (progressContainer) {
             progressContainer.style.display = 'none';
         }
+        try { dismissStartingActivityTip({ restoreEmptyIfBlank: true }); } catch (e) {}
     } else if (status === 'upgrading') {
         statusLight.className = 'status-light-btn-container starting';
         statusLabel.setAttribute('data-i18n', 'sidebar.status.upgrading');
@@ -6399,10 +6434,8 @@ function updateGatewayStatusUI(status) {
 
         const streamList = document.getElementById('dash-activity-stream-list');
         if (streamList) {
-            const emptyEl = streamList.querySelector('.activity-item-empty');
-            if (emptyEl || streamList.innerHTML.trim() === '') {
-                streamList.innerHTML = `<div class="starting-activity-item" data-i18n="console.dash.starting_tips">首次启动或深度初始化环境可能需要较长时间，请耐心等待...</div>`;
-            }
+            // 无论列表是否已有旧日志，启动中都必须展示等待提示
+            ensureStartingActivityTip();
         }
 
         if (chatWelcomeText) {
@@ -6563,8 +6596,7 @@ function setupTabSwitching() {
                             // 同步写入 Dashboard 活动监控流（修复：切菜单回来日志消失）
                             const streamList = document.getElementById('dash-activity-stream-list');
                             if (streamList) {
-                                const emptyTips = streamList.querySelector('.activity-item-empty');
-                                if (emptyTips) emptyTips.remove();
+                                streamList.querySelectorAll('.activity-item-empty, .starting-activity-item').forEach((el) => el.remove());
                             chunk.forEach((lineHtml) => {
                                 enqueueActivityLog(lineHtml);
                             });
@@ -8622,6 +8654,7 @@ function renderChatMediaHtml(content) {
         changed = true;
         const lower = url.toLowerCase();
         const isVideo = /\.(mp4|mov|webm)(?:\?|$)/i.test(lower);
+        const isAudio = /\.(mp3|wav|m4a)(?:\?|$)/i.test(lower);
         // 保留路径后的短状态句（同一行上的 "Image generated." 等）
         let status = '';
         const pathOnly = (rawPath.match(/^[A-Za-z]:[\\/][^\n]*?\.(?:png|jpe?g|webp|gif|bmp|mp4|mov|webm|mp3|wav|m4a)\b/i)
@@ -8632,13 +8665,34 @@ function renderChatMediaHtml(content) {
         }
         const mediaTag = isVideo
             ? `<video src="${url}" controls style="${CHAT_MEDIA_IMG_STYLE}"></video>`
-            : `<img src="${url}" alt="media" style="${CHAT_MEDIA_IMG_STYLE}" onclick="try{window.open(this.src,'_blank')}catch(e){}" onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<div style=\\'color:#ff6b6b;font-size:12px;margin-top:6px;\\'>图片加载失败</div>')" />`;
+            : isAudio
+                ? `<audio src="${url}" controls style="width:min(100%,420px);margin-top:8px;display:block;"></audio>`
+                : `<img src="${url}" alt="media" style="${CHAT_MEDIA_IMG_STYLE}" onclick="try{window.open(this.src,'_blank')}catch(e){}" onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<div style=\\'color:#ff6b6b;font-size:12px;margin-top:6px;\\'>图片加载失败</div>')" />`;
         return `\n${mediaTag}${status ? `\n${status}` : ''}\n`;
     });
 
     if (/\[\[image\]\]|\[image\]/i.test(html)) {
-        const shot = `./openclaw-screenshot-latest.png?t=${Date.now()}`;
-        const img = `<img src="${shot}" style="${CHAT_MEDIA_IMG_STYLE}" />`;
+        let shotUrl = '';
+        try {
+            const home = (typeof process !== 'undefined' && process.env
+                && (process.env.OPENCLAW_STATE_DIR
+                    || (process.env.USERPROFILE || process.env.HOME || '') + '/.openclaw'))
+                || '';
+            const base = String(home || '').replace(/\\/g, '/').replace(/\/$/, '');
+            if (base) {
+                // 优先 screenshots/ 下的 latest，其次 state 根目录兼容路径
+                const candidates = [
+                    base + '/screenshots/openclaw-screenshot-latest.png',
+                    base + '/openclaw-screenshot-latest.png'
+                ];
+                for (const c of candidates) {
+                    const u = toLocalMediaFileUrl(c);
+                    if (u) { shotUrl = u + (u.includes('?') ? '&' : '?') + 't=' + Date.now(); break; }
+                }
+            }
+        } catch (e) {}
+        if (!shotUrl) shotUrl = './openclaw-screenshot-latest.png?t=' + Date.now();
+        const img = `<img src="${shotUrl}" style="${CHAT_MEDIA_IMG_STYLE}" />`;
         html = html.replace(/\[\[image\]\]/gi, img).replace(/\[image\]/gi, img);
         changed = true;
     }
@@ -10565,6 +10619,114 @@ function injectOpenclawPanelCss(webview) {
     `).catch(() => {});
 }
 
+function buildOpenclawMediaEnhanceScript(magicPrefix) {
+    // 用 JSON 包一层，避免模板字符串双重转义把正则写坏
+    const fn = function (MAGIC) {
+        if (window.__nexora_agent_update_injected) {
+            try { window.__nexoraEnhanceMedia && window.__nexoraEnhanceMedia(); } catch (e) {}
+            return;
+        }
+        window.__nexora_agent_update_injected = true;
+
+        function mediaFileSrc(filePath) {
+            // 走 Electron 自定义协议，不依赖 Control UI 鉴权/白名单
+            return 'nexora-media://openclaw/file?path=' + encodeURIComponent(filePath);
+        }
+
+        function extractMediaPath(raw) {
+            var value = String(raw || '').trim().replace(/^[\s`'"\[{(]+|[\s`'"\]})]+$/g, '');
+            var m = value.match(/^[A-Za-z]:[\\/].*?\.(?:png|jpe?g|webp|gif|bmp|mp4|mov|webm|mp3|wav|m4a)\b/i)
+                || value.match(/^\/.*?\.(?:png|jpe?g|webp|gif|bmp|mp4|mov|webm|mp3|wav|m4a)\b/i);
+            return m ? m[0] : '';
+        }
+
+        function buildMediaTag(filePath) {
+            var src = mediaFileSrc(filePath);
+            var style = 'max-width:min(100%,420px);border-radius:8px;margin:8px 0;display:block;border:1px solid rgba(255,255,255,0.12);';
+            if (/\.(mp4|mov|webm)$/i.test(filePath)) {
+                return '<video class="nexora-media-img" src="' + src + '" controls style="' + style + '"></video>';
+            }
+            if (/\.(mp3|wav|m4a)$/i.test(filePath)) {
+                return '<audio class="nexora-media-img" src="' + src + '" controls style="width:min(100%,420px);margin:8px 0;display:block;"></audio>';
+            }
+            return '<img class="nexora-media-img chat-message-image" src="' + src + '" alt="media" style="' + style + 'cursor:zoom-in;" />';
+        }
+
+        function enhanceMediaIn(root) {
+            if (!root || !root.querySelectorAll) return;
+            var bubbles = root.querySelectorAll('.chat-bubble, [class*="chat-bubble"], [data-message-text]');
+            bubbles.forEach(function (bubble) {
+                try {
+                    var text = bubble.innerText || bubble.textContent || '';
+                    if (!/MEDIA\s*:/i.test(text)) return;
+                    if (bubble.querySelector('.nexora-media-img') && !/MEDIA\s*:\s*[A-Za-z]:[\\/]|MEDIA\s*:\s*\//i.test(text)) return;
+
+                    var html = bubble.innerHTML || '';
+                    if (html.indexOf('MEDIA:') === -1 && html.toLowerCase().indexOf('media:') === -1) {
+                        html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    }
+                    var next = html.replace(/MEDIA\s*:\s*`?([^<`\n]+)`?/gi, function (full, raw) {
+                        var filePath = extractMediaPath(raw);
+                        return filePath ? buildMediaTag(filePath) : full;
+                    });
+                    if (next !== html) bubble.innerHTML = next;
+                } catch (e) {}
+            });
+
+            root.querySelectorAll('.chat-assistant-attachment-card--blocked, .chat-assistant-attachment-card').forEach(function (card) {
+                try {
+                    var reason = card.textContent || '';
+                    var host = card.closest('.chat-bubble, [class*="chat-bubble"]');
+                    if (/Outside allowed folders|Unavailable/i.test(reason) && host && host.querySelector('.nexora-media-img')) {
+                        card.style.display = 'none';
+                    }
+                } catch (e) {}
+            });
+        }
+
+        window.__nexoraEnhanceMedia = function () { enhanceMediaIn(document); };
+
+        function processNodes() {
+            document.querySelectorAll('div, p, span, section, aside, [class*="alert"], [class*="notification"], [class*="banner"]').forEach(function (el) {
+                var text = el.textContent || '';
+                if ((text.includes('Update skipped') || text.includes('not-git-install') || text.includes('openclaw update'))
+                    && el.offsetHeight > 0 && el.offsetHeight < 200) {
+                    el.style.display = 'none';
+                }
+            });
+
+            document.querySelectorAll('button, a, [role="button"], span').forEach(function (el) {
+                var text = (el.textContent || '').trim();
+                if ((text === '立即更新' || text === 'Update Now' || text === 'update now') && !el.__nexora_agent_intercepted) {
+                    el.__nexora_agent_intercepted = true;
+                    el.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        var ver = '';
+                        var parent = el.parentElement;
+                        for (var i = 0; i < 5 && parent; i++) {
+                            var m = parent.textContent.match(/v?(20\d{2}\.\d+\.\d+)/);
+                            if (m) { ver = m[1]; break; }
+                            parent = parent.parentElement;
+                        }
+                        console.log(MAGIC + JSON.stringify({ action: 'update', version: ver }));
+                    }, true);
+                }
+            });
+
+            enhanceMediaIn(document);
+        }
+
+        var observer = new MutationObserver(function () { processNodes(); });
+        observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+        processNodes();
+        setInterval(function () { try { enhanceMediaIn(document); } catch (e) {} }, 1200);
+    };
+
+    return '(' + fn.toString() + ')(' + JSON.stringify(magicPrefix) + ');';
+}
+
 function injectWebviewUpdateInterceptor(webview) {
     if (!webview) return;
 
@@ -10575,57 +10737,19 @@ function injectWebviewUpdateInterceptor(webview) {
     const onDomReady = () => {
         injectOpenclawPanelCss(webview);
         syncOpenclawThemeToWebview();
-        webview.executeJavaScript(`
-            (function() {
-                if (window.__nexora_agent_update_injected) return;
-                window.__nexora_agent_update_injected = true;
-
-                const MAGIC = '${MAGIC_PREFIX}';
-
-                function processNodes() {
-                    // 1) 隐藏 "Update skipped: not-git-install" 红色告警条
-                    document.querySelectorAll('div, p, span, section, aside, [class*="alert"], [class*="notification"], [class*="banner"]').forEach(function(el) {
-                        var text = el.textContent || '';
-                        if ((text.includes('Update skipped') || text.includes('not-git-install') || text.includes('openclaw update'))
-                            && el.offsetHeight > 0 && el.offsetHeight < 200) {
-                            el.style.display = 'none';
-                        }
-                    });
-
-                    // 2) 拦截 "立即更新" / "Update Now" 按钮
-                    document.querySelectorAll('button, a, [role="button"], span').forEach(function(el) {
-                        var text = (el.textContent || '').trim();
-                        if ((text === '立即更新' || text === 'Update Now' || text === 'update now')
-                            && !el.__nexora_agent_intercepted) {
-                            el.__nexora_agent_intercepted = true;
-                            el.addEventListener('click', function(e) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                e.stopImmediatePropagation();
-                                // 从附近上下文提取版本号
-                                var ver = '';
-                                var parent = el.parentElement;
-                                for (var i = 0; i < 5 && parent; i++) {
-                                    var m = parent.textContent.match(/v?(20\\d{2}\\.\\d+\\.\\d+)/);
-                                    if (m) { ver = m[1]; break; }
-                                    parent = parent.parentElement;
-                                }
-                                console.log(MAGIC + JSON.stringify({ action: 'update', version: ver }));
-                            }, true);
-                        }
-                    });
-                }
-
-                var observer = new MutationObserver(processNodes);
-                observer.observe(document.body, { childList: true, subtree: true });
-                processNodes();
-            })();
-        `).catch(() => {});
+        webview.executeJavaScript(buildOpenclawMediaEnhanceScript(MAGIC_PREFIX)).catch(() => {});
     };
 
     // 防止重复绑定 dom-ready
     webview.removeEventListener('dom-ready', onDomReady);
     webview.addEventListener('dom-ready', onDomReady);
+    // 若 webview 已加载，立即注入一次
+    try {
+        if (typeof webview.getURL === 'function') {
+            const u = webview.getURL();
+            if (u && u !== 'about:blank' && !u.startsWith('data:')) onDomReady();
+        }
+    } catch (e) {}
 
     // 监听来自 webview 的 console-message 事件（跨上下文通信桥梁）
     if (!_webviewUpdateInjected) {

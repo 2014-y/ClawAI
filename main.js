@@ -7905,7 +7905,7 @@ ipcMain.handle('update-openclaw-package', async (event, { targetVersion }) => {
     }
 });
 
-// 自定义主题背景图协议（须在 ready 前声明）
+// 自定义主题背景图 / 本地 MEDIA 预览协议（须在 ready 前声明）
 try {
     protocol.registerSchemesAsPrivileged([
         {
@@ -7916,6 +7916,17 @@ try {
                 supportFetchAPI: true,
                 bypassCSP: true,
                 stream: true
+            }
+        },
+        {
+            scheme: 'nexora-media',
+            privileges: {
+                standard: true,
+                secure: true,
+                supportFetchAPI: true,
+                bypassCSP: true,
+                stream: true,
+                corsEnabled: true
             }
         }
     ]);
@@ -8016,6 +8027,55 @@ app.whenReady().then(async () => {
         });
     } catch (e) {
         console.warn('[Theme] nexora-bg protocol register failed:', e && e.message);
+    }
+
+    // OpenClaw 面板 webview：把 MEDIA:本地路径 安全映射为可预览图片
+    const registerNexoraMediaProtocol = (prot) => {
+        try {
+            prot.registerFileProtocol('nexora-media', (request, callback) => {
+                try {
+                    const u = new URL(request.url);
+                    let filePath = '';
+                    try { filePath = decodeURIComponent(u.searchParams.get('path') || ''); } catch (e) { filePath = ''; }
+                    filePath = String(filePath || '').trim();
+                    if (!filePath || filePath.includes('\0') || /\.\.([/\\]|$)/.test(filePath)) {
+                        callback({ error: -10 });
+                        return;
+                    }
+                    const resolved = path.resolve(filePath);
+                    const stateRoot = path.resolve(
+                        process.env.OPENCLAW_STATE_DIR
+                        || CONFIG_DIR
+                        || path.join(process.env.USERPROFILE || process.env.HOME || '', '.openclaw')
+                    );
+                    const allowedSubs = ['screenshots', 'image-output', 'video-output', 'media-output', 'media', 'canvas'];
+                    const latestRoot = path.resolve(stateRoot, 'openclaw-screenshot-latest.png');
+                    const resolvedLc = resolved.toLowerCase();
+                    const okLatest = resolvedLc === latestRoot.toLowerCase();
+                    const ok = okLatest || allowedSubs.some((sub) => {
+                        const root = path.resolve(stateRoot, sub) + path.sep;
+                        return (resolved + path.sep).toLowerCase().startsWith(root.toLowerCase()) || resolvedLc === path.resolve(stateRoot, sub).toLowerCase();
+                    });
+                    if (!ok || !fs.existsSync(resolved)) {
+                        callback({ error: -6 });
+                        return;
+                    }
+                    callback({ path: resolved });
+                } catch (err) {
+                    callback({ error: -2 });
+                }
+            });
+        } catch (e) {
+            console.warn('[Media] nexora-media protocol register failed:', e && e.message);
+        }
+    };
+    try {
+        registerNexoraMediaProtocol(protocol);
+        const { session } = require('electron');
+        const panelSession = session.fromPartition('persist:nexora-agent-openclaw-panel');
+        registerNexoraMediaProtocol(panelSession.protocol);
+    } catch (e) {
+        console.warn('[Media] nexora-media panel session register failed:', e && e.message);
     }
 
     // 初始化加速通道目录与状态

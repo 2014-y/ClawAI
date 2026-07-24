@@ -49,6 +49,26 @@ function isFragileToolModel(model) {
     );
 }
 
+/** 用户是否在要截图（中英文统一，供 tool_choice / SAFE 提示共用） */
+function looksLikeScreenshotIntent(text) {
+    const t = String(text || '');
+    if (!t.trim()) return false;
+    if (/截图|截个图|截张图|截屏|截个屏|抓屏|拍个屏/.test(t)) return true;
+    return /\b(?:screen[- ]?shot|screenshot|screen[- ]?capture|capture[- ]?(?:the[- ]?)?screen|take\s+(?:a\s+)?screenshot)\b/i.test(t);
+}
+
+/** 明确要打开浏览器/网页；避免裸「搜索」「访问」误伤普通问答 */
+function looksLikeBrowserIntent(text) {
+    const t = String(text || '');
+    if (!t.trim()) return false;
+    // 不要用「帮我搜/搜一下」：聊天里“帮我搜索一下这个概念”是问模型，不是开浏览器
+    if (/浏览器|打开网站|打开网页|访问网页|百度搜索|用百度|打开百度|谷歌搜索|用谷歌/.test(t)) return true;
+    if (/\b(?:open|visit|browse)\s+(?:https?:\/\/|www\.)/i.test(t)) return true;
+    if (/start\s+https?:\/\//i.test(t)) return true;
+    if (/打开\s*https?:\/\//i.test(t)) return true;
+    return false;
+}
+
 /** Gemini 等 finish_reason：应触发 format 备援，否则只报 LLM request failed 不切模型 */
 function looksLikeMalformedToolFinish(raw) {
     const s = String(raw || '');
@@ -265,6 +285,132 @@ function ensureMediaLocalRootsOnDisk() {
     } catch (e) {}
 }
 
+const NEXORA_CHAT_MEDIA_PARSE_MARK = '/*nexora-chat-media-parse*/';
+
+/**
+ * Control UI 把「MEDIA:路径 Screenshot captured.」整行当成带空格路径，
+ * 导致附件 URL 非法、气泡只剩 MEDIA 文本。同时流式气泡未传入 localMediaPreviewRoots。
+ */
+function ensureChatMediaParseOnDisk() {
+    try {
+        const pathMod = require('path');
+        const fsMod = require('fs');
+        const roots = [];
+        const push = (p) => {
+            if (p && typeof p === 'string' && !roots.includes(p)) roots.push(p);
+        };
+        push(process.env.NEXORA_AGENT_RUNTIME_DIR);
+        push(process.env.OPENCLAW_STATE_DIR);
+        push(pathMod.join(__dirname));
+        try {
+            const la = process.env.LOCALAPPDATA || '';
+            if (la) push(pathMod.join(la, 'NexoraAgent', 'gateway-runtime'));
+        } catch (e) {}
+        try {
+            push(pathMod.join(require('os').homedir(), '.openclaw'));
+        } catch (e) {}
+
+        const candidates = [];
+        const collectAssets = (assetsDir) => {
+            let names = [];
+            try {
+                names = fsMod.readdirSync(assetsDir);
+            } catch (e) {
+                return;
+            }
+            for (const name of names) {
+                if (!/^chat-page-[A-Za-z0-9_-]+\.js$/i.test(name)) continue;
+                candidates.push(pathMod.join(assetsDir, name));
+            }
+        };
+        for (const root of roots) {
+            collectAssets(pathMod.join(root, 'node_modules', 'openclaw', 'dist', 'control-ui', 'assets'));
+            collectAssets(pathMod.join(root, 'gateway-runtime', 'node_modules', 'openclaw', 'dist', 'control-ui', 'assets'));
+        }
+
+        const rrOld =
+            'function Rr(e,t){return!e||e.length>4096||!t?.allowSpaces&&/\\s/.test(e)?!1:lr(e)?Lr(e):Pr(e)?!0:Mr(e)?!1:!!(t?.allowBareFilename&&!Or.test(e)&&kr.test(e))}';
+        const rrNew =
+            'function Rr(e,t){return!e||e.length>4096||!t?.allowSpaces&&/\\s/.test(e)?!1:lr(e)?Lr(e):Pr(e)?!t?.allowSpaces||!/\\s/.test(e)||kr.test(e.trim()):Mr(e)?!1:!!(t?.allowBareFilename&&!Or.test(e)&&kr.test(e))}' +
+            NEXORA_CHAT_MEDIA_PARSE_MARK;
+
+        const hSOld =
+            'function hS(e,t={}){let{onOpenSidebar:n,assistant:r,basePath:i,authToken:a}=t,o=r?.name??`Assistant`,l=e.flatMap(e=>e.kind===`stream`?[e.startedAt]:[]),u=l.length>0?Math.min(...l):null;return s`\n' +
+            '    <div class="chat-group assistant">\n' +
+            '      ${hi(`assistant`,r,void 0,i,a)}\n' +
+            '      <div class="chat-group-messages">\n' +
+            '        ${e.map(e=>e.kind===`reading-indicator`?mS():aC({role:`assistant`,content:[{type:`text`,text:e.text}],timestamp:e.startedAt},e.key,{isStreaming:e.isStreaming,showReasoning:!1},n))}';
+
+        // More resilient: patch smaller unique fragments
+        let patched = 0;
+        for (const file of candidates) {
+            let text = '';
+            try {
+                text = fsMod.readFileSync(file, 'utf8');
+            } catch (e) {
+                continue;
+            }
+            if (!text.includes('function Rr(') || !text.includes('function hS(')) continue;
+            let next = text;
+            let changed = false;
+
+            if (!next.includes(NEXORA_CHAT_MEDIA_PARSE_MARK)) {
+                if (next.includes(rrOld)) {
+                    next = next.replace(rrOld, rrNew);
+                    changed = true;
+                } else {
+                    // Fallback: inject allowSpaces extension guard after Pr(e)?
+                    const rrLoose = /function Rr\(e,t\)\{return!e\|\|e\.length>4096\|\|!t\?\.allowSpaces&&\/\\s\/\.test\(e\)\?!1:lr\(e\)\?Lr\(e\):Pr\(e\)\?!0:/;
+                    if (rrLoose.test(next)) {
+                        next = next.replace(
+                            rrLoose,
+                            'function Rr(e,t){return!e||e.length>4096||!t?.allowSpaces&&/\\s/.test(e)?!1:lr(e)?Lr(e):Pr(e)?!t?.allowSpaces||!/\\s/.test(e)||kr.test(e.trim()):'
+                        );
+                        if (!next.includes(NEXORA_CHAT_MEDIA_PARSE_MARK)) {
+                            next = next.replace(
+                                'function Rr(e,t){',
+                                'function Rr(e,t){' + NEXORA_CHAT_MEDIA_PARSE_MARK
+                            );
+                        }
+                        changed = true;
+                    }
+                }
+            }
+
+            // Stream bubbles: pass media roots + auth so local MEDIA can render
+            if (!next.includes('/*nexora-hs-media-roots*/')) {
+                const hsCallOld =
+                    'aC({role:`assistant`,content:[{type:`text`,text:e.text}],timestamp:e.startedAt},e.key,{isStreaming:e.isStreaming,showReasoning:!1},n)';
+                const hsCallNew =
+                    'aC({role:`assistant`,content:[{type:`text`,text:e.text}],timestamp:e.startedAt},e.key,{isStreaming:e.isStreaming,showReasoning:!1,localMediaPreviewRoots:t.localMediaPreviewRoots??[],basePath:i,assistantAttachmentAuthToken:a},n)/*nexora-hs-media-roots*/';
+                if (next.includes(hsCallOld)) {
+                    next = next.replace(hsCallOld, hsCallNew);
+                    changed = true;
+                }
+                const hsCallerOld =
+                    'hS(t.parts,{onOpenSidebar:e.onOpenSidebar,assistant:u,basePath:e.basePath,authToken:e.assistantAttachmentAuthToken??null})';
+                const hsCallerNew =
+                    'hS(t.parts,{onOpenSidebar:e.onOpenSidebar,assistant:u,basePath:e.basePath,authToken:e.assistantAttachmentAuthToken??null,localMediaPreviewRoots:e.localMediaPreviewRoots??[]})/*nexora-hs-caller*/';
+                if (next.includes(hsCallerOld)) {
+                    next = next.replace(hsCallerOld, hsCallerNew);
+                    changed = true;
+                }
+            }
+
+            if (!changed || next === text) continue;
+            try {
+                fsMod.writeFileSync(file, next, 'utf8');
+                patched += 1;
+            } catch (e) {}
+        }
+        if (patched > 0) {
+            try {
+                console.log(`[TokenGuard] Patched ${patched} Control UI chat-page file(s) for MEDIA image render`);
+            } catch (e) {}
+        }
+    } catch (e) {}
+}
+
 /** 把含 MALFORMED finish_reason 的 LLM 回包改写成 400 format，迫使备援模型接手 */
 function rewriteMalformedLlmResponseBody(bodyText) {
     const raw = String(bodyText || '');
@@ -281,6 +427,7 @@ function rewriteMalformedLlmResponseBody(bodyText) {
 
 ensureMalformedFormatPatternOnDisk();
 ensureMediaLocalRootsOnDisk();
+ensureChatMediaParseOnDisk();
 
 function looksLikeRawToolCall(content) {
     if (typeof content !== 'string') return false;
@@ -383,9 +530,9 @@ const SYSTEM_CAPABILITY_PROMPT =
 const SYSTEM_CAPABILITY_PROMPT_SAFE =
     '[SystemCapability] When the user asks for a screenshot, call the exec tool with command exactly "screen-capture" via the real function/tool calling API. Never print tool JSON in chat (forbidden examples: {"action":"exec","action_input":{"command":"screen-capture"}}, {"name":"exec","arguments":{...}}, or any action/action_input blob). Do not write your own screenshot script. The screenshot command only returns a local file path; do not call any message/sendMedia tool for that screenshot. In the final visible reply, put exactly one plain first line "MEDIA:<absolute path returned by this turn>" and then at most one short status sentence. Never emit the same screenshot through both a message tool and MEDIA. Never reuse openclaw-screenshot-latest.png unless it is the only path returned. Never output [[image]], [[video]], [[image_media]], or [[video_media]].\nWhen the user asks to open a browser, visit a webpage, or search, call exec with command "start <URL>" and then briefly say the browser was opened.';
 
-/** 弱模型专用：禁止逼工具、禁止刷 JSON；截图能力留给更强模型 */
+/** 弱模型专用：禁止刷假工具 JSON；截图意图由上游改走 SAFE 提示，此处不再教模型拒绝对话 */
 const SYSTEM_CAPABILITY_PROMPT_FRAGILE =
-    '[SystemCapability-Fragile] You are on a lightweight model. Never print raw tool JSON in chat (no {"action":"exec","action_input":...}, no {"name":"...","arguments":...}). Prefer plain natural language. If the user asks for screenshot/browser automation and you cannot reliably use the real tool API, briefly say so and suggest switching to a stronger model — do not invent fake tool calls or placeholders like [[image]].';
+    '[SystemCapability-Fragile] You are on a lightweight model. Never print raw tool JSON in chat (no {"action":"exec","action_input":...}, no {"name":"...","arguments":...}). Prefer plain natural language. For screenshots, still use the real exec tool with command "screen-capture" when tools are available, then reply with a first-line MEDIA:<absolute path>. Do not invent fake tool calls or placeholders like [[image]].';
 
 function isToolResultRole(msg) {
     try { return loadToolTurnRepair().isToolResultRole(msg); } catch (e) {
@@ -522,17 +669,25 @@ function scrubLocalModelRequestBody(parsedBody, hostOrUrl) {
                 }
             }
             if (lastUserMsg && typeof lastUserMsg.content === 'string') {
-                const lowerText = lastUserMsg.content.toLowerCase();
-                const looksLikeScreenshot = lowerText.includes('截图') || lowerText.includes('截个图') || lowerText.includes('截张图');
-                const looksLikeBrowser = lowerText.includes('浏览器') || lowerText.includes('百度') || lowerText.includes('搜索') || lowerText.includes('访问') || lowerText.includes('网页') || lowerText.includes('打开网站');
+                const userText = lastUserMsg.content;
+                const looksLikeScreenshot = looksLikeScreenshotIntent(userText);
+                // 避免裸「搜索/访问/网页」误伤普通对话；需明确浏览器/打开网页意图
+                const looksLikeBrowser = looksLikeBrowserIntent(userText);
                 if (looksLikeScreenshot || looksLikeBrowser) {
-                    if (isFragileToolModel(parsedBody.model)) {
+                    // 截图：即便 flash-lite 也强制走 exec(screen-capture)，否则会按 FRAGILE 提示直接拒绝对话
+                    if (looksLikeScreenshot) {
+                        parsedBody.tool_choice = { type: 'function', function: { name: 'exec' } };
+                        hasModified = true;
+                        try {
+                            console.log(`[TokenGuard] Force tool_choice=exec for screenshot (model=${parsedBody.model})`);
+                        } catch (e) {}
+                    } else if (isFragileToolModel(parsedBody.model)) {
                         if (parsedBody.tool_choice) {
                             delete parsedBody.tool_choice;
                             hasModified = true;
                         }
                         try {
-                            console.log(`[TokenGuard] Skip forced tool_choice for fragile model: ${parsedBody.model}`);
+                            console.log(`[TokenGuard] Skip forced tool_choice for fragile model browser intent: ${parsedBody.model}`);
                         } catch (e) {}
                     } else {
                         parsedBody.tool_choice = { type: 'function', function: { name: 'exec' } };
@@ -554,19 +709,31 @@ function scrubLocalModelRequestBody(parsedBody, hostOrUrl) {
                 hasModified = true;
             }
         } else {
-            const fragile = isFragileToolModel(parsedBody.model);
+            // 用户刚说「截个图」时，弱模型也必须用 SAFE 能力提示，禁止注入「建议换强模型」的 FRAGILE 文案
+            let lastUserWantsScreenshot = false;
+            try {
+                for (let i = parsedBody.messages.length - 1; i >= 0; i--) {
+                    const m = parsedBody.messages[i];
+                    if (m && m.role === 'user' && typeof m.content === 'string') {
+                        lastUserWantsScreenshot = looksLikeScreenshotIntent(m.content);
+                        break;
+                    }
+                }
+            } catch (e) {}
+            const fragile = isFragileToolModel(parsedBody.model) && !lastUserWantsScreenshot;
             const marker = fragile
                 ? '[SystemCapability-Fragile]'
                 : 'Never emit the same screenshot through both';
             const alreadyHasCap = parsedBody.messages.some(
                 (m) => m && m.role === 'system' && typeof m.content === 'string' && m.content.includes(marker)
             );
-            if (!alreadyHasCap) {
+            if (!alreadyHasCap || lastUserWantsScreenshot) {
                 // 去掉另一套提示，避免弱/强提示叠在一起互相打架
                 parsedBody.messages = parsedBody.messages.filter((m) => {
                     if (!m || m.role !== 'system' || typeof m.content !== 'string') return true;
-                    if (fragile && m.content.includes('Never emit the same screenshot through both')) return false;
-                    if (!fragile && m.content.includes('[SystemCapability-Fragile]')) return false;
+                    if (m.content.includes('[SystemCapability-Fragile]')) return false;
+                    if (m.content.includes('Never emit the same screenshot through both')) return false;
+                    if (m.content.includes('[SystemCapability]')) return false;
                     return true;
                 });
                 parsedBody.messages.unshift({
@@ -933,18 +1100,18 @@ function resolveCaptureDesktopScriptPath() {
 
 function fixWindowsScreenshotCommand(cmdStr) {
     if (typeof cmdStr !== 'string') return cmdStr;
-    const s = cmdStr.toLowerCase();
-    const looksLikeCapture =
-        s.includes('screen-capture') ||
-        s.includes('capture-desktop') ||
-        s.includes('screenshot') ||
+    const trimmed = cmdStr.trim();
+    const s = trimmed.toLowerCase();
+    // 精确别名，或明显的截图脚本；避免任意含 screenshot 的命令被劫持
+    const exactAlias = /^(?:screen-capture|capture-desktop|screenshot)(?:\s|$)/i.test(trimmed);
+    const looksLikeCaptureScript =
         s.includes('copyfromscreen') ||
         s.includes('imageformat') ||
-        s.includes('system.windows') ||
-        s.includes('outputpath') ||
-        s.includes('dispose()') ||
-        (s.includes('add-type') && (s.includes('drawing') || s.includes('graphics') || s.includes('bitmap') || s.includes('windows') || s.includes('forms')));
-    if (!looksLikeCapture) return cmdStr;
+        (s.includes('system.windows') && s.includes('drawing')) ||
+        (s.includes('outputpath') && (s.includes('bitmap') || s.includes('graphics'))) ||
+        (s.includes('dispose()') && (s.includes('bitmap') || s.includes('graphics'))) ||
+        (s.includes('add-type') && (s.includes('drawing') || s.includes('graphics') || s.includes('bitmap') || s.includes('system.windows.forms')));
+    if (!exactAlias && !looksLikeCaptureScript) return cmdStr;
     // Write screenshots to a fresh path for every capture; keep latest only for local preview.
     const stateDir = process.env.OPENCLAW_STATE_DIR || require('path').join(require('os').homedir(), '.openclaw');
     const pathMod = require('path');
@@ -954,9 +1121,11 @@ function fixWindowsScreenshotCommand(cmdStr) {
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     const suffix = Math.random().toString(36).slice(2, 8);
     const destPathRaw = pathMod.join(destDir, `openclaw-screenshot-${stamp}-${suffix}.png`);
-    const latestPathRaw = pathMod.join(stateDir, 'openclaw-screenshot-latest.png');
+    const latestPathRaw = pathMod.join(destDir, 'openclaw-screenshot-latest.png');
+    const legacyLatestRaw = pathMod.join(stateDir, 'openclaw-screenshot-latest.png');
     const destPath = destPathRaw.replace(/\\/g, '/').replace(/'/g, "''");
     const latestPath = latestPathRaw.replace(/\\/g, '/').replace(/'/g, "''");
+    const legacyLatest = legacyLatestRaw.replace(/\\/g, '/').replace(/'/g, "''");
     const scriptPath = resolveCaptureDesktopScriptPath().replace(/'/g, "''");
     const psScript = [
         `$ProgressPreference = 'SilentlyContinue'`,
@@ -964,6 +1133,7 @@ function fixWindowsScreenshotCommand(cmdStr) {
         `& powershell -ExecutionPolicy Bypass -NoProfile -File '${scriptPath}' -OutPath '${destPath}' | Out-Null`,
         `if (Test-Path -LiteralPath '${destPath}') {`,
         `  Copy-Item -LiteralPath '${destPath}' -Destination '${latestPath}' -Force`,
+        `  try { Copy-Item -LiteralPath '${destPath}' -Destination '${legacyLatest}' -Force } catch {}`,
         `  Write-Output '${destPath}'`,
         '} else {',
         `  Write-Output '${destPath}'`,
