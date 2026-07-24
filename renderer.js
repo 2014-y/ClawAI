@@ -3277,11 +3277,19 @@ function setupIpcListeners() {
                         })
                         .catch(() => {});
                 }, 4000);
+                // 保底：主进程已报 running 时，最多再等 20 秒就对齐到 100%，避免侧栏一直卡 85%
+                setTimeout(() => {
+                    if (gatewayFullyReady) return;
+                    markGatewayReadyFromLog('核心服务已就绪（启动进度对齐）');
+                }, 20000);
             } else {
                 gatewayStatus = 'running';
                 gatewayFullyReady = true;
                 stopGatewayReadyProbe();
                 updateGatewayStatusUI('running');
+                if (currentProgress < 100) {
+                    updateProgressUI(100, '本地 AI Nexora Agent服务就绪！');
+                }
                 if (oldStatus !== 'running') {
                     sendDesktopNotification('Nexora Agent状态变更', 'OpenClaw 本地智能Nexora Agent已成功启动运行！');
                     __openclawPanelLastUrl = '';
@@ -6318,6 +6326,10 @@ function updateProgressUI(val, textLabel = '') {
     let nextProgress = Number(val);
     if (!Number.isFinite(nextProgress)) nextProgress = 0;
     nextProgress = Math.max(0, Math.min(100, nextProgress));
+    // 已判定就绪时，禁止再被「starting HTTP / agent model」类日志压回 85%
+    if (gatewayFullyReady && gatewayStatus !== 'stopped' && gatewayStatus !== 'upgrading' && nextProgress < 100) {
+        nextProgress = 100;
+    }
     const canRegressProgress = gatewayStatus === 'stopped' || gatewayStatus === 'upgrading' || nextProgress === 100;
     if (!canRegressProgress && currentProgress > 0 && currentProgress < 100 && nextProgress < currentProgress) {
         nextProgress = currentProgress;
@@ -6670,11 +6682,14 @@ function updateGatewayStatusUI(status) {
             // 说明是一打开程序就已经是运行状态（非手动点击启动），直接拉满到 100%
             if (progressContainer) progressContainer.style.display = 'flex';
             updateProgressUI(100, '本地 AI Nexora Agent服务就绪！');
+        } else if (currentProgress >= 80 || gatewayFullyReady) {
+            // 已接近就绪 / 已标记 ready：立刻拉满，避免卡在 85% 十几分钟
+            if (progressContainer) progressContainer.style.display = 'flex';
+            updateProgressUI(100, '本地 AI Nexora Agent服务就绪！');
         } else {
-            // 否则，说明是通过 starting 刚点启动的，此时我们等 handleReceivedLog 匹配完毕来置 100%
-            // 设定 12 秒的保底拉满延时器
+            // 刚点启动不久：等 listening 日志；12 秒保底拉满
             progressTimeout = setTimeout(() => {
-                if (gatewayStatus === 'running' && currentProgress < 100) {
+                if ((gatewayStatus === 'running' || gatewayFullyReady) && currentProgress < 100) {
                     if (progressContainer) progressContainer.style.display = 'flex';
                     updateProgressUI(100, '本地 AI Nexora Agent服务就绪！');
                 }
