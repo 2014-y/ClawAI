@@ -2737,7 +2737,7 @@ function seedWorkspaceMediaSkills() {
 }
 
 function ensureMediaOutputDirs() {
-    for (const sub of ['media-output', 'image-output', 'video-output']) {
+    for (const sub of ['media-output', 'image-output', 'video-output', 'screenshots', 'media']) {
         try {
             fs.mkdirSync(path.join(CONFIG_DIR, sub), { recursive: true });
         } catch (e) {}

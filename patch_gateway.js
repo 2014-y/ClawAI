@@ -173,6 +173,98 @@ function ensureMalformedFormatPatternOnDisk() {
     } catch (e) {}
 }
 
+const NEXORA_MEDIA_ROOTS_MARK = '/*nexora-media-roots*/';
+const NEXORA_MEDIA_ROOTS_SNIPPET =
+    NEXORA_MEDIA_ROOTS_MARK +
+    '\n\t\tpath.join(resolvedStateDir, "image-output"),\n' +
+    '\t\tpath.join(resolvedStateDir, "video-output"),\n' +
+    '\t\tpath.join(resolvedStateDir, "media-output"),\n' +
+    '\t\tpath.join(resolvedStateDir, "screenshots"),';
+
+/**
+ * Control UI / outbound 只允许 localMediaPreviewRoots 内的本地图。
+ * OpenClaw 默认白名单没有 image-output / screenshots，导致 MEDIA: 路径无法出图。
+ * dist 为 ESM，Module._load 拦不到；直接给 buildMediaLocalRoots 补目录。
+ */
+function ensureMediaLocalRootsOnDisk() {
+    try {
+        const pathMod = require('path');
+        const fsMod = require('fs');
+        const roots = [];
+        const push = (p) => {
+            if (p && typeof p === 'string' && !roots.includes(p)) roots.push(p);
+        };
+        push(process.env.NEXORA_AGENT_RUNTIME_DIR);
+        push(process.env.OPENCLAW_STATE_DIR);
+        push(pathMod.join(__dirname));
+        try {
+            const la = process.env.LOCALAPPDATA || '';
+            if (la) push(pathMod.join(la, 'NexoraAgent', 'gateway-runtime'));
+        } catch (e) {}
+        try {
+            push(pathMod.join(require('os').homedir(), '.openclaw'));
+        } catch (e) {}
+
+        const candidates = [];
+        const collectDist = (dist) => {
+            let names = [];
+            try {
+                names = fsMod.readdirSync(dist);
+            } catch (e) {
+                return;
+            }
+            for (const name of names) {
+                if (!/^local-roots-[A-Za-z0-9_-]+\.js$/i.test(name)) continue;
+                candidates.push(pathMod.join(dist, name));
+            }
+        };
+        for (const root of roots) {
+            collectDist(pathMod.join(root, 'node_modules', 'openclaw', 'dist'));
+            collectDist(pathMod.join(root, 'gateway-runtime', 'node_modules', 'openclaw', 'dist'));
+        }
+
+        let patched = 0;
+        for (const file of candidates) {
+            let text = '';
+            try {
+                text = fsMod.readFileSync(file, 'utf8');
+            } catch (e) {
+                continue;
+            }
+            if (!text.includes('function buildMediaLocalRoots')) continue;
+            // 已正确包含截图目录则跳过；若上次补丁把 ]); 粘在同一行则修复
+            const alreadyOk = text.includes(NEXORA_MEDIA_ROOTS_MARK)
+                && text.includes('"screenshots"')
+                && !/"screenshots"\)\s*,\s*\]\)\);/.test(text);
+            if (alreadyOk) continue;
+            let next = text;
+            if (/"screenshots"\)\s*,\s*\]\)\);/.test(next) || (text.includes(NEXORA_MEDIA_ROOTS_MARK) && !alreadyOk)) {
+                next = next.replace(
+                    /path\.join\(\s*resolvedStateDir\s*,\s*["']sandboxes["']\s*\)[\s\S]*?\]\)\);/,
+                    'path.join(resolvedStateDir, "sandboxes"),\n\t\t' +
+                        NEXORA_MEDIA_ROOTS_SNIPPET.replace(/,\s*$/, '') +
+                        '\n\t]));'
+                );
+            } else {
+                next = next.replace(
+                    /path\.join\(\s*resolvedStateDir\s*,\s*["']sandboxes["']\s*\)/,
+                    (m) => m + ',\n\t\t' + NEXORA_MEDIA_ROOTS_SNIPPET.replace(/,\s*$/, '')
+                );
+            }
+            if (next === text) continue;
+            try {
+                fsMod.writeFileSync(file, next, 'utf8');
+                patched += 1;
+            } catch (e) {}
+        }
+        if (patched > 0) {
+            try {
+                console.log(`[TokenGuard] Patched ${patched} OpenClaw local-roots file(s) for MEDIA image preview`);
+            } catch (e) {}
+        }
+    } catch (e) {}
+}
+
 /** 把含 MALFORMED finish_reason 的 LLM 回包改写成 400 format，迫使备援模型接手 */
 function rewriteMalformedLlmResponseBody(bodyText) {
     const raw = String(bodyText || '');
@@ -188,6 +280,7 @@ function rewriteMalformedLlmResponseBody(bodyText) {
 }
 
 ensureMalformedFormatPatternOnDisk();
+ensureMediaLocalRootsOnDisk();
 
 function looksLikeRawToolCall(content) {
     if (typeof content !== 'string') return false;

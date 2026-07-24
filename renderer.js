@@ -8585,6 +8585,67 @@ function addTtsToAiBubble(msgDiv, bubble) {
     bubbleWrapper.appendChild(actionRow);
 }
 
+/** 把本地绝对路径转成 Electron 可加载的 file URL */
+function toLocalMediaFileUrl(filePath) {
+    if (!filePath || typeof filePath !== 'string') return '';
+    let p = filePath.trim().replace(/^file:\/\//i, '');
+    // 去掉 MEDIA 同行尾部状态句（如 "Image generated."）
+    const extMatch = p.match(/^([A-Za-z]:[\\/][^\n]*?\.(?:png|jpe?g|webp|gif|bmp|mp4|mov|webm|mp3|wav|m4a))\b/i)
+        || p.match(/^(\/[^\n]*?\.(?:png|jpe?g|webp|gif|bmp|mp4|mov|webm|mp3|wav|m4a))\b/i);
+    if (extMatch) p = extMatch[1];
+    p = p.replace(/[),.;]+$/g, '').trim();
+    if (!p) return '';
+    const normalized = p.replace(/\\/g, '/');
+    if (/^[A-Za-z]:\//.test(normalized)) {
+        return 'file:///' + encodeURI(normalized).replace(/#/g, '%23');
+    }
+    if (normalized.startsWith('/')) {
+        return 'file://' + encodeURI(normalized).replace(/#/g, '%23');
+    }
+    return '';
+}
+
+const CHAT_MEDIA_IMG_STYLE = 'max-width: min(100%, 420px); border-radius: 8px; margin-top: 8px; display: block; border: 1px solid rgba(255,255,255,0.1); cursor: zoom-in;';
+
+/** 将回复里的 MEDIA:本地路径 / [[image]] 转成可点开的 <img>/<video> */
+function renderChatMediaHtml(content) {
+    if (typeof content !== 'string' || !content) return { html: content, changed: false };
+    let html = content
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    let changed = false;
+
+    html = html.replace(/(?:^|\n)\s*MEDIA\s*:\s*`?([^\n`]+)`?/gi, (full, rawPath) => {
+        const url = toLocalMediaFileUrl(rawPath);
+        if (!url) return full;
+        changed = true;
+        const lower = url.toLowerCase();
+        const isVideo = /\.(mp4|mov|webm)(?:\?|$)/i.test(lower);
+        // 保留路径后的短状态句（同一行上的 "Image generated." 等）
+        let status = '';
+        const pathOnly = (rawPath.match(/^[A-Za-z]:[\\/][^\n]*?\.(?:png|jpe?g|webp|gif|bmp|mp4|mov|webm|mp3|wav|m4a)\b/i)
+            || rawPath.match(/^\/[^\n]*?\.(?:png|jpe?g|webp|gif|bmp|mp4|mov|webm|mp3|wav|m4a)\b/i)
+            || [rawPath])[0];
+        if (pathOnly && rawPath.length > pathOnly.length) {
+            status = rawPath.slice(pathOnly.length).trim();
+        }
+        const mediaTag = isVideo
+            ? `<video src="${url}" controls style="${CHAT_MEDIA_IMG_STYLE}"></video>`
+            : `<img src="${url}" alt="media" style="${CHAT_MEDIA_IMG_STYLE}" onclick="try{window.open(this.src,'_blank')}catch(e){}" onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<div style=\\'color:#ff6b6b;font-size:12px;margin-top:6px;\\'>图片加载失败</div>')" />`;
+        return `\n${mediaTag}${status ? `\n${status}` : ''}\n`;
+    });
+
+    if (/\[\[image\]\]|\[image\]/i.test(html)) {
+        const shot = `./openclaw-screenshot-latest.png?t=${Date.now()}`;
+        const img = `<img src="${shot}" style="${CHAT_MEDIA_IMG_STYLE}" />`;
+        html = html.replace(/\[\[image\]\]/gi, img).replace(/\[image\]/gi, img);
+        changed = true;
+    }
+
+    return { html, changed };
+}
+
 // 往聊天窗口追加气泡消息
 function appendChatMessage(sender, content, attachment = null, isHTML = false) {
     // 隐藏底层系统失败横幅（⚠️ ✉️ Message: ... failed / Exec failed 等），不进会话气泡
@@ -8595,7 +8656,7 @@ function appendChatMessage(sender, content, attachment = null, isHTML = false) {
             raw.includes('⚠️') ||
             raw.includes('🛠️') ||
             /Message:\s*.+\s+failed/i.test(raw) ||
-            /openclaw-screenshot-latest/i.test(raw)
+            (/openclaw-screenshot-latest/i.test(raw) && !/MEDIA\s*:/i.test(raw))
         ) {
             // 保留前端主动引导文案（选模型等），其余带 ⚠️ 的一律不展示
             const isUiGuide =
@@ -8607,11 +8668,13 @@ function appendChatMessage(sender, content, attachment = null, isHTML = false) {
             if (!isUiGuide) return null;
         }
     }
-    // 🌟 拦截大模型输出的图片占位符 [[image]] 并替换为最新的物理截图显示
-    if (typeof content === 'string' && (content.includes('[[image]]') || content.includes('[image]'))) {
-        content = content.replace(/\[\[image\]\]/gi, `<img src="./openclaw-screenshot-latest.png?t=${Date.now()}" style="max-width: 100%; border-radius: 8px; margin-top: 8px; display: block; border: 1px solid rgba(255,255,255,0.1);" />`);
-        content = content.replace(/\[image\]/gi, `<img src="./openclaw-screenshot-latest.png?t=${Date.now()}" style="max-width: 100%; border-radius: 8px; margin-top: 8px; display: block; border: 1px solid rgba(255,255,255,0.1);" />`);
-        isHTML = true;
+    // 🌟 MEDIA:本地路径 / [[image]] → 气泡内直接出图
+    if (typeof content === 'string' && (/MEDIA\s*:/i.test(content) || content.includes('[[image]]') || content.includes('[image]'))) {
+        const rendered = renderChatMediaHtml(content);
+        if (rendered.changed) {
+            content = rendered.html;
+            isHTML = true;
+        }
     }
     const container = document.getElementById('chat-messages-container');
     const msgDiv = document.createElement('div');
@@ -9008,11 +9071,9 @@ async function handleSendMessage() {
                 reply = JSON.stringify(result);
             }
             
-            if (typeof reply === 'string' && (reply.includes('[[image]]') || reply.includes('[image]'))) {
-                let html = reply.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                html = html.replace(/\[\[image\]\]/gi, `<img src="./openclaw-screenshot-latest.png?t=${Date.now()}" style="max-width: 100%; border-radius: 8px; margin-top: 8px; display: block; border: 1px solid rgba(255,255,255,0.1);" />`);
-                html = html.replace(/\[image\]/gi, `<img src="./openclaw-screenshot-latest.png?t=${Date.now()}" style="max-width: 100%; border-radius: 8px; margin-top: 8px; display: block; border: 1px solid rgba(255,255,255,0.1);" />`);
-                aiBubble.innerHTML = html;
+            if (typeof reply === 'string' && (/MEDIA\s*:/i.test(reply) || reply.includes('[[image]]') || reply.includes('[image]'))) {
+                const rendered = renderChatMediaHtml(reply);
+                aiBubble.innerHTML = rendered.changed ? rendered.html : reply.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             } else {
                 aiBubble.innerText = reply;
             }

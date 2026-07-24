@@ -313,19 +313,24 @@ async function maybeBuildPseudoMediaPayload(payload) {
 
   const directiveUrls = extractMediaDirectiveUrls(raw);
   if (directiveUrls.length > 0) {
-    return { ...base, text: '', mediaUrl: directiveUrls[0], mediaUrls: directiveUrls };
+    // 去掉 MEDIA 行，保留短状态句，避免通道/会话只剩路径文本
+    const statusText = String(raw)
+      .replace(/(?:^|\n)\s*MEDIA\s*:\s*[^\n]+/gi, '\n')
+      .replace(/\n{2,}/g, '\n')
+      .trim();
+    return { ...base, text: statusText, mediaUrl: directiveUrls[0], mediaUrls: directiveUrls };
   }
 
   const prompt = extractDrawPicturePrompt(raw);
   if (prompt) {
     const files = await runDrawPicture(prompt);
     const mediaUrls = files.map(unixPath);
-    return { ...base, text: '', mediaUrl: mediaUrls[0], mediaUrls };
+    return { ...base, text: 'Image generated.', mediaUrl: mediaUrls[0], mediaUrls };
   }
 
   if (looksLikePseudoScreenshot(raw)) {
     const file = unixPath(await runScreenCapture());
-    return { ...base, text: '', mediaUrl: file, mediaUrls: [file] };
+    return { ...base, text: 'Screenshot captured.', mediaUrl: file, mediaUrls: [file] };
   }
 
   return null;
